@@ -33,11 +33,13 @@ export function BudgetGrid({
   onAmountChange,
 }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null)
-  const [scrolled, setScrolled] = useState(false)
+  const [scrollLeft, setScrollLeft] = useState(0)
   const [selected, setSelected] = useState<{
     category: Category
     bucket: Bucket
   } | null>(null)
+
+  const scrolled = scrollLeft > 1
 
   const orderedBuckets = useMemo(
     () => [
@@ -65,13 +67,13 @@ export function BudgetGrid({
     const el = scrollRef.current
     if (!el || upcomingIndex < 0) return
     el.scrollLeft = Math.max(0, upcomingIndex - 1) * W.pay
-    setScrolled(el.scrollLeft > 1)
+    setScrollLeft(el.scrollLeft)
   }, [upcomingIndex])
 
   useEffect(() => {
     const el = scrollRef.current
     if (!el) return
-    const onScroll = () => setScrolled(el.scrollLeft > 1)
+    const onScroll = () => setScrollLeft(el.scrollLeft)
     const onWheel = (e: WheelEvent) => {
       if (Math.abs(e.deltaY) < Math.abs(e.deltaX)) return
       e.preventDefault()
@@ -85,9 +87,8 @@ export function BudgetGrid({
     }
   }, [])
 
-  const balanceEdge = scrolled
-    ? "shadow-[6px_0_10px_-4px_rgba(0,0,0,0.18)]"
-    : "border-r border-r-neutral-900"
+  /** Thin black when at start; continuous shadow when scrolled (not per-row) */
+  const balanceEdge = scrolled ? "" : "border-r border-r-neutral-900"
 
   return (
     <div>
@@ -109,6 +110,18 @@ export function BudgetGrid({
             />
           ) : null}
 
+          {/* One smooth vertical shadow along Balance edge (not per row) */}
+          {scrolled ? (
+            <div
+              aria-hidden
+              className="pointer-events-none absolute top-0 bottom-0 z-[25] w-0"
+              style={{
+                left: STICKY_TOTAL + scrollLeft,
+                boxShadow: "6px 0 10px rgba(0,0,0,0.16)",
+              }}
+            />
+          ) : null}
+
           <table className="border-separate border-spacing-0 text-sm">
             <colgroup>
               <col style={{ width: W.bucket }} />
@@ -124,11 +137,18 @@ export function BudgetGrid({
               <tr>
                 <th
                   className={cn(
-                    "sticky z-30 border-b-2 border-b-neutral-900 border-l border-l-neutral-500 border-t border-t-neutral-500 px-2 py-3",
+                    "sticky z-30 relative overflow-visible border-b-2 border-b-neutral-900 border-l border-l-neutral-500 border-t border-t-neutral-500 px-2 py-3",
+                    "rounded-tl-lg",
                     stickyBg,
                   )}
                   style={{ left: LEFT.bucket, width: W.bucket, minWidth: W.bucket }}
-                />
+                >
+                  {/* Square opaque underlay — prevents scroll bleed in rounded corner */}
+                  <span
+                    aria-hidden
+                    className="pointer-events-none absolute inset-0 -z-10 bg-white dark:bg-background"
+                  />
+                </th>
                 <th
                   className={cn(
                     "sticky z-30 border-b-2 border-b-neutral-900 border-r border-r-border/60 border-t border-t-neutral-500 px-3 py-3 text-left font-medium",
@@ -166,7 +186,7 @@ export function BudgetGrid({
                       className={cn(
                         "border-b-2 border-b-neutral-900 border-t border-t-neutral-500 px-1 py-3 text-center font-medium",
                         !isLast && "border-r border-r-border/60",
-                        isLast && "border-r border-r-neutral-500",
+                        isLast && "rounded-tr-lg border-r border-r-neutral-500",
                         isUpcoming
                           ? "bg-sky-100 text-sky-950"
                           : p.completed
@@ -198,13 +218,20 @@ export function BudgetGrid({
                         <td
                           rowSpan={bucket.categories.length}
                           className={cn(
-                            "sticky z-20 border-l border-l-neutral-500 border-r border-r-border/60 px-2 text-center align-middle text-[11px] font-semibold uppercase tracking-wide text-muted-foreground",
+                            "sticky z-20 relative overflow-visible border-l border-l-neutral-500 border-r border-r-border/60 px-2 text-center align-middle text-[11px] font-semibold uppercase tracking-wide text-muted-foreground",
                             stickyBg,
                             showBucketDivider && "border-t-2 border-t-neutral-900",
-                            isLastBucket && "border-b border-b-neutral-500",
+                            isLastBucket &&
+                              "rounded-bl-lg border-b border-b-neutral-500",
                           )}
                           style={{ left: LEFT.bucket, width: W.bucket, minWidth: W.bucket }}
                         >
+                          {isLastBucket ? (
+                            <span
+                              aria-hidden
+                              className="pointer-events-none absolute inset-0 -z-10 bg-white dark:bg-background"
+                            />
+                          ) : null}
                           {bucket.name}
                         </td>
                       ) : null}
@@ -282,6 +309,7 @@ export function BudgetGrid({
                               showBucketDivider && "border-t-2 border-t-neutral-900",
                               showRowDivider && "border-b border-b-border/60",
                               isVeryLast && "border-b border-b-neutral-500",
+                              isVeryLast && isLastCol && "rounded-br-lg",
                               cellGray && "bg-neutral-100 dark:bg-neutral-900",
                             )}
                             style={{ width: W.pay, minWidth: W.pay }}
