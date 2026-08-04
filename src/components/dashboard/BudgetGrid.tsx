@@ -13,7 +13,7 @@ type Props = {
   onAmountChange: (categoryId: string, date: string, value: string) => void
 }
 
-const W = { bucket: 112, category: 192, goal: 96, balance: 96, pay: 128 } as const
+const W = { bucket: 92, category: 168, goal: 76, balance: 76, pay: 128 } as const
 const LEFT_WIDTH = W.bucket + W.category + W.goal + W.balance
 
 const paneBg = "bg-white dark:bg-background"
