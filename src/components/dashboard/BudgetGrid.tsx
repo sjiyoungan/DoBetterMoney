@@ -13,27 +13,17 @@ type Props = {
   onAmountChange: (categoryId: string, date: string, value: string) => void
 }
 
-const PAY_COL_PX = 128
-const STICKY_WIDTH_PX = 112 + 192 + 96 + 96
-const HEADER_RULE =
-  "shadow-[inset_0_-2px_0_0_#171717] dark:shadow-[inset_0_-2px_0_0_#f5f5f5]"
-const COL_DIV = "border-r border-border/60"
-const ROW_DIV = "border-b border-border/60"
-const BUCKET_RULE =
-  "shadow-[inset_0_2px_0_0_#171717] dark:shadow-[inset_0_2px_0_0_#f5f5f5]"
+/** Fixed pixel widths — sticky `left` must match these exactly */
+const W = { bucket: 112, category: 192, goal: 96, balance: 96, pay: 128 } as const
+const LEFT = {
+  bucket: 0,
+  category: W.bucket,
+  goal: W.bucket + W.category,
+  balance: W.bucket + W.category + W.goal,
+} as const
+const STICKY_TOTAL = W.bucket + W.category + W.goal + W.balance
 
-/**
- * Square solid white layer (no radius) so nothing scrolled behind can show through.
- * Visual corner radius stays on the cell border only.
- */
-function StickyFill() {
-  return (
-    <div
-      aria-hidden
-      className="absolute inset-0 z-0 bg-white dark:bg-background"
-    />
-  )
-}
+const stickyBg = "bg-white dark:bg-background"
 
 export function BudgetGrid({
   buckets,
@@ -74,7 +64,7 @@ export function BudgetGrid({
   useEffect(() => {
     const el = scrollRef.current
     if (!el || upcomingIndex < 0) return
-    el.scrollLeft = Math.max(0, upcomingIndex - 1) * PAY_COL_PX
+    el.scrollLeft = Math.max(0, upcomingIndex - 1) * W.pay
     setScrolled(el.scrollLeft > 1)
   }, [upcomingIndex])
 
@@ -97,7 +87,7 @@ export function BudgetGrid({
 
   const balanceEdge = scrolled
     ? "shadow-[6px_0_10px_-4px_rgba(0,0,0,0.18)]"
-    : "border-r border-neutral-900"
+    : "border-r border-r-neutral-900"
 
   return (
     <div>
@@ -111,55 +101,61 @@ export function BudgetGrid({
               aria-hidden
               className="pointer-events-none absolute z-[5] rounded border-2 border-sky-400"
               style={{
-                left: STICKY_WIDTH_PX + upcomingIndex * PAY_COL_PX,
+                left: STICKY_TOTAL + upcomingIndex * W.pay,
                 top: 0,
                 bottom: 0,
-                width: PAY_COL_PX,
+                width: W.pay,
               }}
             />
           ) : null}
 
           <table className="border-separate border-spacing-0 text-sm">
+            <colgroup>
+              <col style={{ width: W.bucket }} />
+              <col style={{ width: W.category }} />
+              <col style={{ width: W.goal }} />
+              <col style={{ width: W.balance }} />
+              {paychecks.map((p) => (
+                <col key={p.id} style={{ width: W.pay }} />
+              ))}
+            </colgroup>
+
             <thead>
               <tr>
                 <th
                   className={cn(
-                    "sticky left-0 z-30 w-28 min-w-28 relative px-1 py-3",
-                    "rounded-tl-lg border-l border-l-neutral-500 border-t border-t-neutral-500",
-                    HEADER_RULE,
+                    "sticky z-30 border-b-2 border-b-neutral-900 border-l border-l-neutral-500 border-t border-t-neutral-500 px-2 py-3",
+                    stickyBg,
                   )}
+                  style={{ left: LEFT.bucket, width: W.bucket, minWidth: W.bucket }}
+                />
+                <th
+                  className={cn(
+                    "sticky z-30 border-b-2 border-b-neutral-900 border-r border-r-border/60 border-t border-t-neutral-500 px-3 py-3 text-left font-medium",
+                    stickyBg,
+                  )}
+                  style={{ left: LEFT.category, width: W.category, minWidth: W.category }}
                 >
-                  <StickyFill />
+                  Category
                 </th>
                 <th
                   className={cn(
-                    "sticky left-[7rem] z-30 w-48 min-w-48 relative border-t border-t-neutral-500 px-1 py-3 text-left font-medium",
-                    COL_DIV,
-                    HEADER_RULE,
+                    "sticky z-30 border-b-2 border-b-neutral-900 border-r border-r-border/60 border-t border-t-neutral-500 px-3 py-3 text-right font-medium",
+                    stickyBg,
                   )}
+                  style={{ left: LEFT.goal, width: W.goal, minWidth: W.goal }}
                 >
-                  <StickyFill />
-                  <span className="relative z-10 px-3">Category</span>
+                  Goal
                 </th>
                 <th
                   className={cn(
-                    "sticky left-[19rem] z-30 w-24 min-w-24 relative border-t border-t-neutral-500 px-1 py-3 text-right font-medium",
-                    COL_DIV,
-                    HEADER_RULE,
-                  )}
-                >
-                  <StickyFill />
-                  <span className="relative z-10 px-3">Goal</span>
-                </th>
-                <th
-                  className={cn(
-                    "sticky left-[25rem] z-30 w-24 min-w-24 relative border-t border-t-neutral-500 px-1 py-3 text-right font-medium",
-                    HEADER_RULE,
+                    "sticky z-30 border-b-2 border-b-neutral-900 border-t border-t-neutral-500 px-3 py-3 text-right font-medium",
+                    stickyBg,
                     balanceEdge,
                   )}
+                  style={{ left: LEFT.balance, width: W.balance, minWidth: W.balance }}
                 >
-                  <StickyFill />
-                  <span className="relative z-10 px-3">Balance</span>
+                  Balance
                 </th>
                 {paychecks.map((p, i) => {
                   const isUpcoming = p.id === currentPaycheckId
@@ -168,17 +164,16 @@ export function BudgetGrid({
                     <th
                       key={p.id}
                       className={cn(
-                        "w-32 min-w-32 border-t border-t-neutral-500 px-1 py-3 text-center font-medium",
-                        HEADER_RULE,
-                        !isLast && COL_DIV,
-                        isLast &&
-                          "rounded-tr-lg border-r border-r-neutral-500",
+                        "border-b-2 border-b-neutral-900 border-t border-t-neutral-500 px-1 py-3 text-center font-medium",
+                        !isLast && "border-r border-r-border/60",
+                        isLast && "border-r border-r-neutral-500",
                         isUpcoming
                           ? "bg-sky-100 text-sky-950"
                           : p.completed
                             ? "bg-neutral-100 text-muted-foreground"
-                            : "bg-white text-muted-foreground dark:bg-background",
+                            : cn(stickyBg, "text-muted-foreground"),
                       )}
+                      style={{ width: W.pay, minWidth: W.pay }}
                     >
                       {formatPayDate(p.date)}
                     </th>
@@ -191,17 +186,11 @@ export function BudgetGrid({
               <tbody key={bucket.id}>
                 {bucket.categories.map((cat, rowIndex) => {
                   const isFirstRow = rowIndex === 0
-                  const isLastBucket =
-                    bucketIndex === orderedBuckets.length - 1
-                  const isLastRow =
-                    rowIndex === bucket.categories.length - 1
+                  const isLastBucket = bucketIndex === orderedBuckets.length - 1
+                  const isLastRow = rowIndex === bucket.categories.length - 1
                   const isVeryLast = isLastBucket && isLastRow
                   const showBucketDivider = isFirstRow && bucketIndex > 0
                   const showRowDivider = !isLastRow
-
-                  const isPastCol = (p: Paycheck, idx: number) =>
-                    p.completed ||
-                    (upcomingIndex >= 0 && idx < upcomingIndex)
 
                   return (
                     <tr key={cat.id}>
@@ -209,34 +198,31 @@ export function BudgetGrid({
                         <td
                           rowSpan={bucket.categories.length}
                           className={cn(
-                            "sticky left-0 z-20 w-28 min-w-28 relative border-l border-l-neutral-500 px-1 text-center align-middle text-[11px] font-semibold uppercase tracking-wide text-muted-foreground",
-                            COL_DIV,
-                            showBucketDivider && BUCKET_RULE,
-                            isLastBucket &&
-                              "rounded-bl-lg border-b border-b-neutral-500",
+                            "sticky z-20 border-l border-l-neutral-500 border-r border-r-border/60 px-2 text-center align-middle text-[11px] font-semibold uppercase tracking-wide text-muted-foreground",
+                            stickyBg,
+                            showBucketDivider && "border-t-2 border-t-neutral-900",
+                            isLastBucket && "border-b border-b-neutral-500",
                           )}
+                          style={{ left: LEFT.bucket, width: W.bucket, minWidth: W.bucket }}
                         >
-                          <StickyFill />
-                          <span className="relative z-10 px-3">
-                            {bucket.name}
-                          </span>
+                          {bucket.name}
                         </td>
                       ) : null}
 
                       <td
                         className={cn(
-                          "sticky left-[7rem] z-20 w-48 min-w-48 relative px-1",
-                          COL_DIV,
-                          showBucketDivider && BUCKET_RULE,
-                          showRowDivider && ROW_DIV,
+                          "sticky z-20 border-r border-r-border/60 px-3",
+                          stickyBg,
+                          showBucketDivider && "border-t-2 border-t-neutral-900",
+                          showRowDivider && "border-b border-b-border/60",
                           isVeryLast && "border-b border-b-neutral-500",
                         )}
+                        style={{ left: LEFT.category, width: W.category, minWidth: W.category }}
                       >
-                        <StickyFill />
                         <button
                           type="button"
                           onClick={() => setSelected({ category: cat, bucket })}
-                          className="relative z-10 h-9 w-full px-3 text-left text-sm font-normal underline-offset-2 hover:underline"
+                          className="h-9 w-full text-left text-sm underline-offset-2 hover:underline"
                         >
                           {cat.name}
                         </button>
@@ -244,52 +230,45 @@ export function BudgetGrid({
 
                       <td
                         className={cn(
-                          "sticky left-[19rem] z-20 w-24 min-w-24 relative px-1 text-right tabular-nums text-muted-foreground",
-                          COL_DIV,
-                          showBucketDivider && BUCKET_RULE,
-                          showRowDivider && ROW_DIV,
+                          "sticky z-20 border-r border-r-border/60 px-3 text-right tabular-nums text-muted-foreground",
+                          stickyBg,
+                          showBucketDivider && "border-t-2 border-t-neutral-900",
+                          showRowDivider && "border-b border-b-border/60",
                           isVeryLast && "border-b border-b-neutral-500",
                         )}
+                        style={{ left: LEFT.goal, width: W.goal, minWidth: W.goal }}
                       >
-                        <StickyFill />
-                        <span className="relative z-10 block px-3">
-                          {bucket.kind === "savings"
-                            ? formatMoney(cat.goal)
-                            : ""}
-                        </span>
+                        {bucket.kind === "savings" ? formatMoney(cat.goal) : ""}
                       </td>
 
                       <td
                         className={cn(
-                          "sticky left-[25rem] z-20 w-24 min-w-24 relative px-1 text-right tabular-nums text-muted-foreground",
+                          "sticky z-20 px-3 text-right tabular-nums text-muted-foreground",
+                          stickyBg,
                           balanceEdge,
-                          showBucketDivider && BUCKET_RULE,
-                          showRowDivider && ROW_DIV,
+                          showBucketDivider && "border-t-2 border-t-neutral-900",
+                          showRowDivider && "border-b border-b-border/60",
                           isVeryLast && "border-b border-b-neutral-500",
                         )}
+                        style={{ left: LEFT.balance, width: W.balance, minWidth: W.balance }}
                       >
-                        <StickyFill />
-                        <span className="relative z-10 block px-3">
-                          {bucket.kind === "savings"
-                            ? formatMoney(cat.balance)
-                            : ""}
-                        </span>
+                        {bucket.kind === "savings" ? formatMoney(cat.balance) : ""}
                       </td>
 
                       {paychecks.map((p, i) => {
                         const raw = cat.allocations[p.date]
                         const key = allocationKey(cat.id, p.id)
                         const hasAmount =
-                          raw !== "" &&
-                          raw !== undefined &&
-                          Number(raw) !== 0
+                          raw !== "" && raw !== undefined && Number(raw) !== 0
                         const empty = !hasAmount
                         const isUpcoming = p.id === currentPaycheckId
                         const manuallyDone = doneKeys.has(key)
                         const isLastCol = i === paychecks.length - 1
+                        const isPast =
+                          p.completed ||
+                          (upcomingIndex >= 0 && i < upcomingIndex)
                         const cellGray =
-                          isPastCol(p, i) &&
-                          (empty || manuallyDone || p.completed)
+                          isPast && (empty || manuallyDone || p.completed)
                         const canMarkDone =
                           hasAmount && (p.date <= today || isUpcoming)
 
@@ -297,21 +276,19 @@ export function BudgetGrid({
                           <td
                             key={p.id}
                             className={cn(
-                              "w-32 min-w-32 bg-white px-1 dark:bg-background",
-                              !isLastCol && COL_DIV,
+                              "bg-white px-1 dark:bg-background",
+                              !isLastCol && "border-r border-r-border/60",
                               isLastCol && "border-r border-r-neutral-500",
-                              showBucketDivider && BUCKET_RULE,
-                              showRowDivider && ROW_DIV,
+                              showBucketDivider && "border-t-2 border-t-neutral-900",
+                              showRowDivider && "border-b border-b-border/60",
                               isVeryLast && "border-b border-b-neutral-500",
-                              isVeryLast && isLastCol && "rounded-br-lg",
                               cellGray && "bg-neutral-100 dark:bg-neutral-900",
                             )}
+                            style={{ width: W.pay, minWidth: W.pay }}
                           >
                             <AmountCell
                               value={
-                                raw === "" || raw === undefined
-                                  ? ""
-                                  : String(raw)
+                                raw === "" || raw === undefined ? "" : String(raw)
                               }
                               done={manuallyDone}
                               showCheck={canMarkDone || manuallyDone}
@@ -397,7 +374,7 @@ function AmountCell({
         {editing ? (
           <input
             autoFocus
-            className="h-7 w-full bg-transparent text-right text-sm tabular-nums text-foreground outline-none"
+            className="h-7 w-full bg-transparent text-right text-sm tabular-nums outline-none"
             value={value}
             onChange={(e) => onChange(e.target.value)}
             onBlur={() => setEditing(false)}
@@ -407,9 +384,7 @@ function AmountCell({
             inputMode="numeric"
           />
         ) : value !== "" ? (
-          <span className="text-sm tabular-nums text-foreground">
-            ${value}
-          </span>
+          <span className="text-sm tabular-nums">${value}</span>
         ) : null}
       </div>
     </div>
