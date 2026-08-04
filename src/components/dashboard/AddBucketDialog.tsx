@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
-import { Plus } from "lucide-react"
+import { Plus, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -10,7 +10,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import {
   Select,
   SelectContent,
@@ -18,6 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { cn } from "@/lib/utils"
 import type {
   Bucket,
   BucketKind,
@@ -48,6 +48,19 @@ type Props = {
 
 const fieldH = "h-10" // 40px
 const selectH = "h-10 w-full data-[size=default]:h-10"
+
+/** Expenses / income category row columns */
+const COL_EXP =
+  "grid-cols-[minmax(0,238px)_48px_44px_102px_36px]" as const
+const COL_INC =
+  "grid-cols-[minmax(0,238px)_48px_112px_102px_36px]" as const
+const COL_SAV = "grid-cols-[minmax(0,238px)_48px_36px]" as const
+
+const TYPE_LABEL: Record<BucketDraftType, string> = {
+  expenses: "Expenses",
+  savings: "Savings",
+  income: "Income",
+}
 
 function newDraft(): CategoryDraft {
   return {
@@ -80,13 +93,13 @@ function parseNum(value: string): number | undefined {
   return Number.isFinite(n) ? n : undefined
 }
 
-function ordinalDay(day: number): string {
+function ordinalSuffix(day: number): string {
   const j = day % 10
   const k = day % 100
-  if (j === 1 && k !== 11) return `${day}st`
-  if (j === 2 && k !== 12) return `${day}nd`
-  if (j === 3 && k !== 13) return `${day}rd`
-  return `${day}th`
+  if (j === 1 && k !== 11) return "st"
+  if (j === 2 && k !== 12) return "nd"
+  if (j === 3 && k !== 13) return "rd"
+  return "th"
 }
 
 function bucketToDrafts(bucket: Bucket): CategoryDraft[] {
@@ -146,19 +159,17 @@ function draftsToBucket(
     if (bucketKind === "income") {
       return {
         ...base,
-        amount,
+        ...(amount !== undefined ? { amount } : {}),
         frequency: d.frequency,
       }
     }
 
-    // expenses
     return {
       ...base,
-      amount,
-      dueDay:
-        dueDay !== undefined && dueDay >= 1 && dueDay <= 31
-          ? Math.round(dueDay)
-          : undefined,
+      ...(amount !== undefined ? { amount } : {}),
+      ...(dueDay !== undefined && dueDay >= 1 && dueDay <= 31
+        ? { dueDay: Math.round(dueDay) }
+        : {}),
     }
   })
 
@@ -200,6 +211,95 @@ function draftHasData(d: CategoryDraft) {
   )
 }
 
+/** Click-to-edit money field with $ prefix when not editing */
+function MoneyInput({
+  value,
+  onChange,
+  placeholder = "0",
+}: {
+  value: string
+  onChange: (value: string) => void
+  placeholder?: string
+}) {
+  const [editing, setEditing] = useState(false)
+
+  return (
+    <div
+      className={cn(
+        "flex h-10 cursor-text items-center justify-end rounded-md border border-transparent px-1.5",
+        "hover:border-input focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/30",
+      )}
+      onClick={() => setEditing(true)}
+    >
+      {editing ? (
+        <input
+          autoFocus
+          className="h-full w-full bg-transparent text-right text-sm tabular-nums text-foreground outline-none"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          onBlur={() => setEditing(false)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") (e.target as HTMLInputElement).blur()
+          }}
+          inputMode="numeric"
+          placeholder={placeholder}
+        />
+      ) : value !== "" ? (
+        <span className="text-sm tabular-nums text-foreground">${value}</span>
+      ) : (
+        <span className="text-sm text-muted-foreground/50">{placeholder}</span>
+      )}
+    </div>
+  )
+}
+
+/** Due day with small ordinal suffix; edits as plain number */
+function DueDayInput({
+  value,
+  onChange,
+}: {
+  value: string
+  onChange: (value: string) => void
+}) {
+  const [editing, setEditing] = useState(false)
+  const day = parseNum(value)
+  const valid = day !== undefined && day >= 1 && day <= 31
+
+  return (
+    <div
+      className={cn(
+        "flex h-10 cursor-text items-center justify-end rounded-md border border-transparent px-1.5",
+        "hover:border-input focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/30",
+      )}
+      onClick={() => setEditing(true)}
+    >
+      {editing ? (
+        <input
+          autoFocus
+          className="h-full w-full bg-transparent text-right text-sm tabular-nums text-foreground outline-none"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          onBlur={() => setEditing(false)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") (e.target as HTMLInputElement).blur()
+          }}
+          inputMode="numeric"
+          placeholder="7"
+        />
+      ) : valid ? (
+        <span className="text-sm tabular-nums text-foreground">
+          {Math.round(day)}
+          <span className="relative -top-px ml-px text-[9px] font-medium text-foreground">
+            {ordinalSuffix(Math.round(day))}
+          </span>
+        </span>
+      ) : (
+        <span className="text-sm text-muted-foreground/50">7</span>
+      )}
+    </div>
+  )
+}
+
 export function AddBucketDialog({
   open,
   bucket = null,
@@ -214,6 +314,8 @@ export function AddBucketDialog({
   const [baseline, setBaseline] = useState("")
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [removeId, setRemoveId] = useState<string | null>(null)
+  const [editingName, setEditingName] = useState(false)
+  const [typeOpen, setTypeOpen] = useState(false)
 
   useEffect(() => {
     if (!open) return
@@ -233,6 +335,8 @@ export function AddBucketDialog({
     }
     setConfirmOpen(false)
     setRemoveId(null)
+    setEditingName(false)
+    setTypeOpen(false)
   }, [open, bucket])
 
   const dirty = useMemo(
@@ -316,278 +420,279 @@ export function AddBucketDialog({
             requestClose()
           }}
         >
-          <DialogHeader>
-            <DialogTitle className="text-xl font-semibold tracking-tight">
-              {editing ? "Edit bucket" : "Add bucket"}
-            </DialogTitle>
-          </DialogHeader>
-
-          <div className="space-y-5">
-            <div className="grid grid-cols-[1fr_140px] items-end gap-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="bucket-name">Bucket name</Label>
-                <Input
-                  id="bucket-name"
-                  className={fieldH}
+          {/* Title = editable bucket name; type as quiet subheader */}
+          <div className="space-y-2">
+            <div
+              className={cn(
+                "rounded-md border border-transparent px-1.5 py-0.5",
+                "hover:border-input focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/30",
+              )}
+              onClick={() => setEditingName(true)}
+            >
+              {editingName ? (
+                <input
+                  autoFocus
+                  className="w-full bg-transparent text-xl font-semibold tracking-tight text-foreground outline-none"
                   value={bucketName}
                   onChange={(e) => setBucketName(e.target.value)}
-                  placeholder="e.g. Bills"
-                  autoFocus
+                  onBlur={() => setEditingName(false)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") (e.target as HTMLInputElement).blur()
+                  }}
+                  placeholder={editing ? "Bucket name" : "New bucket"}
                 />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="bucket-type">Type</Label>
-                <Select
-                  value={bucketType}
-                  onValueChange={(value) =>
-                    setBucketType(value as BucketDraftType)
-                  }
-                >
-                  <SelectTrigger
-                    id="bucket-type"
-                    size="default"
-                    className={selectH}
-                  >
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="expenses">Expenses</SelectItem>
-                    <SelectItem value="savings">Savings</SelectItem>
-                    <SelectItem value="income">Income</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              {/* Column headers */}
-              {bucketType === "savings" ? (
-                <div className="grid grid-cols-[1fr_96px_36px] gap-2 px-0.5 text-xs font-medium text-muted-foreground">
-                  <span>Category</span>
-                  <span>Goal</span>
-                  <span />
-                </div>
-              ) : bucketType === "income" ? (
-                <div className="grid grid-cols-[1fr_96px_120px_110px_36px] gap-2 px-0.5 text-xs font-medium text-muted-foreground">
-                  <span>Category</span>
-                  <span>Income</span>
-                  <span>Frequency</span>
-                  <span>Type</span>
-                  <span />
-                </div>
               ) : (
-                <div className="grid grid-cols-[1fr_96px_88px_110px_36px] gap-2 px-0.5 text-xs font-medium text-muted-foreground">
-                  <span>Category</span>
-                  <span>Payment</span>
-                  <span>Due day</span>
-                  <span>Type</span>
-                  <span />
-                </div>
+                <h2 className="cursor-text text-xl font-semibold tracking-tight text-foreground">
+                  {bucketName.trim() !== ""
+                    ? bucketName
+                    : editing
+                      ? "Bucket name"
+                      : "New bucket"}
+                </h2>
               )}
-
-              {drafts.map((draft) => {
-                const due = parseNum(draft.dueDay)
-                const dueLabel =
-                  due !== undefined && due >= 1 && due <= 31
-                    ? `${ordinalDay(Math.round(due))} of every month`
-                    : null
-
-                if (bucketType === "savings") {
-                  return (
-                    <div
-                      key={draft.id}
-                      className="grid grid-cols-[1fr_96px_36px] items-center gap-2"
-                    >
-                      <Input
-                        className={fieldH}
-                        value={draft.name}
-                        onChange={(e) =>
-                          updateDraft(draft.id, { name: e.target.value })
-                        }
-                        placeholder="Category name"
-                      />
-                      <Input
-                        className={`${fieldH} text-right tabular-nums`}
-                        value={draft.goal}
-                        onChange={(e) =>
-                          updateDraft(draft.id, { goal: e.target.value })
-                        }
-                        placeholder="0"
-                        inputMode="numeric"
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon-sm"
-                        className="text-muted-foreground"
-                        disabled={drafts.length === 1}
-                        onClick={() => requestRemove(draft.id)}
-                        title="Remove category"
-                      >
-                        ×
-                      </Button>
-                    </div>
-                  )
-                }
-
-                if (bucketType === "income") {
-                  return (
-                    <div
-                      key={draft.id}
-                      className="grid grid-cols-[1fr_96px_120px_110px_36px] items-center gap-2"
-                    >
-                      <Input
-                        className={fieldH}
-                        value={draft.name}
-                        onChange={(e) =>
-                          updateDraft(draft.id, { name: e.target.value })
-                        }
-                        placeholder="Category name"
-                      />
-                      <Input
-                        className={`${fieldH} text-right tabular-nums`}
-                        value={draft.amount}
-                        onChange={(e) =>
-                          updateDraft(draft.id, { amount: e.target.value })
-                        }
-                        placeholder="0"
-                        inputMode="numeric"
-                      />
-                      <Select
-                        value={draft.frequency}
-                        onValueChange={(value) =>
-                          updateDraft(draft.id, {
-                            frequency: value as PayFrequency,
-                          })
-                        }
-                      >
-                        <SelectTrigger size="default" className={selectH}>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="weekly">Weekly</SelectItem>
-                          <SelectItem value="biweekly">Bi-weekly</SelectItem>
-                          <SelectItem value="monthly">Monthly</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <Select
-                        value={draft.variability}
-                        onValueChange={(value) =>
-                          updateDraft(draft.id, {
-                            variability: value as CategoryVariability,
-                          })
-                        }
-                      >
-                        <SelectTrigger size="default" className={selectH}>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="fixed">Fixed</SelectItem>
-                          <SelectItem value="variable">Variable</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon-sm"
-                        className="text-muted-foreground"
-                        disabled={drafts.length === 1}
-                        onClick={() => requestRemove(draft.id)}
-                        title="Remove category"
-                      >
-                        ×
-                      </Button>
-                    </div>
-                  )
-                }
-
-                // expenses
-                return (
-                  <div key={draft.id} className="space-y-1">
-                    <div className="grid grid-cols-[1fr_96px_88px_110px_36px] items-center gap-2">
-                      <Input
-                        className={fieldH}
-                        value={draft.name}
-                        onChange={(e) =>
-                          updateDraft(draft.id, { name: e.target.value })
-                        }
-                        placeholder="Category name"
-                      />
-                      <Input
-                        className={`${fieldH} text-right tabular-nums`}
-                        value={draft.amount}
-                        onChange={(e) =>
-                          updateDraft(draft.id, { amount: e.target.value })
-                        }
-                        placeholder="0"
-                        inputMode="numeric"
-                      />
-                      <Input
-                        className={`${fieldH} text-right tabular-nums`}
-                        value={draft.dueDay}
-                        onChange={(e) =>
-                          updateDraft(draft.id, { dueDay: e.target.value })
-                        }
-                        placeholder="7"
-                        inputMode="numeric"
-                      />
-                      <Select
-                        value={draft.variability}
-                        onValueChange={(value) =>
-                          updateDraft(draft.id, {
-                            variability: value as CategoryVariability,
-                          })
-                        }
-                      >
-                        <SelectTrigger size="default" className={selectH}>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="fixed">Fixed</SelectItem>
-                          <SelectItem value="variable">Variable</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon-sm"
-                        className="text-muted-foreground"
-                        disabled={drafts.length === 1}
-                        onClick={() => requestRemove(draft.id)}
-                        title="Remove category"
-                      >
-                        ×
-                      </Button>
-                    </div>
-                    {dueLabel ? (
-                      <div className="grid grid-cols-[1fr_96px_88px_110px_36px] gap-2">
-                        <span />
-                        <span />
-                        <span className="text-xs text-muted-foreground">
-                          {dueLabel}
-                        </span>
-                        <span />
-                        <span />
-                      </div>
-                    ) : null}
-                  </div>
-                )
-              })}
-
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="gap-1"
-                onClick={() => setDrafts((prev) => [...prev, newDraft()])}
-              >
-                <Plus className="size-3.5" />
-                Add category
-              </Button>
             </div>
+
+            <Select
+              value={bucketType}
+              open={typeOpen}
+              onOpenChange={setTypeOpen}
+              onValueChange={(value) =>
+                setBucketType(value as BucketDraftType)
+              }
+            >
+              <SelectTrigger
+                size="default"
+                className={cn(
+                  "h-auto w-fit gap-1 border-transparent bg-transparent px-1.5 py-0.5 text-sm font-normal text-muted-foreground shadow-none",
+                  "hover:border-input hover:bg-transparent data-[state=open]:border-input",
+                  "focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30",
+                  "data-[size=default]:h-auto [&_svg]:size-3.5 [&_svg]:opacity-0 hover:[&_svg]:opacity-100 data-[state=open]:[&_svg]:opacity-100",
+                )}
+              >
+                <SelectValue>{TYPE_LABEL[bucketType]}</SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="expenses">Expenses</SelectItem>
+                <SelectItem value="savings">Savings</SelectItem>
+                <SelectItem value="income">Income</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
-          <DialogFooter className="-mx-6 -mb-6 p-6 sm:justify-between">
+          <div className="space-y-2">
+            {bucketType === "savings" ? (
+              <div
+                className={cn(
+                  "grid gap-2 px-0.5 text-xs font-medium text-muted-foreground",
+                  COL_SAV,
+                )}
+              >
+                <span>Category</span>
+                <span>Goal</span>
+                <span />
+              </div>
+            ) : bucketType === "income" ? (
+              <div
+                className={cn(
+                  "grid gap-2 px-0.5 text-xs font-medium text-muted-foreground",
+                  COL_INC,
+                )}
+              >
+                <span>Category</span>
+                <span>Income</span>
+                <span>Frequency</span>
+                <span>Type</span>
+                <span />
+              </div>
+            ) : (
+              <div
+                className={cn(
+                  "grid gap-2 px-0.5 text-xs font-medium text-muted-foreground",
+                  COL_EXP,
+                )}
+              >
+                <span>Category</span>
+                <span>Payment</span>
+                <span>Due day</span>
+                <span>Type</span>
+                <span />
+              </div>
+            )}
+
+            {drafts.map((draft) => {
+              const day = parseNum(draft.dueDay)
+              const dueHint =
+                day !== undefined && day >= 1 && day <= 31
+                  ? `${Math.round(day)}${ordinalSuffix(Math.round(day))} of every month`
+                  : null
+
+              if (bucketType === "savings") {
+                return (
+                  <div key={draft.id} className={cn("grid items-center gap-2", COL_SAV)}>
+                    <Input
+                      className={fieldH}
+                      value={draft.name}
+                      onChange={(e) =>
+                        updateDraft(draft.id, { name: e.target.value })
+                      }
+                      placeholder="Category name"
+                    />
+                    <MoneyInput
+                      value={draft.goal}
+                      onChange={(v) => updateDraft(draft.id, { goal: v })}
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      className="text-muted-foreground"
+                      disabled={drafts.length === 1}
+                      onClick={() => requestRemove(draft.id)}
+                      title="Remove category"
+                    >
+                      <Trash2 className="size-3.5" />
+                    </Button>
+                  </div>
+                )
+              }
+
+              if (bucketType === "income") {
+                return (
+                  <div key={draft.id} className={cn("grid items-center gap-2", COL_INC)}>
+                    <Input
+                      className={fieldH}
+                      value={draft.name}
+                      onChange={(e) =>
+                        updateDraft(draft.id, { name: e.target.value })
+                      }
+                      placeholder="Category name"
+                    />
+                    <MoneyInput
+                      value={draft.amount}
+                      onChange={(v) => updateDraft(draft.id, { amount: v })}
+                    />
+                    <Select
+                      value={draft.frequency}
+                      onValueChange={(value) =>
+                        updateDraft(draft.id, {
+                          frequency: value as PayFrequency,
+                        })
+                      }
+                    >
+                      <SelectTrigger size="default" className={selectH}>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="weekly">Weekly</SelectItem>
+                        <SelectItem value="biweekly">Bi-weekly</SelectItem>
+                        <SelectItem value="monthly">Monthly</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Select
+                      value={draft.variability}
+                      onValueChange={(value) =>
+                        updateDraft(draft.id, {
+                          variability: value as CategoryVariability,
+                        })
+                      }
+                    >
+                      <SelectTrigger size="default" className={selectH}>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="fixed">Fixed</SelectItem>
+                        <SelectItem value="variable">Variable</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      className="text-muted-foreground"
+                      disabled={drafts.length === 1}
+                      onClick={() => requestRemove(draft.id)}
+                      title="Remove category"
+                    >
+                      <Trash2 className="size-3.5" />
+                    </Button>
+                  </div>
+                )
+              }
+
+              return (
+                <div key={draft.id} className="space-y-1">
+                  <div className={cn("grid items-center gap-2", COL_EXP)}>
+                    <Input
+                      className={fieldH}
+                      value={draft.name}
+                      onChange={(e) =>
+                        updateDraft(draft.id, { name: e.target.value })
+                      }
+                      placeholder="Category name"
+                    />
+                    <MoneyInput
+                      value={draft.amount}
+                      onChange={(v) => updateDraft(draft.id, { amount: v })}
+                    />
+                    <DueDayInput
+                      value={draft.dueDay}
+                      onChange={(v) => updateDraft(draft.id, { dueDay: v })}
+                    />
+                    <Select
+                      value={draft.variability}
+                      onValueChange={(value) =>
+                        updateDraft(draft.id, {
+                          variability: value as CategoryVariability,
+                        })
+                      }
+                    >
+                      <SelectTrigger size="default" className={selectH}>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="fixed">Fixed</SelectItem>
+                        <SelectItem value="variable">Variable</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      className="text-muted-foreground"
+                      disabled={drafts.length === 1}
+                      onClick={() => requestRemove(draft.id)}
+                      title="Remove category"
+                    >
+                      <Trash2 className="size-3.5" />
+                    </Button>
+                  </div>
+                  {dueHint ? (
+                    <div className={cn("grid gap-2", COL_EXP)}>
+                      <span />
+                      <span />
+                      <span className="text-[10px] leading-tight text-muted-foreground">
+                        {dueHint}
+                      </span>
+                      <span />
+                      <span />
+                    </div>
+                  ) : null}
+                </div>
+              )
+            })}
+
+            <Button
+              type="button"
+              variant="outline"
+              className="h-10 gap-1"
+              onClick={() => setDrafts((prev) => [...prev, newDraft()])}
+            >
+              <Plus className="size-3.5" />
+              Add category
+            </Button>
+          </div>
+
+          <DialogFooter className="-mx-6 -mb-6 px-6 py-4 sm:justify-between">
             <Button type="button" variant="outline" onClick={requestClose}>
               Cancel
             </Button>
@@ -595,7 +700,7 @@ export function AddBucketDialog({
               type="button"
               disabled={!canSubmit}
               onClick={handleSubmit}
-              className="disabled:border-transparent disabled:bg-muted/60 disabled:text-muted-foreground/40 disabled:opacity-100"
+              className="disabled:border disabled:border-neutral-200 disabled:bg-transparent disabled:text-muted-foreground/35 disabled:opacity-100 dark:disabled:border-neutral-700"
             >
               {editing ? "Update" : "Add"}
             </Button>
@@ -612,7 +717,7 @@ export function AddBucketDialog({
               lost.
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter className="-mx-6 -mb-6 p-6 sm:justify-between">
+          <DialogFooter className="-mx-6 -mb-6 px-6 py-4 sm:justify-between">
             <Button
               type="button"
               variant="outline"
@@ -643,7 +748,7 @@ export function AddBucketDialog({
               This can’t be undone from here.
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter className="-mx-6 -mb-6 p-6 sm:justify-between">
+          <DialogFooter className="-mx-6 -mb-6 px-6 py-4 sm:justify-between">
             <Button
               type="button"
               variant="outline"
@@ -651,11 +756,7 @@ export function AddBucketDialog({
             >
               Keep category
             </Button>
-            <Button
-              type="button"
-              variant="destructive"
-              onClick={confirmRemove}
-            >
+            <Button type="button" variant="destructive" onClick={confirmRemove}>
               Remove
             </Button>
           </DialogFooter>
