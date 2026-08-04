@@ -242,7 +242,7 @@ export function AddBucketDialog({
                   <SelectTrigger
                     id="bucket-type"
                     size="default"
-                    className={`w-full ${fieldH}`}
+                    className="h-10 w-full data-[size=default]:h-10"
                   >
                     <SelectValue />
                   </SelectTrigger>
