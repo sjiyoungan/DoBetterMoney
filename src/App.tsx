@@ -10,7 +10,7 @@ export default function App() {
   const [user, setUser] = useState<UserRole>("liz")
   const [workspace, setWorkspace] = useState<BudgetWorkspace>(mockWorkspace)
   const [selectedPaycheckId, setSelectedPaycheckId] = useState(
-    () => mockWorkspace.paychecks.find((p) => !p.completed)?.id ?? "p6",
+    () => mockWorkspace.paychecks.find((p) => !p.completed)?.id ?? "p15",
   )
   const [doneKeys, setDoneKeys] = useState<Set<string>>(new Set())
 
