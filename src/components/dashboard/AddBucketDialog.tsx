@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
-import { Plus, Trash2 } from "lucide-react"
+import { Pencil, Plus, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -370,6 +370,7 @@ export function AddBucketDialog({
   const removeTarget = removeId
     ? drafts.find((d) => d.id === removeId)
     : undefined
+  const nestedOpen = confirmOpen || !!removeId
 
   function closeClean() {
     setConfirmOpen(false)
@@ -378,6 +379,7 @@ export function AddBucketDialog({
   }
 
   function requestClose() {
+    if (nestedOpen) return
     if (dirty) {
       setConfirmOpen(true)
       return
@@ -426,7 +428,8 @@ export function AddBucketDialog({
             onOpenChange(true)
             return
           }
-          // Keep dialog open until discard is confirmed when dirty
+          // Nested confirm dialogs — don't treat as closing the bucket dialog
+          if (confirmOpen || removeId) return
           requestClose()
         }}
       >
@@ -435,30 +438,38 @@ export function AddBucketDialog({
           showCloseButton={false}
           onPointerDownOutside={(e) => {
             e.preventDefault()
+            if (confirmOpen || removeId) return
             requestClose()
           }}
           onInteractOutside={(e) => {
             e.preventDefault()
+            if (confirmOpen || removeId) return
             requestClose()
+          }}
+          onFocusOutside={(e) => {
+            // Keep focus when a nested confirm dialog takes over
+            if (confirmOpen || removeId) e.preventDefault()
           }}
           onEscapeKeyDown={(e) => {
             e.preventDefault()
+            if (removeId) {
+              setRemoveId(null)
+              return
+            }
+            if (confirmOpen) {
+              setConfirmOpen(false)
+              return
+            }
             requestClose()
           }}
         >
-          {/* Header: B / E share the same left edge as Category + input boxes */}
+          {/* Header */}
           <div>
-            <div
-              className={cn(
-                "-ml-0.5 rounded-md border border-transparent px-px py-0.5",
-                "hover:border-input focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/30",
-              )}
-              onClick={() => setEditingName(true)}
-            >
+            <div className="group -ml-[3px] flex min-h-10 items-center gap-1.5">
               {editingName ? (
                 <input
                   autoFocus
-                  className="w-full bg-transparent text-2xl font-semibold tracking-tight text-foreground outline-none"
+                  className="min-w-0 flex-1 bg-transparent text-2xl font-semibold tracking-tight text-foreground outline-none"
                   value={bucketName}
                   onChange={(e) => setBucketName(e.target.value)}
                   onBlur={() => setEditingName(false)}
@@ -468,13 +479,25 @@ export function AddBucketDialog({
                   placeholder={editing ? "Bucket name" : "New bucket"}
                 />
               ) : (
-                <h2 className="cursor-text text-2xl font-semibold tracking-tight text-foreground">
-                  {bucketName.trim() !== ""
-                    ? bucketName
-                    : editing
-                      ? "Bucket name"
-                      : "New bucket"}
-                </h2>
+                <>
+                  <h2 className="min-w-0 text-2xl font-semibold tracking-tight text-foreground">
+                    {bucketName.trim() !== ""
+                      ? bucketName
+                      : editing
+                        ? "Bucket name"
+                        : "New bucket"}
+                  </h2>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    className="shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 hover:text-foreground"
+                    onClick={() => setEditingName(true)}
+                    title="Edit name"
+                  >
+                    <Pencil className="size-3.5" />
+                  </Button>
+                </>
               )}
             </div>
 
@@ -509,7 +532,7 @@ export function AddBucketDialog({
             </Select>
           </div>
 
-          <div className="mt-2 space-y-2">
+          <div className="mt-6 space-y-2">
             {bucketType === "savings" ? (
               <div
                 className={cn(
