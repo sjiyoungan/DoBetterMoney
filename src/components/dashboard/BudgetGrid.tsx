@@ -15,34 +15,23 @@ type Props = {
 
 const PAY_COL_PX = 128
 const STICKY_WIDTH_PX = 112 + 192 + 96 + 96
-const OUTER = "border-neutral-500 dark:border-neutral-400"
 const HEADER_RULE =
   "shadow-[inset_0_-2px_0_0_#171717] dark:shadow-[inset_0_-2px_0_0_#f5f5f5]"
 const COL_DIV = "border-r border-border/60"
 const ROW_DIV = "border-b border-border/60"
+const BUCKET_RULE =
+  "shadow-[inset_0_2px_0_0_#171717] dark:shadow-[inset_0_2px_0_0_#f5f5f5]"
 
-/** Solid fill so scrolled cells can't show through sticky / rounded corners */
-function StickyFill({ rounded }: { rounded?: string }) {
+/**
+ * Square solid white layer (no radius) so nothing scrolled behind can show through.
+ * Visual corner radius stays on the cell border only.
+ */
+function StickyFill() {
   return (
-    <>
-      <div
-        aria-hidden
-        className={cn("absolute inset-0 bg-white dark:bg-background", rounded)}
-      />
-      {/* Cover the transparent wedge outside the radius with page bg */}
-      {rounded?.includes("tl") ? (
-        <div
-          aria-hidden
-          className="absolute -left-px -top-px size-2 bg-background"
-        />
-      ) : null}
-      {rounded?.includes("bl") ? (
-        <div
-          aria-hidden
-          className="absolute -bottom-px -left-px size-2 bg-background"
-        />
-      ) : null}
-    </>
+    <div
+      aria-hidden
+      className="absolute inset-0 z-0 bg-white dark:bg-background"
+    />
   )
 }
 
@@ -135,46 +124,42 @@ export function BudgetGrid({
               <tr>
                 <th
                   className={cn(
-                    "sticky left-0 z-30 w-28 min-w-28 px-1 py-3",
-                    "relative rounded-tl-lg border-l border-t",
-                    OUTER,
+                    "sticky left-0 z-30 w-28 min-w-28 relative px-1 py-3",
+                    "rounded-tl-lg border-l border-l-neutral-500 border-t border-t-neutral-500",
                     HEADER_RULE,
                   )}
                 >
-                  <StickyFill rounded="rounded-tl-lg" />
+                  <StickyFill />
                 </th>
                 <th
                   className={cn(
-                    "sticky left-[7rem] z-30 w-48 min-w-48 relative border-t px-1 py-3 text-left font-medium",
-                    OUTER,
+                    "sticky left-[7rem] z-30 w-48 min-w-48 relative border-t border-t-neutral-500 px-1 py-3 text-left font-medium",
                     COL_DIV,
                     HEADER_RULE,
                   )}
                 >
                   <StickyFill />
-                  <span className="relative px-3">Category</span>
+                  <span className="relative z-10 px-3">Category</span>
                 </th>
                 <th
                   className={cn(
-                    "sticky left-[19rem] z-30 w-24 min-w-24 relative border-t px-1 py-3 text-right font-medium",
-                    OUTER,
+                    "sticky left-[19rem] z-30 w-24 min-w-24 relative border-t border-t-neutral-500 px-1 py-3 text-right font-medium",
                     COL_DIV,
                     HEADER_RULE,
                   )}
                 >
                   <StickyFill />
-                  <span className="relative px-3">Goal</span>
+                  <span className="relative z-10 px-3">Goal</span>
                 </th>
                 <th
                   className={cn(
-                    "sticky left-[25rem] z-30 w-24 min-w-24 relative border-t px-1 py-3 text-right font-medium",
-                    OUTER,
+                    "sticky left-[25rem] z-30 w-24 min-w-24 relative border-t border-t-neutral-500 px-1 py-3 text-right font-medium",
                     HEADER_RULE,
                     balanceEdge,
                   )}
                 >
                   <StickyFill />
-                  <span className="relative px-3">Balance</span>
+                  <span className="relative z-10 px-3">Balance</span>
                 </th>
                 {paychecks.map((p, i) => {
                   const isUpcoming = p.id === currentPaycheckId
@@ -183,11 +168,11 @@ export function BudgetGrid({
                     <th
                       key={p.id}
                       className={cn(
-                        "w-32 min-w-32 border-t px-1 py-3 text-center font-medium",
-                        OUTER,
+                        "w-32 min-w-32 border-t border-t-neutral-500 px-1 py-3 text-center font-medium",
                         HEADER_RULE,
                         !isLast && COL_DIV,
-                        isLast && cn("rounded-tr-lg border-r", OUTER),
+                        isLast &&
+                          "rounded-tr-lg border-r border-r-neutral-500",
                         isUpcoming
                           ? "bg-sky-100 text-sky-950"
                           : p.completed
@@ -224,19 +209,17 @@ export function BudgetGrid({
                         <td
                           rowSpan={bucket.categories.length}
                           className={cn(
-                            "sticky left-0 z-20 w-28 min-w-28 relative border-l px-1 text-center align-middle text-[11px] font-semibold uppercase tracking-wide text-muted-foreground",
-                            OUTER,
+                            "sticky left-0 z-20 w-28 min-w-28 relative border-l border-l-neutral-500 px-1 text-center align-middle text-[11px] font-semibold uppercase tracking-wide text-muted-foreground",
                             COL_DIV,
-                            showBucketDivider &&
-                              "border-t-2 border-t-neutral-900",
+                            showBucketDivider && BUCKET_RULE,
                             isLastBucket &&
-                              cn("rounded-bl-lg border-b", OUTER),
+                              "rounded-bl-lg border-b border-b-neutral-500",
                           )}
                         >
-                          <StickyFill
-                            rounded={isLastBucket ? "rounded-bl-lg" : undefined}
-                          />
-                          <span className="relative px-3">{bucket.name}</span>
+                          <StickyFill />
+                          <span className="relative z-10 px-3">
+                            {bucket.name}
+                          </span>
                         </td>
                       ) : null}
 
@@ -244,16 +227,16 @@ export function BudgetGrid({
                         className={cn(
                           "sticky left-[7rem] z-20 w-48 min-w-48 relative px-1",
                           COL_DIV,
-                          showBucketDivider && "border-t-2 border-t-neutral-900",
+                          showBucketDivider && BUCKET_RULE,
                           showRowDivider && ROW_DIV,
-                          isVeryLast && cn("border-b", OUTER),
+                          isVeryLast && "border-b border-b-neutral-500",
                         )}
                       >
                         <StickyFill />
                         <button
                           type="button"
                           onClick={() => setSelected({ category: cat, bucket })}
-                          className="relative h-9 w-full px-3 text-left text-sm font-normal underline-offset-2 hover:underline"
+                          className="relative z-10 h-9 w-full px-3 text-left text-sm font-normal underline-offset-2 hover:underline"
                         >
                           {cat.name}
                         </button>
@@ -263,13 +246,13 @@ export function BudgetGrid({
                         className={cn(
                           "sticky left-[19rem] z-20 w-24 min-w-24 relative px-1 text-right tabular-nums text-muted-foreground",
                           COL_DIV,
-                          showBucketDivider && "border-t-2 border-t-neutral-900",
+                          showBucketDivider && BUCKET_RULE,
                           showRowDivider && ROW_DIV,
-                          isVeryLast && cn("border-b", OUTER),
+                          isVeryLast && "border-b border-b-neutral-500",
                         )}
                       >
                         <StickyFill />
-                        <span className="relative block px-3">
+                        <span className="relative z-10 block px-3">
                           {bucket.kind === "savings"
                             ? formatMoney(cat.goal)
                             : ""}
@@ -280,13 +263,13 @@ export function BudgetGrid({
                         className={cn(
                           "sticky left-[25rem] z-20 w-24 min-w-24 relative px-1 text-right tabular-nums text-muted-foreground",
                           balanceEdge,
-                          showBucketDivider && "border-t-2 border-t-neutral-900",
+                          showBucketDivider && BUCKET_RULE,
                           showRowDivider && ROW_DIV,
-                          isVeryLast && cn("border-b", OUTER),
+                          isVeryLast && "border-b border-b-neutral-500",
                         )}
                       >
                         <StickyFill />
-                        <span className="relative block px-3">
+                        <span className="relative z-10 block px-3">
                           {bucket.kind === "savings"
                             ? formatMoney(cat.balance)
                             : ""}
@@ -316,11 +299,10 @@ export function BudgetGrid({
                             className={cn(
                               "w-32 min-w-32 bg-white px-1 dark:bg-background",
                               !isLastCol && COL_DIV,
-                              isLastCol && cn("border-r", OUTER),
-                              showBucketDivider &&
-                                "border-t-2 border-t-neutral-900",
+                              isLastCol && "border-r border-r-neutral-500",
+                              showBucketDivider && BUCKET_RULE,
                               showRowDivider && ROW_DIV,
-                              isVeryLast && cn("border-b", OUTER),
+                              isVeryLast && "border-b border-b-neutral-500",
                               isVeryLast && isLastCol && "rounded-br-lg",
                               cellGray && "bg-neutral-100 dark:bg-neutral-900",
                             )}
@@ -424,11 +406,11 @@ function AmountCell({
             }}
             inputMode="numeric"
           />
-        ) : (
+        ) : value !== "" ? (
           <span className="text-sm tabular-nums text-foreground">
-            $<span>{value}</span>
+            ${value}
           </span>
-        )}
+        ) : null}
       </div>
     </div>
   )
