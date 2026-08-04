@@ -89,32 +89,32 @@ export function BudgetGrid({
             />
           ) : null}
 
+          <div className="rounded-lg border border-neutral-500 dark:border-neutral-400">
           <table className="border-separate border-spacing-0 text-sm">
             <thead>
               <tr>
                 <th
                   className={cn(
-                    "sticky left-0 z-30 w-28 min-w-28 border-b-2 border-l border-t border-neutral-900 bg-white px-2 py-3 text-left font-medium dark:bg-background",
-                    "rounded-tl-lg",
+                    "sticky left-0 z-30 w-28 min-w-28 border-b-2 border-b-neutral-900 border-l-0 border-t-0 bg-white px-2 py-3 text-left font-medium dark:bg-background",
                   )}
                 />
                 <th
                   className={cn(
-                    "sticky left-[7rem] z-30 w-48 min-w-48 border-b-2 border-t border-r border-neutral-900 bg-white px-4 py-3 text-left font-medium dark:bg-background",
+                    "sticky left-[7rem] z-30 w-48 min-w-48 border-b-2 border-b-neutral-900 border-r border-r-border/70 border-t-0 bg-white px-4 py-3 text-left font-medium dark:bg-background",
                   )}
                 >
                   Category
                 </th>
                 <th
                   className={cn(
-                    "sticky left-[19rem] z-30 w-24 min-w-24 border-b-2 border-t border-r border-neutral-900 bg-white px-3 py-3 text-right font-medium dark:bg-background",
+                    "sticky left-[19rem] z-30 w-24 min-w-24 border-b-2 border-b-neutral-900 border-r border-r-border/70 border-t-0 bg-white px-3 py-3 text-right font-medium dark:bg-background",
                   )}
                 >
                   Goal
                 </th>
                 <th
                   className={cn(
-                    "sticky left-[25rem] z-30 w-24 min-w-24 border-b-2 border-t border-r border-neutral-900 bg-white px-3 py-3 text-right font-medium shadow-[2px_0_0_0_var(--border)] dark:bg-background",
+                    "sticky left-[25rem] z-30 w-24 min-w-24 border-b-2 border-b-neutral-900 border-r border-r-border/70 border-t-0 bg-white px-3 py-3 text-right font-medium shadow-[2px_0_0_0_var(--border)] dark:bg-background",
                   )}
                 >
                   Balance
@@ -126,9 +126,9 @@ export function BudgetGrid({
                     <th
                       key={p.id}
                       className={cn(
-                        "w-32 min-w-32 border-b-2 border-t border-neutral-900 px-2 py-3 text-center font-medium",
+                        "w-32 min-w-32 border-b-2 border-b-neutral-900 border-t-0 px-2 py-3 text-center font-medium",
                         !isLast && "border-r border-border/70",
-                        isLast && "rounded-tr-lg border-r border-border",
+                        isLast && "border-r-0",
                         isUpcoming
                           ? "bg-sky-100 text-sky-950"
                           : p.completed
@@ -153,6 +153,7 @@ export function BudgetGrid({
                     rowIndex === bucket.categories.length - 1
                   const isVeryLast = isLastBucket && isLastRow
                   const showBucketDivider = isFirstRow && bucketIndex > 0
+                  const showRowDivider = !isLastRow
 
                   const upcomingIdx = upcomingIndex
                   const isPastCol = (p: Paycheck, idx: number) =>
@@ -164,11 +165,10 @@ export function BudgetGrid({
                         <td
                           rowSpan={bucket.categories.length}
                           className={cn(
-                            "sticky left-0 z-20 w-28 min-w-28 border-l border-r border-border bg-white px-2 text-center align-middle text-[11px] font-semibold uppercase tracking-wide text-muted-foreground dark:bg-background",
+                            "sticky left-0 z-20 w-28 min-w-28 border-l-0 border-r border-r-border/70 bg-white px-2 text-center align-middle text-[11px] font-semibold uppercase tracking-wide text-muted-foreground dark:bg-background",
                             showBucketDivider &&
                               "border-t-2 border-t-neutral-900",
-                            isVeryLast &&
-                              "rounded-bl-lg border-b border-border",
+                            isLastBucket && "border-b-0",
                           )}
                         >
                           {bucket.name}
@@ -177,9 +177,10 @@ export function BudgetGrid({
 
                       <td
                         className={cn(
-                          "sticky left-[7rem] z-20 w-48 min-w-48 border-r border-border bg-white px-4 dark:bg-background",
+                          "sticky left-[7rem] z-20 w-48 min-w-48 border-r border-r-border/70 bg-white px-4 dark:bg-background",
                           showBucketDivider && "border-t-2 border-t-neutral-900",
-                          isVeryLast && "border-b border-border",
+                          showRowDivider && "border-b border-b-border/60",
+                          isVeryLast && "border-b-0",
                         )}
                       >
                         <button
@@ -193,9 +194,10 @@ export function BudgetGrid({
 
                       <td
                         className={cn(
-                          "sticky left-[19rem] z-20 w-24 min-w-24 border-r border-border bg-white px-3 text-right tabular-nums text-muted-foreground dark:bg-background",
+                          "sticky left-[19rem] z-20 w-24 min-w-24 border-r border-r-border/70 bg-white px-3 text-right tabular-nums text-muted-foreground dark:bg-background",
                           showBucketDivider && "border-t-2 border-t-neutral-900",
-                          isVeryLast && "border-b border-border",
+                          showRowDivider && "border-b border-b-border/60",
+                          isVeryLast && "border-b-0",
                         )}
                       >
                         {bucket.kind === "savings" ? formatMoney(cat.goal) : ""}
@@ -203,9 +205,10 @@ export function BudgetGrid({
 
                       <td
                         className={cn(
-                          "sticky left-[25rem] z-20 w-24 min-w-24 border-r border-border bg-white px-3 text-right tabular-nums text-muted-foreground shadow-[2px_0_0_0_var(--border)] dark:bg-background",
+                          "sticky left-[25rem] z-20 w-24 min-w-24 border-r border-r-border/70 bg-white px-3 text-right tabular-nums text-muted-foreground shadow-[2px_0_0_0_var(--border)] dark:bg-background",
                           showBucketDivider && "border-t-2 border-t-neutral-900",
-                          isVeryLast && "border-b border-border",
+                          showRowDivider && "border-b border-b-border/60",
+                          isVeryLast && "border-b-0",
                         )}
                       >
                         {bucket.kind === "savings"
@@ -237,11 +240,11 @@ export function BudgetGrid({
                             className={cn(
                               "w-32 min-w-32 bg-white px-1 dark:bg-background",
                               !isLastCol && "border-r border-border/70",
-                              isLastCol && "border-r border-border",
+                              isLastCol && "border-r-0",
                               showBucketDivider &&
                                 "border-t-2 border-t-neutral-900",
-                              isVeryLast && "border-b border-border",
-                              isVeryLast && isLastCol && "rounded-br-lg",
+                              showRowDivider && "border-b border-b-border/60",
+                              isVeryLast && "border-b-0",
                               cellGray && "bg-neutral-100 dark:bg-neutral-900",
                             )}
                           >
@@ -267,6 +270,7 @@ export function BudgetGrid({
               </tbody>
             ))}
           </table>
+          </div>
         </div>
       </div>
 
