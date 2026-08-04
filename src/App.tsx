@@ -2,7 +2,6 @@ import { useState } from "react"
 import { BudgetGrid } from "@/components/dashboard/BudgetGrid"
 import { HolderPanel } from "@/components/holder/HolderPanel"
 import { AppHeader } from "@/components/layout/AppHeader"
-import { Button } from "@/components/ui/button"
 import { mockWorkspace } from "@/data/mock"
 import type { BudgetWorkspace, UserRole } from "@/types/budget"
 
@@ -62,52 +61,24 @@ export default function App() {
     <div className="min-h-svh bg-background text-foreground">
       <AppHeader user={user} onUserChange={setUser} />
 
-      <main className="mx-auto max-w-[1400px] space-y-6 px-4 py-6">
+      <main className="px-4 py-4">
         {user === "liz" ? (
-          <>
-            <section className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <h1 className="text-2xl font-semibold tracking-tight">
-                  Planning grid
-                </h1>
-                <p className="text-sm text-muted-foreground">
-                  Excel-style paycheck columns · click a category for details
-                </p>
-              </div>
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => setUser("ji")}
-              >
-                Preview Ji view
-              </Button>
-            </section>
-
-            <BudgetGrid
-              buckets={workspace.buckets}
-              paychecks={workspace.paychecks}
-              doneKeys={doneKeys}
-              onToggleDone={toggleDone}
-              onAmountChange={onAmountChange}
-            />
-          </>
+          <BudgetGrid
+            buckets={workspace.buckets}
+            paychecks={workspace.paychecks}
+            doneKeys={doneKeys}
+            onToggleDone={toggleDone}
+            onAmountChange={onAmountChange}
+          />
         ) : (
-          <>
-            <section>
-              <h1 className="text-2xl font-semibold tracking-tight">
-                Holder dashboard
-              </h1>
-              <p className="text-sm text-muted-foreground">
-                Receive → split to BoA / SoFi → track held bucket totals
-              </p>
-            </section>
+          <div className="mx-auto max-w-7xl space-y-4">
             <HolderPanel
               workspace={workspace}
               selectedPaycheckId={selectedPaycheckId}
               onSelectedPaycheckChange={setSelectedPaycheckId}
               onToggleHolderFlag={onToggleHolderFlag}
             />
-          </>
+          </div>
         )}
       </main>
     </div>

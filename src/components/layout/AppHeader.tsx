@@ -9,18 +9,16 @@ type Props = {
 
 export function AppHeader({ user, onUserChange }: Props) {
   return (
-    <header className="sticky top-0 z-20 border-b bg-background/95 backdrop-blur">
-      <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3">
-        <div>
-          <p className="text-lg font-semibold tracking-tight">DoBetterMoney</p>
-          <p className="text-xs text-muted-foreground">
-            Rough skeleton · shared account, role views
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="hidden text-xs text-muted-foreground sm:inline">
-            Viewing as
-          </span>
+    <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur">
+      <div className="flex items-center justify-between gap-3 px-4 py-3">
+        <p className="text-lg font-semibold tracking-tight">DoBetterMoney</p>
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <Button variant="outline" size="sm" disabled>
+            Add bucket
+          </Button>
+          <Button variant="outline" size="sm" disabled>
+            Add category
+          </Button>
           <div className="flex rounded-lg border p-0.5">
             <Button
               size="sm"
