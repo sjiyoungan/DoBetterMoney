@@ -43,6 +43,31 @@ export default function App() {
     }))
   }
 
+  function onCategoryFieldChange(
+    categoryId: string,
+    field: "goal" | "balance",
+    value: string,
+  ) {
+    setWorkspace((prev) => ({
+      ...prev,
+      buckets: prev.buckets.map((bucket) => ({
+        ...bucket,
+        categories: bucket.categories.map((cat) => {
+          if (cat.id !== categoryId) return cat
+          const trimmed = value.trim()
+          if (trimmed === "") {
+            return { ...cat, [field]: undefined }
+          }
+          const parsed = Number(trimmed.replace(/,/g, ""))
+          return {
+            ...cat,
+            [field]: Number.isFinite(parsed) ? parsed : cat[field],
+          }
+        }),
+      })),
+    }))
+  }
+
   function onToggleHolderFlag(
     paycheckId: string,
     field: "received" | "boaMoved" | "sofiMoved",
@@ -69,6 +94,7 @@ export default function App() {
             doneKeys={doneKeys}
             onToggleDone={toggleDone}
             onAmountChange={onAmountChange}
+            onCategoryFieldChange={onCategoryFieldChange}
           />
         ) : (
           <div className="mx-auto max-w-7xl space-y-4">

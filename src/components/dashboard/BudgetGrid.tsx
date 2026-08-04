@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { Check } from "lucide-react"
 import { CategoryDrawer } from "@/components/dashboard/CategoryDrawer"
-import { allocationKey, formatMoney, formatPayDate } from "@/lib/format"
+import { allocationKey, formatPayDate } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import type { Bucket, Category, Paycheck } from "@/types/budget"
 
@@ -11,9 +11,14 @@ type Props = {
   doneKeys: Set<string>
   onToggleDone: (key: string) => void
   onAmountChange: (categoryId: string, date: string, value: string) => void
+  onCategoryFieldChange: (
+    categoryId: string,
+    field: "goal" | "balance",
+    value: string,
+  ) => void
 }
 
-const W = { bucket: 92, category: 168, goal: 76, balance: 76, pay: 128 } as const
+const W = { bucket: 92, category: 168, goal: 96, balance: 96, pay: 128 } as const
 const LEFT_WIDTH = W.bucket + W.category + W.goal + W.balance
 
 const paneBg = "bg-white dark:bg-background"
@@ -40,6 +45,7 @@ export function BudgetGrid({
   doneKeys,
   onToggleDone,
   onAmountChange,
+  onCategoryFieldChange,
 }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const leftTableRef = useRef<HTMLTableElement>(null)
@@ -271,21 +277,30 @@ export function BudgetGrid({
 
                         <td
                           className={cn(
-                            "border-r border-r-border/60 px-3 text-right tabular-nums text-muted-foreground",
+                            "border-r border-r-border/60 px-1",
                             paneBg,
                             row.showBucketDivider &&
                               "border-t-2 border-t-neutral-900",
                             !row.isLastInBucket && "border-b border-b-border/60",
                           )}
                         >
-                          {bucket.kind === "savings"
-                            ? formatMoney(category.goal)
-                            : ""}
+                          {bucket.kind === "savings" ? (
+                            <MoneyField
+                              value={
+                                category.goal === undefined
+                                  ? ""
+                                  : String(category.goal)
+                              }
+                              onChange={(value) =>
+                                onCategoryFieldChange(category.id, "goal", value)
+                              }
+                            />
+                          ) : null}
                         </td>
 
                         <td
                           className={cn(
-                            "px-3 text-right tabular-nums text-muted-foreground",
+                            "px-1 text-right tabular-nums text-muted-foreground",
                             paneBg,
                             balanceEdge,
                             row.showBucketDivider &&
@@ -293,9 +308,22 @@ export function BudgetGrid({
                             !row.isLastInBucket && "border-b border-b-border/60",
                           )}
                         >
-                          {bucket.kind === "savings"
-                            ? formatMoney(category.balance)
-                            : ""}
+                          {bucket.kind === "savings" ? (
+                            <MoneyField
+                              value={
+                                category.balance === undefined
+                                  ? ""
+                                  : String(category.balance)
+                              }
+                              onChange={(value) =>
+                                onCategoryFieldChange(
+                                  category.id,
+                                  "balance",
+                                  value,
+                                )
+                              }
+                            />
+                          ) : null}
                         </td>
                       </tr>
                     )
@@ -442,6 +470,44 @@ export function BudgetGrid({
         paychecks={paychecks}
         doneKeys={doneKeys}
       />
+    </div>
+  )
+}
+
+function MoneyField({
+  value,
+  onChange,
+}: {
+  value: string
+  onChange: (value: string) => void
+}) {
+  const [editing, setEditing] = useState(false)
+
+  return (
+    <div
+      className={cn(
+        "flex h-9 cursor-text items-center justify-end rounded-md border border-transparent px-2",
+        "hover:border-input focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/30",
+      )}
+      onClick={() => setEditing(true)}
+    >
+      {editing ? (
+        <input
+          autoFocus
+          className="h-7 w-full bg-transparent text-right text-sm tabular-nums text-foreground outline-none"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          onBlur={() => setEditing(false)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") (e.target as HTMLInputElement).blur()
+          }}
+          inputMode="numeric"
+        />
+      ) : value !== "" ? (
+        <span className="text-sm tabular-nums text-muted-foreground">
+          ${value}
+        </span>
+      ) : null}
     </div>
   )
 }
