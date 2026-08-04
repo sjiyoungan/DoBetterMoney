@@ -195,7 +195,7 @@ export function BudgetGrid({
                 <tr ref={leftHeaderRef}>
                   <th
                     className={cn(
-                      "border-b-2 border-b-neutral-900 px-2 py-3",
+                      "border-b-2 border-b-neutral-900 border-r border-r-neutral-900 px-2 py-3",
                       paneBg,
                     )}
                   />
@@ -241,7 +241,7 @@ export function BudgetGrid({
                           <td
                             rowSpan={row.rowCount}
                             className={cn(
-                              "border-r border-r-border/60 px-2 text-center align-middle text-[11px] font-semibold uppercase tracking-wide text-muted-foreground",
+                              "border-r border-r-neutral-900 px-2 text-center align-middle text-[11px] font-semibold uppercase tracking-wide text-muted-foreground",
                               paneBg,
                               row.showBucketDivider &&
                                 "border-t-2 border-t-neutral-900",
