@@ -3,6 +3,7 @@ import { Check, Plus } from "lucide-react"
 import { AddBucketDialog } from "@/components/dashboard/AddBucketDialog"
 import { AddCategoryDialog } from "@/components/dashboard/AddCategoryDialog"
 import { CategoryDrawer } from "@/components/dashboard/CategoryDrawer"
+import { Button } from "@/components/ui/button"
 import { allocationKey, formatPayDate } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import type { Bucket, Category, Paycheck } from "@/types/budget"
@@ -85,8 +86,7 @@ export function BudgetGrid({
       bucket.categories.forEach((category, rowIndex) => {
         result.push({
           key: category.id,
-          // +1 for the add-category row under each bucket
-          rowCount: bucket.categories.length + 1,
+          rowCount: bucket.categories.length,
           isFirstInBucket: rowIndex === 0,
           isLastInBucket: rowIndex === bucket.categories.length - 1,
           showBucketDivider: rowIndex === 0 && bucketIndex > 0,
@@ -95,11 +95,6 @@ export function BudgetGrid({
     })
     return result
   }, [orderedBuckets])
-
-  const addRowKeys = useMemo(
-    () => orderedBuckets.map((b) => `add-${b.id}`),
-    [orderedBuckets],
-  )
 
   const today = useMemo(() => new Date().toISOString().slice(0, 10), [])
 
@@ -153,13 +148,6 @@ export function BudgetGrid({
               rightRowRefs.current.get(row.key) ?? null,
             ] as [HTMLTableRowElement | null, HTMLTableRowElement | null],
         ),
-        ...addRowKeys.map(
-          (key) =>
-            [
-              leftRowRefs.current.get(key) ?? null,
-              rightRowRefs.current.get(key) ?? null,
-            ] as [HTMLTableRowElement | null, HTMLTableRowElement | null],
-        ),
       ]
 
       for (const [left, right] of pairs) {
@@ -181,7 +169,7 @@ export function BudgetGrid({
     if (leftTableRef.current) ro.observe(leftTableRef.current)
     if (rightTableRef.current) ro.observe(rightTableRef.current)
     return () => ro.disconnect()
-  }, [rows, addRowKeys, paychecks])
+  }, [rows, paychecks])
 
   const balanceEdge = scrolled ? "" : "border-r border-r-neutral-900"
 
@@ -228,13 +216,15 @@ export function BudgetGrid({
                       paneBg,
                     )}
                   >
-                    <button
+                    <Button
                       type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 w-full px-1 text-[11px]"
                       onClick={() => setAddBucketOpen(true)}
-                      className="w-full rounded-md px-1 py-1 text-[10px] font-semibold leading-tight text-muted-foreground transition-colors hover:bg-neutral-100 hover:text-foreground"
                     >
                       Add bucket
-                    </button>
+                    </Button>
                   </th>
                   <th
                     className={cn(
@@ -285,16 +275,27 @@ export function BudgetGrid({
                                 "border-t-2 border-t-neutral-900",
                             )}
                           >
-                            {bucket.name}
+                            <div className="flex flex-col items-center">
+                              <span>{bucket.name}</span>
+                              <button
+                                type="button"
+                                title={`Add category to ${bucket.name}`}
+                                onClick={() => setAddCategoryBucket(bucket)}
+                                className="mt-2 inline-flex size-6 items-center justify-center rounded-full border border-neutral-300 text-neutral-400 transition-colors hover:border-neutral-500 hover:bg-neutral-50 hover:text-neutral-700"
+                              >
+                                <Plus className="size-3.5" strokeWidth={2} />
+                              </button>
+                            </div>
                           </td>
                         ) : null}
 
                         <td
                           className={cn(
-                            "border-r border-r-border/60 border-b border-b-border/60 px-3",
+                            "border-r border-r-border/60 px-3",
                             paneBg,
                             row.showBucketDivider &&
                               "border-t-2 border-t-neutral-900",
+                            !row.isLastInBucket && "border-b border-b-border/60",
                           )}
                         >
                           <button
@@ -308,10 +309,11 @@ export function BudgetGrid({
 
                         <td
                           className={cn(
-                            "border-r border-r-border/60 border-b border-b-border/60 px-1",
+                            "border-r border-r-border/60 px-1",
                             paneBg,
                             row.showBucketDivider &&
                               "border-t-2 border-t-neutral-900",
+                            !row.isLastInBucket && "border-b border-b-border/60",
                           )}
                         >
                           {isSavings ? (
@@ -330,11 +332,12 @@ export function BudgetGrid({
 
                         <td
                           className={cn(
-                            "border-b border-b-border/60 px-1 text-right tabular-nums text-muted-foreground",
+                            "px-1 text-right tabular-nums text-muted-foreground",
                             paneBg,
                             balanceEdge,
                             row.showBucketDivider &&
                               "border-t-2 border-t-neutral-900",
+                            !row.isLastInBucket && "border-b border-b-border/60",
                           )}
                         >
                           {isSavings ? (
@@ -357,33 +360,6 @@ export function BudgetGrid({
                       </tr>
                     )
                   })}
-
-                  <tr
-                    ref={(el) => setLeftRowRef(`add-${bucket.id}`, el)}
-                  >
-                    <td
-                      className={cn(
-                        "border-r border-r-border/60 px-3",
-                        paneBg,
-                      )}
-                    >
-                      <button
-                        type="button"
-                        title={`Add category to ${bucket.name}`}
-                        onClick={() => setAddCategoryBucket(bucket)}
-                        className="inline-flex size-6 items-center justify-center rounded-full border border-neutral-300 text-neutral-400 transition-colors hover:border-neutral-500 hover:bg-neutral-50 hover:text-neutral-700"
-                      >
-                        <Plus className="size-3.5" strokeWidth={2} />
-                      </button>
-                    </td>
-                    <td
-                      className={cn(
-                        "border-r border-r-border/60",
-                        paneBg,
-                      )}
-                    />
-                    <td className={cn(paneBg, balanceEdge)} />
-                  </tr>
                 </tbody>
               ))}
             </table>
@@ -478,10 +454,12 @@ export function BudgetGrid({
                               <td
                                 key={p.id}
                                 className={cn(
-                                  "border-b border-b-border/60 bg-white px-1 dark:bg-background",
+                                  "bg-white px-1 dark:bg-background",
                                   !isLastCol && "border-r border-r-border/60",
                                   row.showBucketDivider &&
                                     "border-t-2 border-t-neutral-900",
+                                  !row.isLastInBucket &&
+                                    "border-b border-b-border/60",
                                   cellGray &&
                                     "bg-neutral-100 dark:bg-neutral-900",
                                 )}
@@ -506,22 +484,6 @@ export function BudgetGrid({
                         </tr>
                       )
                     })}
-
-                    <tr ref={(el) => setRightRowRef(`add-${bucket.id}`, el)}>
-                      {paychecks.map((p, i) => {
-                        const isLastCol = i === paychecks.length - 1
-                        return (
-                          <td
-                            key={p.id}
-                            className={cn(
-                              "bg-white dark:bg-background",
-                              !isLastCol && "border-r border-r-border/60",
-                            )}
-                            style={{ width: W.pay, minWidth: W.pay }}
-                          />
-                        )
-                      })}
-                    </tr>
                   </tbody>
                 ))}
               </table>
