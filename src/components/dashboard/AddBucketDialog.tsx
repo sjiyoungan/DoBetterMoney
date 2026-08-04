@@ -37,7 +37,7 @@ type Props = {
   onUpdate: (bucket: Bucket) => void
 }
 
-const fieldH = "h-8" // 32px
+const fieldH = "h-10" // 40px
 
 function newDraft(): CategoryDraft {
   return {
