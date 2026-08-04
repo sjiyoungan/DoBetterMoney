@@ -25,6 +25,9 @@ type Props = {
 
 const W = { bucket: 92, category: 168, goal: 96, balance: 96, pay: 128 } as const
 const LEFT_WIDTH = W.bucket + W.category + W.goal + W.balance
+/** Category rows use h-9 (36px). Two rows + divider = default bucket min. */
+const CATEGORY_ROW_H = 36
+const DEFAULT_MIN_BUCKET_H = CATEGORY_ROW_H * 2 + 1
 
 const paneBg = "bg-white dark:bg-background"
 
@@ -63,6 +66,7 @@ export function BudgetGrid({
   const rightRowRefs = useRef(new Map<string, HTMLTableRowElement>())
 
   const [scrolled, setScrolled] = useState(false)
+  const [minBucketH, setMinBucketH] = useState(DEFAULT_MIN_BUCKET_H)
   const [addBucketOpen, setAddBucketOpen] = useState(false)
   const [addCategoryBucket, setAddCategoryBucket] = useState<Bucket | null>(
     null,
@@ -136,7 +140,7 @@ export function BudgetGrid({
     }
   }, [])
 
-  // Keep left/right row heights matched
+  // Keep left/right row heights matched; learn min bucket height from a 2-row group
   useEffect(() => {
     const sync = () => {
       const pairs: Array<[HTMLTableRowElement | null, HTMLTableRowElement | null]> = [
@@ -156,6 +160,20 @@ export function BudgetGrid({
         right.style.height = ""
       }
 
+      let measured = DEFAULT_MIN_BUCKET_H
+      for (const bucket of orderedBuckets) {
+        if (bucket.categories.length < 2) continue
+        const h = bucket.categories.slice(0, 2).reduce((sum, cat) => {
+          const el = leftRowRefs.current.get(cat.id)
+          return sum + (el?.offsetHeight ?? 0)
+        }, 0)
+        if (h > 0) {
+          measured = h
+          break
+        }
+      }
+      setMinBucketH((prev) => (prev === measured ? prev : measured))
+
       for (const [left, right] of pairs) {
         if (!left || !right) continue
         const height = Math.max(left.offsetHeight, right.offsetHeight)
@@ -169,7 +187,7 @@ export function BudgetGrid({
     if (leftTableRef.current) ro.observe(leftTableRef.current)
     if (rightTableRef.current) ro.observe(rightTableRef.current)
     return () => ro.disconnect()
-  }, [rows, paychecks])
+  }, [rows, paychecks, orderedBuckets])
 
   const balanceEdge = scrolled ? "" : "border-r border-r-neutral-900"
 
@@ -275,7 +293,10 @@ export function BudgetGrid({
                                 "border-t-2 border-t-neutral-900",
                             )}
                           >
-                            <div className="flex flex-col items-center">
+                            <div
+                              className="flex flex-col items-center justify-center"
+                              style={{ minHeight: minBucketH }}
+                            >
                               <span>{bucket.name}</span>
                               <button
                                 type="button"
