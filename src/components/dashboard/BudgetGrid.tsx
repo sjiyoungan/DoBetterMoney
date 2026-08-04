@@ -543,10 +543,10 @@ function AmountCell({
           "inline-flex size-5 shrink-0 items-center justify-center rounded-sm border transition-colors",
           done
             ? "border-neutral-200 bg-neutral-100 text-neutral-400"
-            : "border-transparent text-neutral-300 opacity-0 group-hover/cell:opacity-100",
+            : "border-transparent text-neutral-300 opacity-0 group-hover/cell:opacity-100 group-hover/cell:border-neutral-300",
           canCheck &&
             !done &&
-            "hover:border-neutral-300 hover:bg-neutral-50 hover:text-neutral-500",
+            "hover:border-neutral-400 hover:bg-neutral-50 hover:text-neutral-600",
           !canCheck && "pointer-events-none opacity-0",
         )}
       >
@@ -555,7 +555,7 @@ function AmountCell({
 
       <div
         className={cn(
-          "flex min-w-0 flex-1 cursor-text items-center justify-end rounded-md border border-transparent px-1",
+          "flex h-7 min-w-0 flex-1 cursor-text items-center justify-end rounded-md border border-transparent px-1",
           "hover:border-input focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/30",
         )}
         onClick={() => setEditing(true)}
@@ -563,7 +563,7 @@ function AmountCell({
         {editing ? (
           <input
             autoFocus
-            className="h-7 w-full bg-transparent text-right text-sm tabular-nums outline-none"
+            className="h-full w-full bg-transparent text-right text-sm tabular-nums outline-none"
             value={value}
             onChange={(e) => onChange(e.target.value)}
             onBlur={() => setEditing(false)}
