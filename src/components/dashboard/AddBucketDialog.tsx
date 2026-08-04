@@ -51,10 +51,10 @@ const selectH = "h-10 w-full data-[size=default]:h-10"
 
 /** Expenses / income category row columns */
 const COL_EXP =
-  "grid-cols-[minmax(0,238px)_48px_44px_102px_36px]" as const
+  "grid-cols-[minmax(0,238px)_60px_56px_102px_36px]" as const
 const COL_INC =
-  "grid-cols-[minmax(0,238px)_48px_112px_102px_36px]" as const
-const COL_SAV = "grid-cols-[minmax(0,238px)_48px_36px]" as const
+  "grid-cols-[minmax(0,238px)_60px_112px_102px_36px]" as const
+const COL_SAV = "grid-cols-[minmax(0,238px)_60px_36px]" as const
 
 const TYPE_LABEL: Record<BucketDraftType, string> = {
   expenses: "Expenses",
@@ -211,7 +211,7 @@ function draftHasData(d: CategoryDraft) {
   )
 }
 
-/** Click-to-edit money field with $ prefix when not editing */
+/** Click-to-edit money field with $ prefix when not editing; border always on */
 function MoneyInput({
   value,
   onChange,
@@ -226,8 +226,8 @@ function MoneyInput({
   return (
     <div
       className={cn(
-        "flex h-10 cursor-text items-center justify-end rounded-md border border-transparent px-1.5",
-        "hover:border-input focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/30",
+        "flex h-10 cursor-text items-center justify-end rounded-md border border-input px-1.5",
+        "hover:border-neutral-400 focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/30",
       )}
       onClick={() => setEditing(true)}
     >
@@ -246,14 +246,12 @@ function MoneyInput({
         />
       ) : value !== "" ? (
         <span className="text-sm tabular-nums text-foreground">${value}</span>
-      ) : (
-        <span className="text-sm text-muted-foreground/50">{placeholder}</span>
-      )}
+      ) : null}
     </div>
   )
 }
 
-/** Due day with small ordinal suffix; edits as plain number */
+/** Due day with small gray ordinal; edits as plain number; border always on */
 function DueDayInput({
   value,
   onChange,
@@ -264,12 +262,13 @@ function DueDayInput({
   const [editing, setEditing] = useState(false)
   const day = parseNum(value)
   const valid = day !== undefined && day >= 1 && day <= 31
+  const n = valid ? Math.round(day) : null
 
   return (
     <div
       className={cn(
-        "flex h-10 cursor-text items-center justify-end rounded-md border border-transparent px-1.5",
-        "hover:border-input focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/30",
+        "flex h-10 cursor-text items-center justify-end rounded-md border border-input px-1.5",
+        "hover:border-neutral-400 focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/30",
       )}
       onClick={() => setEditing(true)}
     >
@@ -286,16 +285,14 @@ function DueDayInput({
           inputMode="numeric"
           placeholder="7"
         />
-      ) : valid ? (
-        <span className="text-sm tabular-nums text-foreground">
-          {Math.round(day)}
-          <span className="relative -top-px ml-px text-[9px] font-medium text-foreground">
-            {ordinalSuffix(Math.round(day))}
+      ) : n !== null ? (
+        <span className="inline-flex items-baseline text-sm tabular-nums text-foreground">
+          {n}
+          <span className="ml-px text-[10px] leading-none text-muted-foreground">
+            {ordinalSuffix(n)}
           </span>
         </span>
-      ) : (
-        <span className="text-sm text-muted-foreground/50">7</span>
-      )}
+      ) : null}
     </div>
   )
 }
@@ -409,7 +406,7 @@ export function AddBucketDialog({
         }}
       >
         <DialogContent
-          className="gap-5 p-6 sm:max-w-3xl"
+          className="w-max max-w-[calc(100%-2rem)] gap-5 p-6 sm:max-w-none"
           showCloseButton={false}
           onInteractOutside={(e) => {
             e.preventDefault()
@@ -420,11 +417,11 @@ export function AddBucketDialog({
             requestClose()
           }}
         >
-          {/* Title = editable bucket name; type as quiet subheader */}
-          <div className="space-y-2">
+          {/* Title pulled left 4px to cancel hover-box padding; type 8px under name */}
+          <div className="-ml-1 space-y-0">
             <div
               className={cn(
-                "rounded-md border border-transparent px-1.5 py-0.5",
+                "rounded-md border border-transparent px-1 py-0.5",
                 "hover:border-input focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/30",
               )}
               onClick={() => setEditingName(true)}
@@ -463,7 +460,7 @@ export function AddBucketDialog({
               <SelectTrigger
                 size="default"
                 className={cn(
-                  "h-auto w-fit gap-1 border-transparent bg-transparent px-1.5 py-0.5 text-sm font-normal text-muted-foreground shadow-none",
+                  "mt-0 h-auto w-fit gap-1 border-transparent bg-transparent px-1 py-0 text-sm font-normal text-muted-foreground shadow-none",
                   "hover:border-input hover:bg-transparent data-[state=open]:border-input",
                   "focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30",
                   "data-[size=default]:h-auto [&_svg]:size-3.5 [&_svg]:opacity-0 hover:[&_svg]:opacity-100 data-[state=open]:[&_svg]:opacity-100",
@@ -479,7 +476,8 @@ export function AddBucketDialog({
             </Select>
           </div>
 
-          <div className="space-y-2">
+          {/* +4px left so category labels align with title text */}
+          <div className="space-y-2 pl-1">
             {bucketType === "savings" ? (
               <div
                 className={cn(
@@ -692,15 +690,20 @@ export function AddBucketDialog({
             </Button>
           </div>
 
-          <DialogFooter className="-mx-6 -mb-6 px-6 py-4 sm:justify-between">
-            <Button type="button" variant="outline" onClick={requestClose}>
+          <DialogFooter className="-mx-6 -mb-6 px-6 py-4 sm:justify-end sm:gap-4">
+            <Button
+              type="button"
+              variant="ghost"
+              className="text-muted-foreground hover:bg-transparent hover:text-foreground"
+              onClick={requestClose}
+            >
               Cancel
             </Button>
             <Button
               type="button"
               disabled={!canSubmit}
               onClick={handleSubmit}
-              className="disabled:border disabled:border-neutral-200 disabled:bg-transparent disabled:text-muted-foreground/35 disabled:opacity-100 dark:disabled:border-neutral-700"
+              className="h-10 disabled:border disabled:border-neutral-200 disabled:bg-transparent disabled:text-muted-foreground/35 disabled:opacity-100 dark:disabled:border-neutral-700"
             >
               {editing ? "Update" : "Add"}
             </Button>
