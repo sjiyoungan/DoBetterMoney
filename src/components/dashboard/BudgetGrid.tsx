@@ -14,13 +14,20 @@ type Props = {
 }
 
 const PAY_COL_PX = 128
-const STICKY_WIDTH_PX = 192 + 96 + 96 // cat + goal + balance
-const colBorder = "border-r border-border/70"
-const stickyCat = "sticky left-0 z-20 w-48 min-w-48"
-const stickyGoal = "sticky left-48 z-20 w-24 min-w-24"
-const stickyBal = "sticky left-72 z-20 w-24 min-w-24"
+const BUCKET_W = 112
+const CAT_W = 192
+const GOAL_W = 96
+const BAL_W = 96
+const STICKY_WIDTH_PX = BUCKET_W + CAT_W + GOAL_W + BAL_W // 112+192+96+96 = 496
+
+const stickyBucket = "sticky left-0 z-20 w-28 min-w-28"
+const stickyCat = "sticky left-[7rem] z-20 w-48 min-w-48"
+const stickyGoal = "sticky left-[19rem] z-20 w-24 min-w-24"
+const stickyBal = "sticky left-[25rem] z-20 w-24 min-w-24"
 const payCol = "w-32 min-w-32 shrink-0"
 const stickyFill = "bg-white dark:bg-background"
+const colBorder = "border-r border-border/70"
+const bucketDivider = "border-t-2 border-neutral-800 dark:border-neutral-200"
 
 export function BudgetGrid({
   buckets,
@@ -81,43 +88,40 @@ export function BudgetGrid({
         ref={scrollRef}
         className="w-full overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
-        <div className="relative w-max min-w-full py-1">
-          {/* One continuous upcoming column outline (no per-row strokes) */}
+        <div className="relative w-max min-w-full">
           {upcomingIndex >= 0 ? (
             <div
               aria-hidden
               className="pointer-events-none absolute z-[15] rounded border-2 border-sky-400 dark:border-sky-500"
               style={{
                 left: STICKY_WIDTH_PX + upcomingIndex * PAY_COL_PX,
-                top: -4,
-                bottom: -4,
+                top: 0,
+                bottom: 0,
                 width: PAY_COL_PX,
               }}
             />
           ) : null}
 
-          <HeaderCard
+          <HeaderRow
             paychecks={paychecks}
             currentPaycheckId={currentPaycheckId}
           />
 
-          <div className="flex flex-col gap-4">
-            {orderedBuckets.map((bucket) => (
-              <BucketCard
-                key={bucket.id}
-                bucket={bucket}
-                paychecks={paychecks}
-                doneKeys={doneKeys}
-                today={today}
-                currentPaycheckId={currentPaycheckId}
-                onToggleDone={onToggleDone}
-                onAmountChange={onAmountChange}
-                onOpenCategory={(category) =>
-                  setSelected({ category, bucket })
-                }
-              />
-            ))}
-          </div>
+          {orderedBuckets.map((bucket, bucketIndex) => (
+            <BucketSection
+              key={bucket.id}
+              bucket={bucket}
+              isFirstBucket={bucketIndex === 0}
+              isLastBucket={bucketIndex === orderedBuckets.length - 1}
+              paychecks={paychecks}
+              doneKeys={doneKeys}
+              today={today}
+              currentPaycheckId={currentPaycheckId}
+              onToggleDone={onToggleDone}
+              onAmountChange={onAmountChange}
+              onOpenCategory={(category) => setSelected({ category, bucket })}
+            />
+          ))}
         </div>
       </div>
 
@@ -135,7 +139,7 @@ export function BudgetGrid({
   )
 }
 
-function HeaderCard({
+function HeaderRow({
   paychecks,
   currentPaycheckId,
 }: {
@@ -143,13 +147,21 @@ function HeaderCard({
   currentPaycheckId?: string
 }) {
   return (
-    <div className="mb-4 flex">
+    <div className="flex">
+      <div
+        className={cn(
+          stickyBucket,
+          stickyFill,
+          colBorder,
+          "rounded-tl-xl border-t border-l border-border px-2 py-3 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground",
+        )}
+      />
       <div
         className={cn(
           stickyCat,
-          colBorder,
           stickyFill,
-          "rounded-l-xl border-y border-l border-border px-4 py-3 text-sm font-medium",
+          colBorder,
+          "border-t border-border px-4 py-3 text-sm font-medium",
         )}
       >
         Category
@@ -157,9 +169,9 @@ function HeaderCard({
       <div
         className={cn(
           stickyGoal,
-          colBorder,
           stickyFill,
-          "border-y border-border px-3 py-3 text-right text-sm font-medium",
+          colBorder,
+          "border-t border-border px-3 py-3 text-right text-sm font-medium",
         )}
       >
         Goal
@@ -168,7 +180,7 @@ function HeaderCard({
         className={cn(
           stickyBal,
           stickyFill,
-          "border-y border-r border-border px-3 py-3 text-right text-sm font-medium shadow-[2px_0_0_0_var(--border)]",
+          "border-t border-r border-border px-3 py-3 text-right text-sm font-medium shadow-[2px_0_0_0_var(--border)]",
         )}
       >
         Balance
@@ -181,9 +193,9 @@ function HeaderCard({
             key={p.id}
             className={cn(
               payCol,
-              "border-y border-border px-3 py-3 text-center text-sm font-medium",
+              "border-t border-border px-2 py-3 text-center text-sm font-medium",
               !isLast && colBorder,
-              isLast && "rounded-r-xl border-r border-border",
+              isLast && "border-r border-border",
               isUpcoming
                 ? "bg-sky-100 text-sky-950 dark:bg-sky-950 dark:text-sky-50"
                 : p.completed
@@ -199,8 +211,10 @@ function HeaderCard({
   )
 }
 
-function BucketCard({
+function BucketSection({
   bucket,
+  isFirstBucket,
+  isLastBucket,
   paychecks,
   doneKeys,
   today,
@@ -210,6 +224,8 @@ function BucketCard({
   onOpenCategory,
 }: {
   bucket: Bucket
+  isFirstBucket: boolean
+  isLastBucket: boolean
   paychecks: Paycheck[]
   doneKeys: Set<string>
   today: string
@@ -218,40 +234,42 @@ function BucketCard({
   onAmountChange: (categoryId: string, date: string, value: string) => void
   onOpenCategory: (category: Category) => void
 }) {
-  return (
-    <div>
-      <div className="mb-2 flex">
-        <div
-          className={cn(
-            stickyCat,
-            stickyFill,
-            "z-20 px-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground",
-          )}
-        >
-          {bucket.name}
-        </div>
-        <div className={cn(stickyGoal, stickyFill, "z-20")} />
-        <div className={cn(stickyBal, stickyFill, "z-20")} />
-        {paychecks.map((p) => (
-          <div key={p.id} className={payCol} />
-        ))}
-      </div>
+  const rowCount = bucket.categories.length
 
+  return (
+    <div className={cn(!isFirstBucket && bucketDivider)}>
       {bucket.categories.map((cat, rowIndex) => {
-        const isFirst = rowIndex === 0
-        const isLast = rowIndex === bucket.categories.length - 1
+        const isFirstRow = rowIndex === 0
+        const isLastRow = rowIndex === rowCount - 1
+        const isVeryLastRow = isLastBucket && isLastRow
 
         return (
           <div key={cat.id} className="flex">
+            {/* Bucket name column — only label on first row of section */}
+            <div
+              className={cn(
+                stickyBucket,
+                stickyFill,
+                colBorder,
+                "border-l border-border px-2",
+                isFirstRow && !isFirstBucket && "pt-0",
+                isVeryLastRow && "rounded-bl-xl border-b border-border",
+                !isVeryLastRow && "border-b border-border/60",
+                isFirstRow &&
+                  "flex items-start pt-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground",
+              )}
+            >
+              {isFirstRow ? bucket.name : null}
+            </div>
+
             <div
               className={cn(
                 stickyCat,
                 stickyFill,
-                "flex h-9 items-center border-l border-border px-4",
                 colBorder,
-                isFirst && "rounded-tl-xl border-t border-border",
-                isLast && "rounded-bl-xl border-b border-border",
-                !isLast && "border-b border-border/60",
+                "flex h-9 items-center px-4",
+                !isVeryLastRow && "border-b border-border/60",
+                isVeryLastRow && "border-b border-border",
               )}
             >
               <button
@@ -262,31 +280,32 @@ function BucketCard({
                 {cat.name}
               </button>
             </div>
+
             <div
               className={cn(
                 stickyGoal,
                 stickyFill,
                 colBorder,
                 "flex h-9 items-center justify-end px-3 text-sm tabular-nums text-muted-foreground",
-                isFirst && "border-t border-border",
-                isLast && "border-b border-border",
-                !isLast && "border-b border-border/60",
+                !isVeryLastRow && "border-b border-border/60",
+                isVeryLastRow && "border-b border-border",
               )}
             >
               {bucket.kind === "savings" ? formatMoney(cat.goal) : ""}
             </div>
+
             <div
               className={cn(
                 stickyBal,
                 stickyFill,
                 "flex h-9 items-center justify-end border-r border-border px-3 text-sm tabular-nums text-muted-foreground shadow-[2px_0_0_0_var(--border)]",
-                isFirst && "border-t border-border",
-                isLast && "border-b border-border",
-                !isLast && "border-b border-border/60",
+                !isVeryLastRow && "border-b border-border/60",
+                isVeryLastRow && "border-b border-border",
               )}
             >
               {bucket.kind === "savings" ? formatMoney(cat.balance) : ""}
             </div>
+
             {paychecks.map((p, i) => {
               const raw = cat.allocations[p.date]
               const key = allocationKey(cat.id, p.id)
@@ -305,9 +324,7 @@ function BucketCard({
               const isPast =
                 p.completed || (upcomingIdx >= 0 && thisIdx < upcomingIdx)
 
-              // Only past columns get gray empties / done. Future + upcoming stay white.
-              const cellGray =
-                isPast && (empty || manuallyDone || p.completed)
+              const cellGray = isPast && (empty || manuallyDone || p.completed)
 
               const canMarkDone =
                 hasAmount && (p.date <= today || isUpcoming)
@@ -320,11 +337,8 @@ function BucketCard({
                     "flex h-9 items-center justify-end bg-white px-1 dark:bg-background",
                     !isLastCol && colBorder,
                     isLastCol && "border-r border-border",
-                    isFirst && "border-t border-border",
-                    isLast && "border-b border-border",
-                    !isLast && "border-b border-border/60",
-                    isFirst && isLastCol && "rounded-tr-xl",
-                    isLast && isLastCol && "rounded-br-xl",
+                    !isVeryLastRow && "border-b border-border/60",
+                    isVeryLastRow && "border-b border-border",
                     cellGray && "bg-neutral-100 dark:bg-neutral-900",
                   )}
                 >
@@ -360,9 +374,12 @@ function AmountCell({
 }) {
   return (
     <div className="group relative flex items-center justify-end gap-0.5">
+      <span className="select-none text-sm text-neutral-300 dark:text-neutral-600">
+        $
+      </span>
       <input
         className={cn(
-          "h-7 w-[4.25rem] rounded-md border border-transparent bg-transparent px-1.5 text-right text-sm tabular-nums outline-none transition-colors",
+          "h-7 w-[3.75rem] rounded-md border border-transparent bg-transparent px-1 text-right text-sm tabular-nums outline-none transition-colors",
           "hover:border-input focus:border-ring focus:ring-2 focus:ring-ring/30",
         )}
         value={value}
