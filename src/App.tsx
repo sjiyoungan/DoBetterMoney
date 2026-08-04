@@ -3,7 +3,7 @@ import { BudgetGrid } from "@/components/dashboard/BudgetGrid"
 import { HolderPanel } from "@/components/holder/HolderPanel"
 import { AppHeader } from "@/components/layout/AppHeader"
 import { mockWorkspace } from "@/data/mock"
-import type { BudgetWorkspace, UserRole } from "@/types/budget"
+import type { Bucket, BudgetWorkspace, Category, UserRole } from "@/types/budget"
 
 export default function App() {
   const [user, setUser] = useState<UserRole>("liz")
@@ -68,6 +68,32 @@ export default function App() {
     }))
   }
 
+  function onAddBucket(bucket: Bucket) {
+    setWorkspace((prev) => ({
+      ...prev,
+      buckets: [...prev.buckets, bucket],
+    }))
+  }
+
+  function onAddCategory(bucketId: string, name: string) {
+    setWorkspace((prev) => ({
+      ...prev,
+      buckets: prev.buckets.map((bucket) => {
+        if (bucket.id !== bucketId) return bucket
+        const category: Category = {
+          id: crypto.randomUUID(),
+          name,
+          allocations: {},
+          ...(bucket.kind === "savings" ? { goal: 0, balance: 0 } : {}),
+        }
+        return {
+          ...bucket,
+          categories: [...bucket.categories, category],
+        }
+      }),
+    }))
+  }
+
   function onToggleHolderFlag(
     paycheckId: string,
     field: "received" | "boaMoved" | "sofiMoved",
@@ -95,6 +121,8 @@ export default function App() {
             onToggleDone={toggleDone}
             onAmountChange={onAmountChange}
             onCategoryFieldChange={onCategoryFieldChange}
+            onAddBucket={onAddBucket}
+            onAddCategory={onAddCategory}
           />
         ) : (
           <div className="mx-auto max-w-7xl space-y-4">

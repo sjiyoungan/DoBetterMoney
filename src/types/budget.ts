@@ -1,6 +1,6 @@
 export type UserRole = "liz" | "ji"
 
-export type BucketKind = "spending" | "savings" | "holder"
+export type BucketKind = "spending" | "savings" | "holder" | "income"
 
 export type Category = {
   id: string

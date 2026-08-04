@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react"
-import { Check } from "lucide-react"
+import { Check, Plus } from "lucide-react"
+import { AddBucketDialog } from "@/components/dashboard/AddBucketDialog"
+import { AddCategoryDialog } from "@/components/dashboard/AddCategoryDialog"
 import { CategoryDrawer } from "@/components/dashboard/CategoryDrawer"
 import { allocationKey, formatPayDate } from "@/lib/format"
 import { cn } from "@/lib/utils"
@@ -16,6 +18,8 @@ type Props = {
     field: "goal" | "balance",
     value: string,
   ) => void
+  onAddBucket: (bucket: Bucket) => void
+  onAddCategory: (bucketId: string, name: string) => void
 }
 
 const W = { bucket: 92, category: 168, goal: 96, balance: 96, pay: 128 } as const
@@ -46,6 +50,8 @@ export function BudgetGrid({
   onToggleDone,
   onAmountChange,
   onCategoryFieldChange,
+  onAddBucket,
+  onAddCategory,
 }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const leftTableRef = useRef<HTMLTableElement>(null)
@@ -56,6 +62,10 @@ export function BudgetGrid({
   const rightRowRefs = useRef(new Map<string, HTMLTableRowElement>())
 
   const [scrolled, setScrolled] = useState(false)
+  const [addBucketOpen, setAddBucketOpen] = useState(false)
+  const [addCategoryBucket, setAddCategoryBucket] = useState<Bucket | null>(
+    null,
+  )
   const [selected, setSelected] = useState<{
     category: Category
     bucket: Bucket
@@ -75,7 +85,8 @@ export function BudgetGrid({
       bucket.categories.forEach((category, rowIndex) => {
         result.push({
           key: category.id,
-          rowCount: bucket.categories.length,
+          // +1 for the add-category row under each bucket
+          rowCount: bucket.categories.length + 1,
           isFirstInBucket: rowIndex === 0,
           isLastInBucket: rowIndex === bucket.categories.length - 1,
           showBucketDivider: rowIndex === 0 && bucketIndex > 0,
@@ -84,6 +95,11 @@ export function BudgetGrid({
     })
     return result
   }, [orderedBuckets])
+
+  const addRowKeys = useMemo(
+    () => orderedBuckets.map((b) => `add-${b.id}`),
+    [orderedBuckets],
+  )
 
   const today = useMemo(() => new Date().toISOString().slice(0, 10), [])
 
@@ -137,6 +153,13 @@ export function BudgetGrid({
               rightRowRefs.current.get(row.key) ?? null,
             ] as [HTMLTableRowElement | null, HTMLTableRowElement | null],
         ),
+        ...addRowKeys.map(
+          (key) =>
+            [
+              leftRowRefs.current.get(key) ?? null,
+              rightRowRefs.current.get(key) ?? null,
+            ] as [HTMLTableRowElement | null, HTMLTableRowElement | null],
+        ),
       ]
 
       for (const [left, right] of pairs) {
@@ -158,7 +181,7 @@ export function BudgetGrid({
     if (leftTableRef.current) ro.observe(leftTableRef.current)
     if (rightTableRef.current) ro.observe(rightTableRef.current)
     return () => ro.disconnect()
-  }, [rows, paychecks])
+  }, [rows, addRowKeys, paychecks])
 
   const balanceEdge = scrolled ? "" : "border-r border-r-neutral-900"
 
@@ -201,10 +224,18 @@ export function BudgetGrid({
                 <tr ref={leftHeaderRef}>
                   <th
                     className={cn(
-                      "border-b-2 border-b-neutral-900 border-r border-r-neutral-900 px-2 py-3",
+                      "border-b-2 border-b-neutral-900 border-r border-r-neutral-900 px-1 py-2",
                       paneBg,
                     )}
-                  />
+                  >
+                    <button
+                      type="button"
+                      onClick={() => setAddBucketOpen(true)}
+                      className="w-full rounded-md px-1 py-1 text-[10px] font-semibold leading-tight text-muted-foreground transition-colors hover:bg-neutral-100 hover:text-foreground"
+                    >
+                      Add bucket
+                    </button>
+                  </th>
                   <th
                     className={cn(
                       "border-b-2 border-b-neutral-900 border-r border-r-border/60 px-3 py-3 text-left font-medium",
@@ -237,6 +268,7 @@ export function BudgetGrid({
                 <tbody key={bucket.id}>
                   {bucket.categories.map((category) => {
                     const row = rows.find((r) => r.key === category.id)!
+                    const isSavings = bucket.kind === "savings"
 
                     return (
                       <tr
@@ -259,11 +291,10 @@ export function BudgetGrid({
 
                         <td
                           className={cn(
-                            "border-r border-r-border/60 px-3",
+                            "border-r border-r-border/60 border-b border-b-border/60 px-3",
                             paneBg,
                             row.showBucketDivider &&
                               "border-t-2 border-t-neutral-900",
-                            !row.isLastInBucket && "border-b border-b-border/60",
                           )}
                         >
                           <button
@@ -277,14 +308,13 @@ export function BudgetGrid({
 
                         <td
                           className={cn(
-                            "border-r border-r-border/60 px-1",
+                            "border-r border-r-border/60 border-b border-b-border/60 px-1",
                             paneBg,
                             row.showBucketDivider &&
                               "border-t-2 border-t-neutral-900",
-                            !row.isLastInBucket && "border-b border-b-border/60",
                           )}
                         >
-                          {bucket.kind === "savings" ? (
+                          {isSavings ? (
                             <MoneyField
                               value={
                                 category.goal === undefined
@@ -300,15 +330,14 @@ export function BudgetGrid({
 
                         <td
                           className={cn(
-                            "px-1 text-right tabular-nums text-muted-foreground",
+                            "border-b border-b-border/60 px-1 text-right tabular-nums text-muted-foreground",
                             paneBg,
                             balanceEdge,
                             row.showBucketDivider &&
                               "border-t-2 border-t-neutral-900",
-                            !row.isLastInBucket && "border-b border-b-border/60",
                           )}
                         >
-                          {bucket.kind === "savings" ? (
+                          {isSavings ? (
                             <MoneyField
                               value={
                                 category.balance === undefined
@@ -328,6 +357,33 @@ export function BudgetGrid({
                       </tr>
                     )
                   })}
+
+                  <tr
+                    ref={(el) => setLeftRowRef(`add-${bucket.id}`, el)}
+                  >
+                    <td
+                      className={cn(
+                        "border-r border-r-border/60 px-3",
+                        paneBg,
+                      )}
+                    >
+                      <button
+                        type="button"
+                        title={`Add category to ${bucket.name}`}
+                        onClick={() => setAddCategoryBucket(bucket)}
+                        className="inline-flex size-6 items-center justify-center rounded-full border border-neutral-300 text-neutral-400 transition-colors hover:border-neutral-500 hover:bg-neutral-50 hover:text-neutral-700"
+                      >
+                        <Plus className="size-3.5" strokeWidth={2} />
+                      </button>
+                    </td>
+                    <td
+                      className={cn(
+                        "border-r border-r-border/60",
+                        paneBg,
+                      )}
+                    />
+                    <td className={cn(paneBg, balanceEdge)} />
+                  </tr>
                 </tbody>
               ))}
             </table>
@@ -422,12 +478,10 @@ export function BudgetGrid({
                               <td
                                 key={p.id}
                                 className={cn(
-                                  "bg-white px-1 dark:bg-background",
+                                  "border-b border-b-border/60 bg-white px-1 dark:bg-background",
                                   !isLastCol && "border-r border-r-border/60",
                                   row.showBucketDivider &&
                                     "border-t-2 border-t-neutral-900",
-                                  !row.isLastInBucket &&
-                                    "border-b border-b-border/60",
                                   cellGray &&
                                     "bg-neutral-100 dark:bg-neutral-900",
                                 )}
@@ -452,6 +506,22 @@ export function BudgetGrid({
                         </tr>
                       )
                     })}
+
+                    <tr ref={(el) => setRightRowRef(`add-${bucket.id}`, el)}>
+                      {paychecks.map((p, i) => {
+                        const isLastCol = i === paychecks.length - 1
+                        return (
+                          <td
+                            key={p.id}
+                            className={cn(
+                              "bg-white dark:bg-background",
+                              !isLastCol && "border-r border-r-border/60",
+                            )}
+                            style={{ width: W.pay, minWidth: W.pay }}
+                          />
+                        )
+                      })}
+                    </tr>
                   </tbody>
                 ))}
               </table>
@@ -459,6 +529,24 @@ export function BudgetGrid({
           </div>
         </div>
       </div>
+
+      <AddBucketDialog
+        open={addBucketOpen}
+        onOpenChange={setAddBucketOpen}
+        onAdd={onAddBucket}
+      />
+
+      <AddCategoryDialog
+        open={!!addCategoryBucket}
+        bucketName={addCategoryBucket?.name ?? ""}
+        onOpenChange={(open) => {
+          if (!open) setAddCategoryBucket(null)
+        }}
+        onAdd={(name) => {
+          if (!addCategoryBucket) return
+          onAddCategory(addCategoryBucket.id, name)
+        }}
+      />
 
       <CategoryDrawer
         open={!!selected}
