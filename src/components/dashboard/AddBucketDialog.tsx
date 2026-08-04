@@ -20,12 +20,11 @@ import {
 } from "@/components/ui/select"
 import type { Bucket, BucketKind, Category } from "@/types/budget"
 
-export type CategoryDraftType = "expenses" | "savings" | "income"
+export type BucketDraftType = "expenses" | "savings" | "income"
 
 type CategoryDraft = {
   id: string
   name: string
-  type: CategoryDraftType
   goal: string
 }
 
@@ -38,49 +37,47 @@ type Props = {
   onUpdate: (bucket: Bucket) => void
 }
 
-function newDraft(type: CategoryDraftType = "expenses"): CategoryDraft {
+const fieldH = "h-8" // 32px
+
+function newDraft(): CategoryDraft {
   return {
     id: crypto.randomUUID(),
     name: "",
-    type,
     goal: "",
   }
 }
 
-function mapType(type: CategoryDraftType): BucketKind {
+function mapType(type: BucketDraftType): BucketKind {
   if (type === "savings") return "savings"
   if (type === "income") return "income"
   return "spending"
 }
 
-function kindToDraftType(kind: BucketKind): CategoryDraftType {
+function kindToDraftType(kind: BucketKind): BucketDraftType {
   if (kind === "savings") return "savings"
   if (kind === "income") return "income"
   return "expenses"
 }
 
 function bucketToDrafts(bucket: Bucket): CategoryDraft[] {
-  const type = kindToDraftType(bucket.kind)
-  if (bucket.categories.length === 0) return [newDraft(type)]
+  if (bucket.categories.length === 0) return [newDraft()]
   return bucket.categories.map((cat) => ({
     id: cat.id,
     name: cat.name,
-    type,
     goal: cat.goal === undefined ? "" : String(cat.goal),
   }))
 }
 
 function draftsToBucket(
   bucketName: string,
+  bucketType: BucketDraftType,
   drafts: CategoryDraft[],
   existing?: Bucket | null,
 ): Bucket {
-  const kinds = drafts.map((d) => mapType(d.type))
-  const allSame = kinds.every((k) => k === kinds[0])
-  const bucketKind: BucketKind = allSame ? kinds[0]! : "spending"
+  const bucketKind = mapType(bucketType)
+  const isSavings = bucketKind === "savings"
 
   const categories: Category[] = drafts.map((d) => {
-    const kind = mapType(d.type)
     const goalNum = Number(d.goal.replace(/,/g, ""))
     const prev = existing?.categories.find((c) => c.id === d.id)
     const base: Category = {
@@ -88,17 +85,15 @@ function draftsToBucket(
       name: d.name.trim(),
       allocations: prev?.allocations ?? {},
     }
-    if (kind === "savings") {
-      return {
-        ...base,
-        goal:
-          Number.isFinite(goalNum) && d.goal.trim() !== ""
-            ? goalNum
-            : (prev?.goal ?? 0),
-        balance: prev?.balance ?? 0,
-      }
+    if (!isSavings) return base
+    return {
+      ...base,
+      goal:
+        Number.isFinite(goalNum) && d.goal.trim() !== ""
+          ? goalNum
+          : (prev?.goal ?? 0),
+      balance: prev?.balance ?? 0,
     }
-    return base
   })
 
   return {
@@ -110,13 +105,17 @@ function draftsToBucket(
   }
 }
 
-function snapshotKey(name: string, drafts: CategoryDraft[]) {
+function snapshotKey(
+  name: string,
+  type: BucketDraftType,
+  drafts: CategoryDraft[],
+) {
   return JSON.stringify({
     name: name.trim(),
+    type,
     drafts: drafts.map((d) => ({
       id: d.id,
       name: d.name.trim(),
-      type: d.type,
       goal: d.goal.trim(),
     })),
   })
@@ -131,6 +130,7 @@ export function AddBucketDialog({
 }: Props) {
   const editing = !!bucket
   const [bucketName, setBucketName] = useState("")
+  const [bucketType, setBucketType] = useState<BucketDraftType>("expenses")
   const [drafts, setDrafts] = useState<CategoryDraft[]>([newDraft()])
   const [baseline, setBaseline] = useState("")
   const [confirmOpen, setConfirmOpen] = useState(false)
@@ -139,27 +139,32 @@ export function AddBucketDialog({
     if (!open) return
     if (bucket) {
       const nextDrafts = bucketToDrafts(bucket)
+      const nextType = kindToDraftType(bucket.kind)
       setBucketName(bucket.name)
+      setBucketType(nextType)
       setDrafts(nextDrafts)
-      setBaseline(snapshotKey(bucket.name, nextDrafts))
+      setBaseline(snapshotKey(bucket.name, nextType, nextDrafts))
     } else {
       const nextDrafts = [newDraft()]
       setBucketName("")
+      setBucketType("expenses")
       setDrafts(nextDrafts)
-      setBaseline(snapshotKey("", nextDrafts))
+      setBaseline(snapshotKey("", "expenses", nextDrafts))
     }
     setConfirmOpen(false)
   }, [open, bucket])
 
   const dirty = useMemo(
-    () => snapshotKey(bucketName, drafts) !== baseline,
-    [bucketName, drafts, baseline],
+    () => snapshotKey(bucketName, bucketType, drafts) !== baseline,
+    [bucketName, bucketType, drafts, baseline],
   )
 
   const canSubmit =
     dirty &&
     bucketName.trim() !== "" &&
     drafts.some((d) => d.name.trim() !== "")
+
+  const showGoals = bucketType === "savings"
 
   function closeClean() {
     setConfirmOpen(false)
@@ -177,7 +182,7 @@ export function AddBucketDialog({
   function handleSubmit() {
     if (!canSubmit) return
     const validDrafts = drafts.filter((d) => d.name.trim() !== "")
-    const next = draftsToBucket(bucketName, validDrafts, bucket)
+    const next = draftsToBucket(bucketName, bucketType, validDrafts, bucket)
     if (editing) onUpdate(next)
     else onAdd(next)
     closeClean()
@@ -193,7 +198,7 @@ export function AddBucketDialog({
         }}
       >
         <DialogContent
-          className="sm:max-w-xl"
+          className="gap-5 p-6 sm:max-w-xl"
           showCloseButton={false}
           onInteractOutside={(e) => {
             e.preventDefault()
@@ -213,32 +218,67 @@ export function AddBucketDialog({
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="bucket-name">Bucket name</Label>
-              <Input
-                id="bucket-name"
-                value={bucketName}
-                onChange={(e) => setBucketName(e.target.value)}
-                placeholder="e.g. Bills"
-                autoFocus
-              />
+          <div className="space-y-5">
+            <div className="grid grid-cols-[1fr_140px] items-end gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="bucket-name">Bucket name</Label>
+                <Input
+                  id="bucket-name"
+                  className={fieldH}
+                  value={bucketName}
+                  onChange={(e) => setBucketName(e.target.value)}
+                  placeholder="e.g. Bills"
+                  autoFocus
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="bucket-type">Type</Label>
+                <Select
+                  value={bucketType}
+                  onValueChange={(value) =>
+                    setBucketType(value as BucketDraftType)
+                  }
+                >
+                  <SelectTrigger
+                    id="bucket-type"
+                    size="default"
+                    className={`w-full ${fieldH}`}
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="expenses">Expenses</SelectItem>
+                    <SelectItem value="savings">Savings</SelectItem>
+                    <SelectItem value="income">Income</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             <div className="space-y-2">
-              <div className="grid grid-cols-[1fr_120px_88px_36px] gap-2 px-0.5 text-xs font-medium text-muted-foreground">
+              <div
+                className={
+                  showGoals
+                    ? "grid grid-cols-[1fr_88px_36px] gap-2 px-0.5 text-xs font-medium text-muted-foreground"
+                    : "grid grid-cols-[1fr_36px] gap-2 px-0.5 text-xs font-medium text-muted-foreground"
+                }
+              >
                 <span>Category</span>
-                <span>Type</span>
-                <span>Goal</span>
+                {showGoals ? <span>Goal</span> : null}
                 <span />
               </div>
 
               {drafts.map((draft) => (
                 <div
                   key={draft.id}
-                  className="grid grid-cols-[1fr_120px_88px_36px] items-center gap-2"
+                  className={
+                    showGoals
+                      ? "grid grid-cols-[1fr_88px_36px] items-center gap-2"
+                      : "grid grid-cols-[1fr_36px] items-center gap-2"
+                  }
                 >
                   <Input
+                    className={fieldH}
                     value={draft.name}
                     onChange={(e) =>
                       setDrafts((prev) =>
@@ -249,29 +289,9 @@ export function AddBucketDialog({
                     }
                     placeholder="Category name"
                   />
-                  <Select
-                    value={draft.type}
-                    onValueChange={(value) =>
-                      setDrafts((prev) =>
-                        prev.map((d) =>
-                          d.id === draft.id
-                            ? { ...d, type: value as CategoryDraftType }
-                            : d,
-                        ),
-                      )
-                    }
-                  >
-                    <SelectTrigger size="default" className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="expenses">Expenses</SelectItem>
-                      <SelectItem value="savings">Savings</SelectItem>
-                      <SelectItem value="income">Income</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  {draft.type === "savings" ? (
+                  {showGoals ? (
                     <Input
+                      className={`${fieldH} text-right tabular-nums`}
                       value={draft.goal}
                       onChange={(e) =>
                         setDrafts((prev) =>
@@ -284,11 +304,8 @@ export function AddBucketDialog({
                       }
                       placeholder="0"
                       inputMode="numeric"
-                      className="text-right tabular-nums"
                     />
-                  ) : (
-                    <div />
-                  )}
+                  ) : null}
                   <Button
                     type="button"
                     variant="ghost"
@@ -310,12 +327,7 @@ export function AddBucketDialog({
                 variant="outline"
                 size="sm"
                 className="gap-1"
-                onClick={() =>
-                  setDrafts((prev) => [
-                    ...prev,
-                    newDraft(editing ? kindToDraftType(bucket!.kind) : "expenses"),
-                  ])
-                }
+                onClick={() => setDrafts((prev) => [...prev, newDraft()])}
               >
                 <Plus className="size-3.5" />
                 Add category
@@ -323,11 +335,16 @@ export function AddBucketDialog({
             </div>
           </div>
 
-          <DialogFooter className="sm:justify-between">
+          <DialogFooter className="-mx-6 -mb-6 p-6 sm:justify-between">
             <Button type="button" variant="outline" onClick={requestClose}>
               Cancel
             </Button>
-            <Button type="button" disabled={!canSubmit} onClick={handleSubmit}>
+            <Button
+              type="button"
+              disabled={!canSubmit}
+              onClick={handleSubmit}
+              className="disabled:border-transparent disabled:bg-muted/60 disabled:text-muted-foreground/40 disabled:opacity-100"
+            >
               {editing ? "Update" : "Add"}
             </Button>
           </DialogFooter>
@@ -335,7 +352,7 @@ export function AddBucketDialog({
       </Dialog>
 
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <DialogContent className="sm:max-w-sm" showCloseButton={false}>
+        <DialogContent className="p-6 sm:max-w-sm" showCloseButton={false}>
           <DialogHeader>
             <DialogTitle>Discard changes?</DialogTitle>
             <DialogDescription>
@@ -343,7 +360,7 @@ export function AddBucketDialog({
               lost.
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter className="sm:justify-between">
+          <DialogFooter className="-mx-6 -mb-6 p-6 sm:justify-between">
             <Button
               type="button"
               variant="outline"
