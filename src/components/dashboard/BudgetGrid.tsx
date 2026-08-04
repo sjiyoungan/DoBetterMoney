@@ -15,6 +15,9 @@ type Props = {
 
 const PAY_COL_PX = 128
 const STICKY_WIDTH_PX = 112 + 192 + 96 + 96
+const OUTER = "border-neutral-500 dark:border-neutral-400"
+/** Continuous black rule under every header cell (incl. date cols) */
+const HEADER_RULE = "shadow-[inset_0_-2px_0_0_#171717] dark:shadow-[inset_0_-2px_0_0_#f5f5f5]"
 
 export function BudgetGrid({
   buckets,
@@ -89,32 +92,40 @@ export function BudgetGrid({
             />
           ) : null}
 
-          <div className="rounded-lg border border-neutral-500 dark:border-neutral-400">
           <table className="border-separate border-spacing-0 text-sm">
             <thead>
               <tr>
                 <th
                   className={cn(
-                    "sticky left-0 z-30 w-28 min-w-28 border-b-2 border-b-neutral-900 border-l-0 border-t-0 bg-white px-2 py-3 text-left font-medium dark:bg-background",
+                    "sticky left-0 z-30 w-28 min-w-28 bg-white px-2 py-3 dark:bg-background",
+                    "rounded-tl-lg border-l border-t",
+                    OUTER,
+                    HEADER_RULE,
                   )}
                 />
                 <th
                   className={cn(
-                    "sticky left-[7rem] z-30 w-48 min-w-48 border-b-2 border-b-neutral-900 border-r border-r-border/70 border-t-0 bg-white px-4 py-3 text-left font-medium dark:bg-background",
+                    "sticky left-[7rem] z-30 w-48 min-w-48 border-r border-r-border/70 border-t bg-white px-4 py-3 text-left font-medium dark:bg-background",
+                    OUTER,
+                    HEADER_RULE,
                   )}
                 >
                   Category
                 </th>
                 <th
                   className={cn(
-                    "sticky left-[19rem] z-30 w-24 min-w-24 border-b-2 border-b-neutral-900 border-r border-r-border/70 border-t-0 bg-white px-3 py-3 text-right font-medium dark:bg-background",
+                    "sticky left-[19rem] z-30 w-24 min-w-24 border-r border-r-border/70 border-t bg-white px-3 py-3 text-right font-medium dark:bg-background",
+                    OUTER,
+                    HEADER_RULE,
                   )}
                 >
                   Goal
                 </th>
                 <th
                   className={cn(
-                    "sticky left-[25rem] z-30 w-24 min-w-24 border-b-2 border-b-neutral-900 border-r border-r-border/70 border-t-0 bg-white px-3 py-3 text-right font-medium shadow-[2px_0_0_0_var(--border)] dark:bg-background",
+                    "sticky left-[25rem] z-30 w-24 min-w-24 border-r border-r-border/70 border-t bg-white px-3 py-3 text-right font-medium shadow-[2px_0_0_0_var(--border)] dark:bg-background",
+                    OUTER,
+                    HEADER_RULE,
                   )}
                 >
                   Balance
@@ -126,9 +137,11 @@ export function BudgetGrid({
                     <th
                       key={p.id}
                       className={cn(
-                        "w-32 min-w-32 border-b-2 border-b-neutral-900 border-t-0 px-2 py-3 text-center font-medium",
-                        !isLast && "border-r border-border/70",
-                        isLast && "border-r-0",
+                        "w-32 min-w-32 border-t px-2 py-3 text-center font-medium",
+                        OUTER,
+                        HEADER_RULE,
+                        !isLast && "border-r border-r-border/70",
+                        isLast && cn("rounded-tr-lg border-r", OUTER),
                         isUpcoming
                           ? "bg-sky-100 text-sky-950"
                           : p.completed
@@ -155,9 +168,9 @@ export function BudgetGrid({
                   const showBucketDivider = isFirstRow && bucketIndex > 0
                   const showRowDivider = !isLastRow
 
-                  const upcomingIdx = upcomingIndex
                   const isPastCol = (p: Paycheck, idx: number) =>
-                    p.completed || (upcomingIdx >= 0 && idx < upcomingIdx)
+                    p.completed ||
+                    (upcomingIndex >= 0 && idx < upcomingIndex)
 
                   return (
                     <tr key={cat.id}>
@@ -165,10 +178,12 @@ export function BudgetGrid({
                         <td
                           rowSpan={bucket.categories.length}
                           className={cn(
-                            "sticky left-0 z-20 w-28 min-w-28 border-l-0 border-r border-r-border/70 bg-white px-2 text-center align-middle text-[11px] font-semibold uppercase tracking-wide text-muted-foreground dark:bg-background",
+                            "sticky left-0 z-20 w-28 min-w-28 border-l border-r border-r-border/70 bg-white px-2 text-center align-middle text-[11px] font-semibold uppercase tracking-wide text-muted-foreground dark:bg-background",
+                            OUTER,
                             showBucketDivider &&
                               "border-t-2 border-t-neutral-900",
-                            isLastBucket && "border-b-0",
+                            isLastBucket &&
+                              cn("rounded-bl-lg border-b", OUTER),
                           )}
                         >
                           {bucket.name}
@@ -180,7 +195,7 @@ export function BudgetGrid({
                           "sticky left-[7rem] z-20 w-48 min-w-48 border-r border-r-border/70 bg-white px-4 dark:bg-background",
                           showBucketDivider && "border-t-2 border-t-neutral-900",
                           showRowDivider && "border-b border-b-border/60",
-                          isVeryLast && "border-b-0",
+                          isVeryLast && cn("border-b", OUTER),
                         )}
                       >
                         <button
@@ -197,7 +212,7 @@ export function BudgetGrid({
                           "sticky left-[19rem] z-20 w-24 min-w-24 border-r border-r-border/70 bg-white px-3 text-right tabular-nums text-muted-foreground dark:bg-background",
                           showBucketDivider && "border-t-2 border-t-neutral-900",
                           showRowDivider && "border-b border-b-border/60",
-                          isVeryLast && "border-b-0",
+                          isVeryLast && cn("border-b", OUTER),
                         )}
                       >
                         {bucket.kind === "savings" ? formatMoney(cat.goal) : ""}
@@ -208,7 +223,7 @@ export function BudgetGrid({
                           "sticky left-[25rem] z-20 w-24 min-w-24 border-r border-r-border/70 bg-white px-3 text-right tabular-nums text-muted-foreground shadow-[2px_0_0_0_var(--border)] dark:bg-background",
                           showBucketDivider && "border-t-2 border-t-neutral-900",
                           showRowDivider && "border-b border-b-border/60",
-                          isVeryLast && "border-b-0",
+                          isVeryLast && cn("border-b", OUTER),
                         )}
                       >
                         {bucket.kind === "savings"
@@ -240,11 +255,12 @@ export function BudgetGrid({
                             className={cn(
                               "w-32 min-w-32 bg-white px-1 dark:bg-background",
                               !isLastCol && "border-r border-border/70",
-                              isLastCol && "border-r-0",
+                              isLastCol && cn("border-r", OUTER),
                               showBucketDivider &&
                                 "border-t-2 border-t-neutral-900",
                               showRowDivider && "border-b border-b-border/60",
-                              isVeryLast && "border-b-0",
+                              isVeryLast && cn("border-b", OUTER),
+                              isVeryLast && isLastCol && "rounded-br-lg",
                               cellGray && "bg-neutral-100 dark:bg-neutral-900",
                             )}
                           >
@@ -270,7 +286,6 @@ export function BudgetGrid({
               </tbody>
             ))}
           </table>
-          </div>
         </div>
       </div>
 
@@ -303,25 +318,26 @@ function AmountCell({
 }) {
   return (
     <div className="group flex h-9 items-center justify-end">
-      <span className="select-none text-sm leading-none text-neutral-300">
-        $
+      {/* $ glued to digits — left-aligned pair so no gap from right-aligned input */}
+      <span className="inline-flex items-center text-sm tabular-nums">
+        <span className="select-none text-neutral-300">$</span>
+        <input
+          className={cn(
+            "h-7 w-[3.25rem] rounded-md border border-transparent bg-transparent p-0 text-left text-sm tabular-nums outline-none",
+            "hover:border-input focus:border-ring focus:ring-2 focus:ring-ring/30",
+          )}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          inputMode="numeric"
+        />
       </span>
-      <input
-        className={cn(
-          "h-7 w-[3.5rem] rounded-md border border-transparent bg-transparent py-0 pl-0 pr-0.5 text-right text-sm tabular-nums outline-none",
-          "hover:border-input focus:border-ring focus:ring-2 focus:ring-ring/30",
-        )}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        inputMode="numeric"
-      />
       {canMarkDone ? (
         <button
           type="button"
           onClick={onToggleDone}
           title={done ? "Mark not moved" : "Mark moved"}
           className={cn(
-            "ml-0.5 inline-flex size-4 items-center justify-center text-neutral-400 transition-opacity",
+            "ml-0.5 inline-flex size-4 shrink-0 items-center justify-center text-neutral-400 transition-opacity",
             "opacity-0 group-hover:opacity-100 focus-visible:opacity-100",
             done && "opacity-100",
           )}
@@ -329,7 +345,7 @@ function AmountCell({
           <Check className="size-3" strokeWidth={2.5} />
         </button>
       ) : (
-        <span className="ml-0.5 size-4" aria-hidden />
+        <span className="ml-0.5 size-4 shrink-0" aria-hidden />
       )}
     </div>
   )

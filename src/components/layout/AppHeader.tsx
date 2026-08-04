@@ -10,7 +10,7 @@ type Props = {
 export function AppHeader({ user, onUserChange }: Props) {
   return (
     <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur">
-      <div className="flex items-center justify-between gap-3 px-4 py-3">
+      <div className="flex items-center justify-between gap-3 px-[60px] py-3">
         <p className="text-lg font-semibold tracking-tight">DoBetterMoney</p>
         <div className="flex flex-wrap items-center justify-end gap-2">
           <Button variant="outline" size="sm" disabled>
