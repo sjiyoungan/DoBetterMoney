@@ -1,12 +1,19 @@
 # DoBetterMoney
 
-Personal finance tools built with React, Tailwind CSS, and shadcn/ui.
+Paycheck-based envelope budgeting app (rough skeleton).
 
 ## Stack
 
-- **Vite** + **React** + **TypeScript**
-- **Tailwind CSS** v4
-- **shadcn/ui** (Radix + Nova preset)
+- Vite + React + TypeScript
+- Tailwind CSS v4
+- shadcn/ui
+
+## What's in the skeleton
+
+- **Liz view:** this-paycheck allocation, multi-paycheck planning grid, savings snapshot
+- **Ji view:** transfer checklist (total / BoA / SoFi) + held balances
+- Mock data shaped like the Excel budget sheet
+- Local checkoffs + editable amounts (not persisted yet)
 
 ## Setup
 
@@ -15,8 +22,6 @@ npm install
 npm run dev
 ```
 
-## Add components
+## Deploy
 
-```bash
-npx shadcn@latest add [component]
-```
+https://do-better-money.vercel.app
