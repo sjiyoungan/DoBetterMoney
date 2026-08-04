@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -31,15 +31,18 @@ type CategoryDraft = {
 
 type Props = {
   open: boolean
+  /** When set, dialog edits this bucket instead of creating a new one */
+  bucket?: Bucket | null
   onOpenChange: (open: boolean) => void
   onAdd: (bucket: Bucket) => void
+  onUpdate: (bucket: Bucket) => void
 }
 
-function newDraft(): CategoryDraft {
+function newDraft(type: CategoryDraftType = "expenses"): CategoryDraft {
   return {
     id: crypto.randomUUID(),
     name: "",
-    type: "expenses",
+    type,
     goal: "",
   }
 }
@@ -50,7 +53,28 @@ function mapType(type: CategoryDraftType): BucketKind {
   return "spending"
 }
 
-function draftsToBucket(bucketName: string, drafts: CategoryDraft[]): Bucket {
+function kindToDraftType(kind: BucketKind): CategoryDraftType {
+  if (kind === "savings") return "savings"
+  if (kind === "income") return "income"
+  return "expenses"
+}
+
+function bucketToDrafts(bucket: Bucket): CategoryDraft[] {
+  const type = kindToDraftType(bucket.kind)
+  if (bucket.categories.length === 0) return [newDraft(type)]
+  return bucket.categories.map((cat) => ({
+    id: cat.id,
+    name: cat.name,
+    type,
+    goal: cat.goal === undefined ? "" : String(cat.goal),
+  }))
+}
+
+function draftsToBucket(
+  bucketName: string,
+  drafts: CategoryDraft[],
+  existing?: Bucket | null,
+): Bucket {
   const kinds = drafts.map((d) => mapType(d.type))
   const allSame = kinds.every((k) => k === kinds[0])
   const bucketKind: BucketKind = allSame ? kinds[0]! : "spending"
@@ -58,43 +82,88 @@ function draftsToBucket(bucketName: string, drafts: CategoryDraft[]): Bucket {
   const categories: Category[] = drafts.map((d) => {
     const kind = mapType(d.type)
     const goalNum = Number(d.goal.replace(/,/g, ""))
-    return {
-      id: crypto.randomUUID(),
+    const prev = existing?.categories.find((c) => c.id === d.id)
+    const base: Category = {
+      id: prev?.id ?? crypto.randomUUID(),
       name: d.name.trim(),
-      allocations: {},
-      ...(kind === "savings"
-        ? {
-            goal: Number.isFinite(goalNum) && d.goal.trim() !== "" ? goalNum : 0,
-            balance: 0,
-          }
-        : {}),
+      allocations: prev?.allocations ?? {},
     }
+    if (kind === "savings") {
+      return {
+        ...base,
+        goal:
+          Number.isFinite(goalNum) && d.goal.trim() !== ""
+            ? goalNum
+            : (prev?.goal ?? 0),
+        balance: prev?.balance ?? 0,
+      }
+    }
+    return base
   })
 
   return {
-    id: crypto.randomUUID(),
+    id: existing?.id ?? crypto.randomUUID(),
     name: bucketName.trim(),
     kind: bucketKind,
+    note: existing?.note,
     categories,
   }
 }
 
-export function AddBucketDialog({ open, onOpenChange, onAdd }: Props) {
+function snapshotKey(name: string, drafts: CategoryDraft[]) {
+  return JSON.stringify({
+    name: name.trim(),
+    drafts: drafts.map((d) => ({
+      id: d.id,
+      name: d.name.trim(),
+      type: d.type,
+      goal: d.goal.trim(),
+    })),
+  })
+}
+
+export function AddBucketDialog({
+  open,
+  bucket = null,
+  onOpenChange,
+  onAdd,
+  onUpdate,
+}: Props) {
+  const editing = !!bucket
   const [bucketName, setBucketName] = useState("")
   const [drafts, setDrafts] = useState<CategoryDraft[]>([newDraft()])
+  const [baseline, setBaseline] = useState("")
   const [confirmOpen, setConfirmOpen] = useState(false)
 
-  const dirty = useMemo(() => {
-    if (bucketName.trim() !== "") return true
-    return drafts.some(
-      (d) => d.name.trim() !== "" || d.goal.trim() !== "" || d.type !== "expenses",
-    )
-  }, [bucketName, drafts])
-
-  function reset() {
-    setBucketName("")
-    setDrafts([newDraft()])
+  useEffect(() => {
+    if (!open) return
+    if (bucket) {
+      const nextDrafts = bucketToDrafts(bucket)
+      setBucketName(bucket.name)
+      setDrafts(nextDrafts)
+      setBaseline(snapshotKey(bucket.name, nextDrafts))
+    } else {
+      const nextDrafts = [newDraft()]
+      setBucketName("")
+      setDrafts(nextDrafts)
+      setBaseline(snapshotKey("", nextDrafts))
+    }
     setConfirmOpen(false)
+  }, [open, bucket])
+
+  const dirty = useMemo(
+    () => snapshotKey(bucketName, drafts) !== baseline,
+    [bucketName, drafts, baseline],
+  )
+
+  const canSubmit =
+    dirty &&
+    bucketName.trim() !== "" &&
+    drafts.some((d) => d.name.trim() !== "")
+
+  function closeClean() {
+    setConfirmOpen(false)
+    onOpenChange(false)
   }
 
   function requestClose() {
@@ -102,26 +171,17 @@ export function AddBucketDialog({ open, onOpenChange, onAdd }: Props) {
       setConfirmOpen(true)
       return
     }
-    reset()
-    onOpenChange(false)
+    closeClean()
   }
 
-  function confirmDiscard() {
-    reset()
-    onOpenChange(false)
-  }
-
-  function handleAdd() {
-    const name = bucketName.trim()
+  function handleSubmit() {
+    if (!canSubmit) return
     const validDrafts = drafts.filter((d) => d.name.trim() !== "")
-    if (!name || validDrafts.length === 0) return
-    onAdd(draftsToBucket(name, validDrafts))
-    reset()
-    onOpenChange(false)
+    const next = draftsToBucket(bucketName, validDrafts, bucket)
+    if (editing) onUpdate(next)
+    else onAdd(next)
+    closeClean()
   }
-
-  const canSubmit =
-    bucketName.trim() !== "" && drafts.some((d) => d.name.trim() !== "")
 
   return (
     <>
@@ -145,9 +205,11 @@ export function AddBucketDialog({ open, onOpenChange, onAdd }: Props) {
           }}
         >
           <DialogHeader>
-            <DialogTitle>Add Bucket</DialogTitle>
+            <DialogTitle>{editing ? "Edit Bucket" : "Add Bucket"}</DialogTitle>
             <DialogDescription>
-              Name the bucket, then add one or more categories.
+              {editing
+                ? "Update the bucket name and categories."
+                : "Name the bucket, then add one or more categories."}
             </DialogDescription>
           </DialogHeader>
 
@@ -248,7 +310,12 @@ export function AddBucketDialog({ open, onOpenChange, onAdd }: Props) {
                 variant="outline"
                 size="sm"
                 className="gap-1"
-                onClick={() => setDrafts((prev) => [...prev, newDraft()])}
+                onClick={() =>
+                  setDrafts((prev) => [
+                    ...prev,
+                    newDraft(editing ? kindToDraftType(bucket!.kind) : "expenses"),
+                  ])
+                }
               >
                 <Plus className="size-3.5" />
                 Add category
@@ -260,8 +327,8 @@ export function AddBucketDialog({ open, onOpenChange, onAdd }: Props) {
             <Button type="button" variant="outline" onClick={requestClose}>
               Cancel
             </Button>
-            <Button type="button" disabled={!canSubmit} onClick={handleAdd}>
-              Add
+            <Button type="button" disabled={!canSubmit} onClick={handleSubmit}>
+              {editing ? "Update" : "Add"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -284,7 +351,7 @@ export function AddBucketDialog({ open, onOpenChange, onAdd }: Props) {
             >
               Keep editing
             </Button>
-            <Button type="button" variant="destructive" onClick={confirmDiscard}>
+            <Button type="button" variant="destructive" onClick={closeClean}>
               Discard
             </Button>
           </DialogFooter>

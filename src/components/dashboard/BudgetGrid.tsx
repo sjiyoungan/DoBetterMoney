@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { Check } from "lucide-react"
 import { AddBucketDialog } from "@/components/dashboard/AddBucketDialog"
-import { AddCategoryDialog } from "@/components/dashboard/AddCategoryDialog"
 import { CategoryDrawer } from "@/components/dashboard/CategoryDrawer"
 import { Button } from "@/components/ui/button"
 import { allocationKey, formatPayDate } from "@/lib/format"
@@ -20,7 +19,7 @@ type Props = {
     value: string,
   ) => void
   onAddBucket: (bucket: Bucket) => void
-  onAddCategory: (bucketId: string, name: string) => void
+  onUpdateBucket: (bucket: Bucket) => void
 }
 
 const W = { bucket: 92, category: 168, goal: 96, balance: 96, pay: 128 } as const
@@ -52,7 +51,7 @@ export function BudgetGrid({
   onAmountChange,
   onCategoryFieldChange,
   onAddBucket,
-  onAddCategory,
+  onUpdateBucket,
 }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const leftTableRef = useRef<HTMLTableElement>(null)
@@ -63,10 +62,9 @@ export function BudgetGrid({
   const rightRowRefs = useRef(new Map<string, HTMLTableRowElement>())
 
   const [scrolled, setScrolled] = useState(false)
-  const [addBucketOpen, setAddBucketOpen] = useState(false)
-  const [addCategoryBucket, setAddCategoryBucket] = useState<Bucket | null>(
-    null,
-  )
+  const [bucketDialog, setBucketDialog] = useState<
+    { mode: "create" } | { mode: "edit"; bucket: Bucket } | null
+  >(null)
   const [selected, setSelected] = useState<{
     category: Category
     bucket: Bucket
@@ -221,7 +219,7 @@ export function BudgetGrid({
                       variant="outline"
                       size="sm"
                       className="h-7 w-full px-1 text-[11px]"
-                      onClick={() => setAddBucketOpen(true)}
+                      onClick={() => setBucketDialog({ mode: "create" })}
                     >
                       Add bucket
                     </Button>
@@ -277,8 +275,10 @@ export function BudgetGrid({
                           >
                             <button
                               type="button"
-                              title={`Add category to ${bucket.name}`}
-                              onClick={() => setAddCategoryBucket(bucket)}
+                              title={`Edit ${bucket.name}`}
+                              onClick={() =>
+                                setBucketDialog({ mode: "edit", bucket })
+                              }
                               className="absolute inset-0 flex items-center justify-center px-2 transition-colors hover:bg-neutral-100 hover:text-foreground"
                             >
                               {bucket.name}
@@ -490,21 +490,13 @@ export function BudgetGrid({
       </div>
 
       <AddBucketDialog
-        open={addBucketOpen}
-        onOpenChange={setAddBucketOpen}
-        onAdd={onAddBucket}
-      />
-
-      <AddCategoryDialog
-        open={!!addCategoryBucket}
-        bucketName={addCategoryBucket?.name ?? ""}
+        open={!!bucketDialog}
+        bucket={bucketDialog?.mode === "edit" ? bucketDialog.bucket : null}
         onOpenChange={(open) => {
-          if (!open) setAddCategoryBucket(null)
+          if (!open) setBucketDialog(null)
         }}
-        onAdd={(name) => {
-          if (!addCategoryBucket) return
-          onAddCategory(addCategoryBucket.id, name)
-        }}
+        onAdd={onAddBucket}
+        onUpdate={onUpdateBucket}
       />
 
       <CategoryDrawer

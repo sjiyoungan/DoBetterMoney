@@ -3,7 +3,7 @@ import { BudgetGrid } from "@/components/dashboard/BudgetGrid"
 import { HolderPanel } from "@/components/holder/HolderPanel"
 import { AppHeader } from "@/components/layout/AppHeader"
 import { mockWorkspace } from "@/data/mock"
-import type { Bucket, BudgetWorkspace, Category, UserRole } from "@/types/budget"
+import type { Bucket, BudgetWorkspace, UserRole } from "@/types/budget"
 
 export default function App() {
   const [user, setUser] = useState<UserRole>("liz")
@@ -75,22 +75,10 @@ export default function App() {
     }))
   }
 
-  function onAddCategory(bucketId: string, name: string) {
+  function onUpdateBucket(bucket: Bucket) {
     setWorkspace((prev) => ({
       ...prev,
-      buckets: prev.buckets.map((bucket) => {
-        if (bucket.id !== bucketId) return bucket
-        const category: Category = {
-          id: crypto.randomUUID(),
-          name,
-          allocations: {},
-          ...(bucket.kind === "savings" ? { goal: 0, balance: 0 } : {}),
-        }
-        return {
-          ...bucket,
-          categories: [...bucket.categories, category],
-        }
-      }),
+      buckets: prev.buckets.map((b) => (b.id === bucket.id ? bucket : b)),
     }))
   }
 
@@ -122,7 +110,7 @@ export default function App() {
             onAmountChange={onAmountChange}
             onCategoryFieldChange={onCategoryFieldChange}
             onAddBucket={onAddBucket}
-            onAddCategory={onAddCategory}
+            onUpdateBucket={onUpdateBucket}
           />
         ) : (
           <div className="mx-auto max-w-7xl space-y-4">
