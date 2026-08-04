@@ -33,9 +33,7 @@ export function BudgetGrid({
   onAmountChange,
 }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null)
-  const tableRef = useRef<HTMLTableElement>(null)
   const [scrolled, setScrolled] = useState(false)
-  const [tableHeight, setTableHeight] = useState(0)
   const [selected, setSelected] = useState<{
     category: Category
     bucket: Bucket
@@ -87,18 +85,9 @@ export function BudgetGrid({
     }
   }, [])
 
-  useEffect(() => {
-    const table = tableRef.current
-    if (!table) return
-    const update = () => setTableHeight(table.offsetHeight)
-    update()
-    const ro = new ResizeObserver(update)
-    ro.observe(table)
-    return () => ro.disconnect()
-  }, [orderedBuckets, paychecks])
-
-  // Black line when flush left; shadow handled by one overlay (not per-row)
-  const balanceEdge = scrolled ? "" : "border-r border-r-neutral-900"
+  const balanceEdge = scrolled
+    ? "shadow-[6px_0_10px_-4px_rgba(0,0,0,0.18)]"
+    : "border-r border-r-neutral-900"
 
   return (
     <div>
@@ -120,10 +109,7 @@ export function BudgetGrid({
             />
           ) : null}
 
-          <table
-            ref={tableRef}
-            className="border-separate border-spacing-0 text-sm"
-          >
+          <table className="border-separate border-spacing-0 text-sm">
             <colgroup>
               <col style={{ width: W.bucket }} />
               <col style={{ width: W.category }} />
@@ -163,24 +149,13 @@ export function BudgetGrid({
                 </th>
                 <th
                   className={cn(
-                    "sticky z-30 relative border-b-2 border-b-neutral-900 border-t border-t-neutral-500 px-3 py-3 text-right font-medium",
+                    "sticky z-30 border-b-2 border-b-neutral-900 border-t border-t-neutral-500 px-3 py-3 text-right font-medium",
                     stickyBg,
                     balanceEdge,
                   )}
                   style={{ left: LEFT.balance, width: W.balance, minWidth: W.balance }}
                 >
                   Balance
-                  {/* Single full-height shadow — stays with sticky Balance column */}
-                  {scrolled && tableHeight > 0 ? (
-                    <span
-                      aria-hidden
-                      className="pointer-events-none absolute top-0 right-0 z-30 w-0"
-                      style={{
-                        height: tableHeight,
-                        boxShadow: "6px 0 10px rgba(0,0,0,0.16)",
-                      }}
-                    />
-                  ) : null}
                 </th>
                 {paychecks.map((p, i) => {
                   const isUpcoming = p.id === currentPaycheckId
