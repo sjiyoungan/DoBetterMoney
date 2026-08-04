@@ -526,7 +526,8 @@ function AmountCell({
   onToggleDone: () => void
 }) {
   const [editing, setEditing] = useState(false)
-  const canCheck = showCheck || done
+  const hasAmount = value !== ""
+  const canCheck = hasAmount && (showCheck || done)
 
   return (
     <div className="group/cell flex h-9 items-center gap-1 px-1">
@@ -541,13 +542,13 @@ function AmountCell({
         title={done ? "Unmark" : "Mark moved"}
         className={cn(
           "inline-flex size-5 shrink-0 items-center justify-center rounded-sm border transition-colors",
-          done
-            ? "border-neutral-200 bg-neutral-100 text-neutral-400"
-            : "border-transparent text-neutral-300 opacity-0 group-hover/cell:opacity-100 group-hover/cell:border-neutral-300",
+          !canCheck && "pointer-events-none opacity-0",
+          canCheck &&
+            done &&
+            "border-neutral-200 bg-neutral-100 text-neutral-400 hover:border-neutral-300 hover:bg-neutral-200 hover:text-neutral-500",
           canCheck &&
             !done &&
-            "hover:border-neutral-400 hover:bg-neutral-50 hover:text-neutral-600",
-          !canCheck && "pointer-events-none opacity-0",
+            "border-transparent text-neutral-300 opacity-0 group-hover/cell:opacity-100 group-hover/cell:border-neutral-300 hover:border-neutral-400 hover:bg-neutral-50 hover:text-neutral-600",
         )}
       >
         <Check className="size-3" strokeWidth={2.5} />
@@ -573,7 +574,14 @@ function AmountCell({
             inputMode="numeric"
           />
         ) : value !== "" ? (
-          <span className="text-sm tabular-nums">${value}</span>
+          <span
+            className={cn(
+              "text-sm tabular-nums",
+              done && "text-muted-foreground",
+            )}
+          >
+            ${value}
+          </span>
         ) : null}
       </div>
     </div>
