@@ -61,7 +61,7 @@ export default function App() {
     <div className="min-h-svh bg-background text-foreground">
       <AppHeader user={user} onUserChange={setUser} />
 
-      <main className="px-4 py-4">
+      <main className="px-[60px] py-4">
         {user === "liz" ? (
           <BudgetGrid
             buckets={workspace.buckets}
