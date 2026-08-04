@@ -14,13 +14,13 @@ type Props = {
 }
 
 const PAY_COL_PX = 128
+const STICKY_WIDTH_PX = 192 + 96 + 96 // cat + goal + balance
 const colBorder = "border-r border-border/70"
 const stickyCat = "sticky left-0 z-20 w-48 min-w-48"
 const stickyGoal = "sticky left-48 z-20 w-24 min-w-24"
 const stickyBal = "sticky left-72 z-20 w-24 min-w-24"
 const payCol = "w-32 min-w-32 shrink-0"
 const stickyFill = "bg-white dark:bg-background"
-const upcomingStroke = "border-x-2 border-sky-400 dark:border-sky-500"
 
 export function BudgetGrid({
   buckets,
@@ -81,7 +81,21 @@ export function BudgetGrid({
         ref={scrollRef}
         className="w-full overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
-        <div className="w-max min-w-full">
+        <div className="relative w-max min-w-full py-1">
+          {/* One continuous upcoming column outline (no per-row strokes) */}
+          {upcomingIndex >= 0 ? (
+            <div
+              aria-hidden
+              className="pointer-events-none absolute z-[15] rounded border-2 border-sky-400 dark:border-sky-500"
+              style={{
+                left: STICKY_WIDTH_PX + upcomingIndex * PAY_COL_PX,
+                top: -4,
+                bottom: -4,
+                width: PAY_COL_PX,
+              }}
+            />
+          ) : null}
+
           <HeaderCard
             paychecks={paychecks}
             currentPaycheckId={currentPaycheckId}
@@ -167,13 +181,14 @@ function HeaderCard({
             key={p.id}
             className={cn(
               payCol,
-              "border-y border-border bg-white px-3 py-3 text-right text-sm font-medium text-muted-foreground dark:bg-background",
-              !isLast && !isUpcoming && colBorder,
+              "border-y border-border px-3 py-3 text-center text-sm font-medium",
+              !isLast && colBorder,
               isLast && "rounded-r-xl border-r border-border",
-              isUpcoming && upcomingStroke,
-              p.completed &&
-                !isUpcoming &&
-                "bg-neutral-100 dark:bg-neutral-900",
+              isUpcoming
+                ? "bg-sky-100 text-sky-950 dark:bg-sky-950 dark:text-sky-50"
+                : p.completed
+                  ? "bg-neutral-100 text-muted-foreground dark:bg-neutral-900"
+                  : "bg-white text-muted-foreground dark:bg-background",
             )}
           >
             {formatPayDate(p.date)}
@@ -205,13 +220,12 @@ function BucketCard({
 }) {
   return (
     <div>
-      {/* Bucket label row — continues upcoming blue stroke through the gap */}
-      <div className="mb-2 flex items-end">
+      <div className="mb-2 flex">
         <div
           className={cn(
             stickyCat,
             stickyFill,
-            "z-20 px-1 text-[13px] font-medium uppercase tracking-wide text-muted-foreground",
+            "z-20 px-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground",
           )}
         >
           {bucket.name}
@@ -219,14 +233,7 @@ function BucketCard({
         <div className={cn(stickyGoal, stickyFill, "z-20")} />
         <div className={cn(stickyBal, stickyFill, "z-20")} />
         {paychecks.map((p) => (
-          <div
-            key={p.id}
-            className={cn(
-              payCol,
-              "h-5",
-              p.id === currentPaycheckId && upcomingStroke,
-            )}
-          />
+          <div key={p.id} className={payCol} />
         ))}
       </div>
 
@@ -244,8 +251,7 @@ function BucketCard({
                 colBorder,
                 isFirst && "rounded-tl-xl border-t border-border",
                 isLast && "rounded-bl-xl border-b border-border",
-                !isFirst && !isLast && "border-b border-border/60",
-                isFirst && !isLast && "border-b border-border/60",
+                !isLast && "border-b border-border/60",
               )}
             >
               <button
@@ -288,38 +294,38 @@ function BucketCard({
                 raw !== "" && raw !== undefined && Number(raw) !== 0
               const empty = !hasAmount
               const isUpcoming = p.id === currentPaycheckId
-              const isFuture = !p.completed && p.id !== currentPaycheckId
               const manuallyDone = doneKeys.has(key)
               const pastDone = p.completed
               const isLastCol = i === paychecks.length - 1
 
-              // Upcoming: always white. Future empty → gray. Past empty/done → gray.
-              const isGray = isUpcoming
-                ? false
-                : isFuture
-                  ? empty
-                  : empty || pastDone || manuallyDone
+              const upcomingIdx = currentPaycheckId
+                ? paychecks.findIndex((x) => x.id === currentPaycheckId)
+                : -1
+              const thisIdx = paychecks.findIndex((x) => x.id === p.id)
+              const isPast =
+                p.completed || (upcomingIdx >= 0 && thisIdx < upcomingIdx)
+
+              // Only past columns get gray empties / done. Future + upcoming stay white.
+              const cellGray =
+                isPast && (empty || manuallyDone || p.completed)
 
               const canMarkDone =
-                hasAmount && (p.date <= today || p.id === currentPaycheckId)
+                hasAmount && (p.date <= today || isUpcoming)
 
               return (
                 <div
                   key={p.id}
                   className={cn(
                     payCol,
-                    "flex h-9 items-center justify-end px-1",
-                    !isLastCol && !isUpcoming && colBorder,
+                    "flex h-9 items-center justify-end bg-white px-1 dark:bg-background",
+                    !isLastCol && colBorder,
                     isLastCol && "border-r border-border",
                     isFirst && "border-t border-border",
                     isLast && "border-b border-border",
                     !isLast && "border-b border-border/60",
                     isFirst && isLastCol && "rounded-tr-xl",
                     isLast && isLastCol && "rounded-br-xl",
-                    isUpcoming && upcomingStroke,
-                    isGray
-                      ? "bg-neutral-100 dark:bg-neutral-900"
-                      : "bg-white dark:bg-background",
+                    cellGray && "bg-neutral-100 dark:bg-neutral-900",
                   )}
                 >
                   <AmountCell
@@ -371,7 +377,7 @@ function AmountCell({
           className={cn(
             "inline-flex size-4 items-center justify-center text-neutral-400 transition-opacity",
             "opacity-0 group-hover:opacity-100 focus-visible:opacity-100",
-            done && "opacity-100 text-neutral-400",
+            done && "opacity-100",
           )}
         >
           <Check className="size-3" strokeWidth={2.5} />
