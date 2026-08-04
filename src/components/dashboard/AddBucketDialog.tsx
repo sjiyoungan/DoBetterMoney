@@ -283,7 +283,6 @@ function DueDayInput({
             if (e.key === "Enter") (e.target as HTMLInputElement).blur()
           }}
           inputMode="numeric"
-          placeholder="7"
         />
       ) : n !== null ? (
         <span className="inline-flex items-baseline text-sm tabular-nums text-foreground">
@@ -401,13 +400,21 @@ export function AddBucketDialog({
       <Dialog
         open={open}
         onOpenChange={(next) => {
-          if (!next) requestClose()
-          else onOpenChange(true)
+          if (next) {
+            onOpenChange(true)
+            return
+          }
+          // Keep dialog open until discard is confirmed when dirty
+          requestClose()
         }}
       >
         <DialogContent
           className="w-max max-w-[calc(100%-2rem)] gap-5 p-6 sm:max-w-none"
           showCloseButton={false}
+          onPointerDownOutside={(e) => {
+            e.preventDefault()
+            requestClose()
+          }}
           onInteractOutside={(e) => {
             e.preventDefault()
             requestClose()
@@ -417,11 +424,11 @@ export function AddBucketDialog({
             requestClose()
           }}
         >
-          {/* Title pulled left 4px to cancel hover-box padding; type 8px under name */}
-          <div className="-ml-1 space-y-0">
+          {/* Header: B / E share the same left edge as Category + input boxes */}
+          <div>
             <div
               className={cn(
-                "rounded-md border border-transparent px-1 py-0.5",
+                "-mx-px rounded-md border border-transparent px-px py-0.5",
                 "hover:border-input focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/30",
               )}
               onClick={() => setEditingName(true)}
@@ -429,7 +436,7 @@ export function AddBucketDialog({
               {editingName ? (
                 <input
                   autoFocus
-                  className="w-full bg-transparent text-xl font-semibold tracking-tight text-foreground outline-none"
+                  className="w-full bg-transparent text-2xl font-semibold tracking-tight text-foreground outline-none"
                   value={bucketName}
                   onChange={(e) => setBucketName(e.target.value)}
                   onBlur={() => setEditingName(false)}
@@ -439,7 +446,7 @@ export function AddBucketDialog({
                   placeholder={editing ? "Bucket name" : "New bucket"}
                 />
               ) : (
-                <h2 className="cursor-text text-xl font-semibold tracking-tight text-foreground">
+                <h2 className="cursor-text text-2xl font-semibold tracking-tight text-foreground">
                   {bucketName.trim() !== ""
                     ? bucketName
                     : editing
@@ -460,15 +467,19 @@ export function AddBucketDialog({
               <SelectTrigger
                 size="default"
                 className={cn(
-                  "mt-0 h-auto w-fit gap-1 border-transparent bg-transparent px-1 py-0 text-sm font-normal text-muted-foreground shadow-none",
-                  "hover:border-input hover:bg-transparent data-[state=open]:border-input",
-                  "focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30",
+                  "mt-0 h-auto w-fit gap-1 border-0 bg-transparent px-0 py-0 text-sm font-normal text-muted-foreground shadow-none",
+                  "hover:bg-transparent hover:text-foreground",
+                  "focus-visible:ring-0 focus-visible:outline-none",
                   "data-[size=default]:h-auto [&_svg]:size-3.5 [&_svg]:opacity-0 hover:[&_svg]:opacity-100 data-[state=open]:[&_svg]:opacity-100",
                 )}
               >
                 <SelectValue>{TYPE_LABEL[bucketType]}</SelectValue>
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent
+                position="popper"
+                align="start"
+                className="min-w-0 w-[var(--radix-select-trigger-width)]"
+              >
                 <SelectItem value="expenses">Expenses</SelectItem>
                 <SelectItem value="savings">Savings</SelectItem>
                 <SelectItem value="income">Income</SelectItem>
@@ -476,12 +487,11 @@ export function AddBucketDialog({
             </Select>
           </div>
 
-          {/* +4px left so category labels align with title text */}
-          <div className="space-y-2 pl-1">
+          <div className="space-y-2">
             {bucketType === "savings" ? (
               <div
                 className={cn(
-                  "grid gap-2 px-0.5 text-xs font-medium text-muted-foreground",
+                  "grid gap-2 text-xs font-medium text-muted-foreground",
                   COL_SAV,
                 )}
               >
@@ -492,7 +502,7 @@ export function AddBucketDialog({
             ) : bucketType === "income" ? (
               <div
                 className={cn(
-                  "grid gap-2 px-0.5 text-xs font-medium text-muted-foreground",
+                  "grid gap-2 text-xs font-medium text-muted-foreground",
                   COL_INC,
                 )}
               >
@@ -505,7 +515,7 @@ export function AddBucketDialog({
             ) : (
               <div
                 className={cn(
-                  "grid gap-2 px-0.5 text-xs font-medium text-muted-foreground",
+                  "grid gap-2 text-xs font-medium text-muted-foreground",
                   COL_EXP,
                 )}
               >
@@ -518,12 +528,6 @@ export function AddBucketDialog({
             )}
 
             {drafts.map((draft) => {
-              const day = parseNum(draft.dueDay)
-              const dueHint =
-                day !== undefined && day >= 1 && day <= 31
-                  ? `${Math.round(day)}${ordinalSuffix(Math.round(day))} of every month`
-                  : null
-
               if (bucketType === "savings") {
                 return (
                   <div key={draft.id} className={cn("grid items-center gap-2", COL_SAV)}>
@@ -580,7 +584,11 @@ export function AddBucketDialog({
                       <SelectTrigger size="default" className={selectH}>
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent
+                        position="popper"
+                        align="start"
+                        className="min-w-0 w-[var(--radix-select-trigger-width)]"
+                      >
                         <SelectItem value="weekly">Weekly</SelectItem>
                         <SelectItem value="biweekly">Bi-weekly</SelectItem>
                         <SelectItem value="monthly">Monthly</SelectItem>
@@ -597,7 +605,11 @@ export function AddBucketDialog({
                       <SelectTrigger size="default" className={selectH}>
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent
+                        position="popper"
+                        align="start"
+                        className="min-w-0 w-[var(--radix-select-trigger-width)]"
+                      >
                         <SelectItem value="fixed">Fixed</SelectItem>
                         <SelectItem value="variable">Variable</SelectItem>
                       </SelectContent>
@@ -618,63 +630,54 @@ export function AddBucketDialog({
               }
 
               return (
-                <div key={draft.id} className="space-y-1">
-                  <div className={cn("grid items-center gap-2", COL_EXP)}>
-                    <Input
-                      className={fieldH}
-                      value={draft.name}
-                      onChange={(e) =>
-                        updateDraft(draft.id, { name: e.target.value })
-                      }
-                      placeholder="Category name"
-                    />
-                    <MoneyInput
-                      value={draft.amount}
-                      onChange={(v) => updateDraft(draft.id, { amount: v })}
-                    />
-                    <DueDayInput
-                      value={draft.dueDay}
-                      onChange={(v) => updateDraft(draft.id, { dueDay: v })}
-                    />
-                    <Select
-                      value={draft.variability}
-                      onValueChange={(value) =>
-                        updateDraft(draft.id, {
-                          variability: value as CategoryVariability,
-                        })
-                      }
+                <div key={draft.id} className={cn("grid items-center gap-2", COL_EXP)}>
+                  <Input
+                    className={fieldH}
+                    value={draft.name}
+                    onChange={(e) =>
+                      updateDraft(draft.id, { name: e.target.value })
+                    }
+                    placeholder="Category name"
+                  />
+                  <MoneyInput
+                    value={draft.amount}
+                    onChange={(v) => updateDraft(draft.id, { amount: v })}
+                  />
+                  <DueDayInput
+                    value={draft.dueDay}
+                    onChange={(v) => updateDraft(draft.id, { dueDay: v })}
+                  />
+                  <Select
+                    value={draft.variability}
+                    onValueChange={(value) =>
+                      updateDraft(draft.id, {
+                        variability: value as CategoryVariability,
+                      })
+                    }
+                  >
+                    <SelectTrigger size="default" className={selectH}>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent
+                      position="popper"
+                      align="start"
+                      className="min-w-0 w-[var(--radix-select-trigger-width)]"
                     >
-                      <SelectTrigger size="default" className={selectH}>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="fixed">Fixed</SelectItem>
-                        <SelectItem value="variable">Variable</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-sm"
-                      className="text-muted-foreground"
-                      disabled={drafts.length === 1}
-                      onClick={() => requestRemove(draft.id)}
-                      title="Remove category"
-                    >
-                      <Trash2 className="size-3.5" />
-                    </Button>
-                  </div>
-                  {dueHint ? (
-                    <div className={cn("grid gap-2", COL_EXP)}>
-                      <span />
-                      <span />
-                      <span className="text-[10px] leading-tight text-muted-foreground">
-                        {dueHint}
-                      </span>
-                      <span />
-                      <span />
-                    </div>
-                  ) : null}
+                      <SelectItem value="fixed">Fixed</SelectItem>
+                      <SelectItem value="variable">Variable</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    className="text-muted-foreground"
+                    disabled={drafts.length === 1}
+                    onClick={() => requestRemove(draft.id)}
+                    title="Remove category"
+                  >
+                    <Trash2 className="size-3.5" />
+                  </Button>
                 </div>
               )
             })}
@@ -690,11 +693,11 @@ export function AddBucketDialog({
             </Button>
           </div>
 
-          <DialogFooter className="-mx-6 -mb-6 px-6 py-4 sm:justify-end sm:gap-4">
+          <DialogFooter className="-mx-6 -mb-6 items-center px-6 py-4 sm:justify-end sm:gap-4">
             <Button
               type="button"
               variant="ghost"
-              className="text-muted-foreground hover:bg-transparent hover:text-foreground"
+              className="h-10 text-muted-foreground hover:bg-transparent hover:text-foreground"
               onClick={requestClose}
             >
               Cancel
