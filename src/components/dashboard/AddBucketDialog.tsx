@@ -18,19 +18,28 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import type { Bucket, BucketKind, Category } from "@/types/budget"
+import type {
+  Bucket,
+  BucketKind,
+  Category,
+  CategoryVariability,
+  PayFrequency,
+} from "@/types/budget"
 
 export type BucketDraftType = "expenses" | "savings" | "income"
 
 type CategoryDraft = {
   id: string
   name: string
+  amount: string
   goal: string
+  dueDay: string
+  frequency: PayFrequency
+  variability: CategoryVariability
 }
 
 type Props = {
   open: boolean
-  /** When set, dialog edits this bucket instead of creating a new one */
   bucket?: Bucket | null
   onOpenChange: (open: boolean) => void
   onAdd: (bucket: Bucket) => void
@@ -38,12 +47,17 @@ type Props = {
 }
 
 const fieldH = "h-10" // 40px
+const selectH = "h-10 w-full data-[size=default]:h-10"
 
 function newDraft(): CategoryDraft {
   return {
     id: crypto.randomUUID(),
     name: "",
+    amount: "",
     goal: "",
+    dueDay: "",
+    frequency: "biweekly",
+    variability: "fixed",
   }
 }
 
@@ -59,12 +73,44 @@ function kindToDraftType(kind: BucketKind): BucketDraftType {
   return "expenses"
 }
 
+function parseNum(value: string): number | undefined {
+  const trimmed = value.trim()
+  if (trimmed === "") return undefined
+  const n = Number(trimmed.replace(/,/g, ""))
+  return Number.isFinite(n) ? n : undefined
+}
+
+function ordinalDay(day: number): string {
+  const j = day % 10
+  const k = day % 100
+  if (j === 1 && k !== 11) return `${day}st`
+  if (j === 2 && k !== 12) return `${day}nd`
+  if (j === 3 && k !== 13) return `${day}rd`
+  return `${day}th`
+}
+
 function bucketToDrafts(bucket: Bucket): CategoryDraft[] {
   if (bucket.categories.length === 0) return [newDraft()]
   return bucket.categories.map((cat) => ({
     id: cat.id,
     name: cat.name,
+    amount:
+      cat.amount !== undefined
+        ? String(cat.amount)
+        : cat.recurringAmount !== undefined
+          ? String(cat.recurringAmount)
+          : cat.minPayment !== undefined
+            ? String(cat.minPayment)
+            : "",
     goal: cat.goal === undefined ? "" : String(cat.goal),
+    dueDay:
+      cat.dueDay !== undefined
+        ? String(cat.dueDay)
+        : cat.dueDate && /^\d+$/.test(cat.dueDate)
+          ? cat.dueDate
+          : "",
+    frequency: cat.frequency ?? "biweekly",
+    variability: cat.variability ?? "fixed",
   }))
 }
 
@@ -75,24 +121,44 @@ function draftsToBucket(
   existing?: Bucket | null,
 ): Bucket {
   const bucketKind = mapType(bucketType)
-  const isSavings = bucketKind === "savings"
 
   const categories: Category[] = drafts.map((d) => {
-    const goalNum = Number(d.goal.replace(/,/g, ""))
     const prev = existing?.categories.find((c) => c.id === d.id)
+    const amount = parseNum(d.amount)
+    const goal = parseNum(d.goal)
+    const dueDay = parseNum(d.dueDay)
+
     const base: Category = {
       id: prev?.id ?? crypto.randomUUID(),
       name: d.name.trim(),
       allocations: prev?.allocations ?? {},
+      variability: d.variability,
     }
-    if (!isSavings) return base
+
+    if (bucketKind === "savings") {
+      return {
+        ...base,
+        goal: goal ?? prev?.goal ?? 0,
+        balance: prev?.balance ?? 0,
+      }
+    }
+
+    if (bucketKind === "income") {
+      return {
+        ...base,
+        amount,
+        frequency: d.frequency,
+      }
+    }
+
+    // expenses
     return {
       ...base,
-      goal:
-        Number.isFinite(goalNum) && d.goal.trim() !== ""
-          ? goalNum
-          : (prev?.goal ?? 0),
-      balance: prev?.balance ?? 0,
+      amount,
+      dueDay:
+        dueDay !== undefined && dueDay >= 1 && dueDay <= 31
+          ? Math.round(dueDay)
+          : undefined,
     }
   })
 
@@ -116,9 +182,22 @@ function snapshotKey(
     drafts: drafts.map((d) => ({
       id: d.id,
       name: d.name.trim(),
+      amount: d.amount.trim(),
       goal: d.goal.trim(),
+      dueDay: d.dueDay.trim(),
+      frequency: d.frequency,
+      variability: d.variability,
     })),
   })
+}
+
+function draftHasData(d: CategoryDraft) {
+  return (
+    d.name.trim() !== "" ||
+    d.amount.trim() !== "" ||
+    d.goal.trim() !== "" ||
+    d.dueDay.trim() !== ""
+  )
 }
 
 export function AddBucketDialog({
@@ -134,6 +213,7 @@ export function AddBucketDialog({
   const [drafts, setDrafts] = useState<CategoryDraft[]>([newDraft()])
   const [baseline, setBaseline] = useState("")
   const [confirmOpen, setConfirmOpen] = useState(false)
+  const [removeId, setRemoveId] = useState<string | null>(null)
 
   useEffect(() => {
     if (!open) return
@@ -152,6 +232,7 @@ export function AddBucketDialog({
       setBaseline(snapshotKey("", "expenses", nextDrafts))
     }
     setConfirmOpen(false)
+    setRemoveId(null)
   }, [open, bucket])
 
   const dirty = useMemo(
@@ -164,10 +245,13 @@ export function AddBucketDialog({
     bucketName.trim() !== "" &&
     drafts.some((d) => d.name.trim() !== "")
 
-  const showGoals = bucketType === "savings"
+  const removeTarget = removeId
+    ? drafts.find((d) => d.id === removeId)
+    : undefined
 
   function closeClean() {
     setConfirmOpen(false)
+    setRemoveId(null)
     onOpenChange(false)
   }
 
@@ -179,6 +263,23 @@ export function AddBucketDialog({
     closeClean()
   }
 
+  function requestRemove(id: string) {
+    const draft = drafts.find((d) => d.id === id)
+    if (!draft) return
+    const existed = bucket?.categories.some((c) => c.id === id)
+    if (existed || draftHasData(draft)) {
+      setRemoveId(id)
+      return
+    }
+    setDrafts((prev) => prev.filter((d) => d.id !== id))
+  }
+
+  function confirmRemove() {
+    if (!removeId) return
+    setDrafts((prev) => prev.filter((d) => d.id !== removeId))
+    setRemoveId(null)
+  }
+
   function handleSubmit() {
     if (!canSubmit) return
     const validDrafts = drafts.filter((d) => d.name.trim() !== "")
@@ -186,6 +287,12 @@ export function AddBucketDialog({
     if (editing) onUpdate(next)
     else onAdd(next)
     closeClean()
+  }
+
+  function updateDraft(id: string, patch: Partial<CategoryDraft>) {
+    setDrafts((prev) =>
+      prev.map((d) => (d.id === id ? { ...d, ...patch } : d)),
+    )
   }
 
   return (
@@ -198,7 +305,7 @@ export function AddBucketDialog({
         }}
       >
         <DialogContent
-          className="gap-5 p-6 sm:max-w-xl"
+          className="gap-5 p-6 sm:max-w-3xl"
           showCloseButton={false}
           onInteractOutside={(e) => {
             e.preventDefault()
@@ -210,12 +317,9 @@ export function AddBucketDialog({
           }}
         >
           <DialogHeader>
-            <DialogTitle>{editing ? "Edit Bucket" : "Add Bucket"}</DialogTitle>
-            <DialogDescription>
-              {editing
-                ? "Update the bucket name and categories."
-                : "Name the bucket, then add one or more categories."}
-            </DialogDescription>
+            <DialogTitle className="text-xl font-semibold tracking-tight">
+              {editing ? "Edit bucket" : "Add bucket"}
+            </DialogTitle>
           </DialogHeader>
 
           <div className="space-y-5">
@@ -242,7 +346,7 @@ export function AddBucketDialog({
                   <SelectTrigger
                     id="bucket-type"
                     size="default"
-                    className="h-10 w-full data-[size=default]:h-10"
+                    className={selectH}
                   >
                     <SelectValue />
                   </SelectTrigger>
@@ -256,71 +360,219 @@ export function AddBucketDialog({
             </div>
 
             <div className="space-y-2">
-              <div
-                className={
-                  showGoals
-                    ? "grid grid-cols-[1fr_88px_36px] gap-2 px-0.5 text-xs font-medium text-muted-foreground"
-                    : "grid grid-cols-[1fr_36px] gap-2 px-0.5 text-xs font-medium text-muted-foreground"
-                }
-              >
-                <span>Category</span>
-                {showGoals ? <span>Goal</span> : null}
-                <span />
-              </div>
-
-              {drafts.map((draft) => (
-                <div
-                  key={draft.id}
-                  className={
-                    showGoals
-                      ? "grid grid-cols-[1fr_88px_36px] items-center gap-2"
-                      : "grid grid-cols-[1fr_36px] items-center gap-2"
-                  }
-                >
-                  <Input
-                    className={fieldH}
-                    value={draft.name}
-                    onChange={(e) =>
-                      setDrafts((prev) =>
-                        prev.map((d) =>
-                          d.id === draft.id ? { ...d, name: e.target.value } : d,
-                        ),
-                      )
-                    }
-                    placeholder="Category name"
-                  />
-                  {showGoals ? (
-                    <Input
-                      className={`${fieldH} text-right tabular-nums`}
-                      value={draft.goal}
-                      onChange={(e) =>
-                        setDrafts((prev) =>
-                          prev.map((d) =>
-                            d.id === draft.id
-                              ? { ...d, goal: e.target.value }
-                              : d,
-                          ),
-                        )
-                      }
-                      placeholder="0"
-                      inputMode="numeric"
-                    />
-                  ) : null}
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    className="text-muted-foreground"
-                    disabled={drafts.length === 1}
-                    onClick={() =>
-                      setDrafts((prev) => prev.filter((d) => d.id !== draft.id))
-                    }
-                    title="Remove category"
-                  >
-                    ×
-                  </Button>
+              {/* Column headers */}
+              {bucketType === "savings" ? (
+                <div className="grid grid-cols-[1fr_96px_36px] gap-2 px-0.5 text-xs font-medium text-muted-foreground">
+                  <span>Category</span>
+                  <span>Goal</span>
+                  <span />
                 </div>
-              ))}
+              ) : bucketType === "income" ? (
+                <div className="grid grid-cols-[1fr_96px_120px_110px_36px] gap-2 px-0.5 text-xs font-medium text-muted-foreground">
+                  <span>Category</span>
+                  <span>Income</span>
+                  <span>Frequency</span>
+                  <span>Type</span>
+                  <span />
+                </div>
+              ) : (
+                <div className="grid grid-cols-[1fr_96px_88px_110px_36px] gap-2 px-0.5 text-xs font-medium text-muted-foreground">
+                  <span>Category</span>
+                  <span>Payment</span>
+                  <span>Due day</span>
+                  <span>Type</span>
+                  <span />
+                </div>
+              )}
+
+              {drafts.map((draft) => {
+                const due = parseNum(draft.dueDay)
+                const dueLabel =
+                  due !== undefined && due >= 1 && due <= 31
+                    ? `${ordinalDay(Math.round(due))} of every month`
+                    : null
+
+                if (bucketType === "savings") {
+                  return (
+                    <div
+                      key={draft.id}
+                      className="grid grid-cols-[1fr_96px_36px] items-center gap-2"
+                    >
+                      <Input
+                        className={fieldH}
+                        value={draft.name}
+                        onChange={(e) =>
+                          updateDraft(draft.id, { name: e.target.value })
+                        }
+                        placeholder="Category name"
+                      />
+                      <Input
+                        className={`${fieldH} text-right tabular-nums`}
+                        value={draft.goal}
+                        onChange={(e) =>
+                          updateDraft(draft.id, { goal: e.target.value })
+                        }
+                        placeholder="0"
+                        inputMode="numeric"
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-sm"
+                        className="text-muted-foreground"
+                        disabled={drafts.length === 1}
+                        onClick={() => requestRemove(draft.id)}
+                        title="Remove category"
+                      >
+                        ×
+                      </Button>
+                    </div>
+                  )
+                }
+
+                if (bucketType === "income") {
+                  return (
+                    <div
+                      key={draft.id}
+                      className="grid grid-cols-[1fr_96px_120px_110px_36px] items-center gap-2"
+                    >
+                      <Input
+                        className={fieldH}
+                        value={draft.name}
+                        onChange={(e) =>
+                          updateDraft(draft.id, { name: e.target.value })
+                        }
+                        placeholder="Category name"
+                      />
+                      <Input
+                        className={`${fieldH} text-right tabular-nums`}
+                        value={draft.amount}
+                        onChange={(e) =>
+                          updateDraft(draft.id, { amount: e.target.value })
+                        }
+                        placeholder="0"
+                        inputMode="numeric"
+                      />
+                      <Select
+                        value={draft.frequency}
+                        onValueChange={(value) =>
+                          updateDraft(draft.id, {
+                            frequency: value as PayFrequency,
+                          })
+                        }
+                      >
+                        <SelectTrigger size="default" className={selectH}>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="weekly">Weekly</SelectItem>
+                          <SelectItem value="biweekly">Bi-weekly</SelectItem>
+                          <SelectItem value="monthly">Monthly</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Select
+                        value={draft.variability}
+                        onValueChange={(value) =>
+                          updateDraft(draft.id, {
+                            variability: value as CategoryVariability,
+                          })
+                        }
+                      >
+                        <SelectTrigger size="default" className={selectH}>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="fixed">Fixed</SelectItem>
+                          <SelectItem value="variable">Variable</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-sm"
+                        className="text-muted-foreground"
+                        disabled={drafts.length === 1}
+                        onClick={() => requestRemove(draft.id)}
+                        title="Remove category"
+                      >
+                        ×
+                      </Button>
+                    </div>
+                  )
+                }
+
+                // expenses
+                return (
+                  <div key={draft.id} className="space-y-1">
+                    <div className="grid grid-cols-[1fr_96px_88px_110px_36px] items-center gap-2">
+                      <Input
+                        className={fieldH}
+                        value={draft.name}
+                        onChange={(e) =>
+                          updateDraft(draft.id, { name: e.target.value })
+                        }
+                        placeholder="Category name"
+                      />
+                      <Input
+                        className={`${fieldH} text-right tabular-nums`}
+                        value={draft.amount}
+                        onChange={(e) =>
+                          updateDraft(draft.id, { amount: e.target.value })
+                        }
+                        placeholder="0"
+                        inputMode="numeric"
+                      />
+                      <Input
+                        className={`${fieldH} text-right tabular-nums`}
+                        value={draft.dueDay}
+                        onChange={(e) =>
+                          updateDraft(draft.id, { dueDay: e.target.value })
+                        }
+                        placeholder="7"
+                        inputMode="numeric"
+                      />
+                      <Select
+                        value={draft.variability}
+                        onValueChange={(value) =>
+                          updateDraft(draft.id, {
+                            variability: value as CategoryVariability,
+                          })
+                        }
+                      >
+                        <SelectTrigger size="default" className={selectH}>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="fixed">Fixed</SelectItem>
+                          <SelectItem value="variable">Variable</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-sm"
+                        className="text-muted-foreground"
+                        disabled={drafts.length === 1}
+                        onClick={() => requestRemove(draft.id)}
+                        title="Remove category"
+                      >
+                        ×
+                      </Button>
+                    </div>
+                    {dueLabel ? (
+                      <div className="grid grid-cols-[1fr_96px_88px_110px_36px] gap-2">
+                        <span />
+                        <span />
+                        <span className="text-xs text-muted-foreground">
+                          {dueLabel}
+                        </span>
+                        <span />
+                        <span />
+                      </div>
+                    ) : null}
+                  </div>
+                )
+              })}
 
               <Button
                 type="button"
@@ -370,6 +622,41 @@ export function AddBucketDialog({
             </Button>
             <Button type="button" variant="destructive" onClick={closeClean}>
               Discard
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={!!removeId}
+        onOpenChange={(open) => {
+          if (!open) setRemoveId(null)
+        }}
+      >
+        <DialogContent className="p-6 sm:max-w-sm" showCloseButton={false}>
+          <DialogHeader>
+            <DialogTitle>Remove category?</DialogTitle>
+            <DialogDescription>
+              {removeTarget?.name
+                ? `Removing “${removeTarget.name}” will delete its existing data from this bucket.`
+                : "Removing this category will delete its existing data from this bucket."}{" "}
+              This can’t be undone from here.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="-mx-6 -mb-6 p-6 sm:justify-between">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setRemoveId(null)}
+            >
+              Keep category
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={confirmRemove}
+            >
+              Remove
             </Button>
           </DialogFooter>
         </DialogContent>

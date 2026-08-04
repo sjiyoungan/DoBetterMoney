@@ -2,18 +2,28 @@ export type UserRole = "liz" | "ji"
 
 export type BucketKind = "spending" | "savings" | "holder" | "income"
 
+export type PayFrequency = "weekly" | "biweekly" | "monthly"
+export type CategoryVariability = "fixed" | "variable"
+
 export type Category = {
   id: string
   name: string
+  /** Day of month (1–31) for expense due dates */
+  dueDay?: number
+  /** @deprecated prefer dueDay */
   dueDate?: string
   balance?: number
   minPayment?: number
+  /** Payment (expenses) or income amount */
+  amount?: number
   /** For savings / payback goals */
   goal?: number
   totalSaved?: number
   /** Recurring default amount per paycheck (auto-fills, editable per week) */
   recurringAmount?: number
   isRecurring?: boolean
+  frequency?: PayFrequency
+  variability?: CategoryVariability
   /** amount planned per paycheck date (ISO date -> amount) */
   allocations: Record<string, number | "">
 }
