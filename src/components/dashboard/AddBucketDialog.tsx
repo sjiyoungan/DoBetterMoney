@@ -48,12 +48,14 @@ type Props = {
 
 const fieldH = "h-10" // 40px
 const selectH = "h-10 w-full data-[size=default]:h-10"
+/** Type column hugs “Select type” / Fixed / Variable */
+const selectTypeH = "h-10 w-max data-[size=default]:h-10"
 
 /** Expenses / income category row columns */
 const COL_EXP =
-  "grid-cols-[minmax(0,238px)_68px_64px_94px_40px]" as const
+  "grid-cols-[minmax(0,238px)_68px_64px_max-content_40px]" as const
 const COL_INC =
-  "grid-cols-[minmax(0,238px)_68px_112px_94px_40px]" as const
+  "grid-cols-[minmax(0,238px)_68px_112px_max-content_40px]" as const
 const COL_SAV = "grid-cols-[minmax(0,238px)_68px_40px]" as const
 
 const TYPE_LABEL: Record<BucketDraftType, string> = {
@@ -256,10 +258,12 @@ function DueDayInput({
   value,
   onChange,
   onCommit,
+  invalid = false,
 }: {
   value: string
   onChange: (value: string) => void
   onCommit?: (value: string) => void
+  invalid?: boolean
 }) {
   const [editing, setEditing] = useState(false)
   const day = parseNum(value)
@@ -269,8 +273,10 @@ function DueDayInput({
   return (
     <div
       className={cn(
-        "flex h-10 cursor-text items-center justify-end rounded-md border border-input px-1.5",
-        "hover:border-neutral-400 focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/30",
+        "flex h-10 cursor-text items-center justify-end rounded-md border px-1.5",
+        invalid
+          ? "border-destructive hover:border-destructive focus-within:border-destructive focus-within:ring-2 focus-within:ring-destructive/25"
+          : "border-input hover:border-neutral-400 focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/30",
       )}
       onClick={() => setEditing(true)}
     >
@@ -618,7 +624,7 @@ export function AddBucketDialog({
                         })
                       }
                     >
-                      <SelectTrigger size="default" className={selectH}>
+                      <SelectTrigger size="default" className={selectTypeH}>
                         <SelectValue placeholder="Select type" />
                       </SelectTrigger>
                       <SelectContent
@@ -661,6 +667,7 @@ export function AddBucketDialog({
                   />
                   <DueDayInput
                     value={draft.dueDay}
+                    invalid={dueDayError && isDueDayInvalid(draft.dueDay)}
                     onChange={(v) => {
                       updateDraft(draft.id, { dueDay: v })
                       if (dueDayError) {
@@ -689,7 +696,7 @@ export function AddBucketDialog({
                       })
                     }
                   >
-                    <SelectTrigger size="default" className={selectH}>
+                    <SelectTrigger size="default" className={selectTypeH}>
                       <SelectValue placeholder="Select type" />
                     </SelectTrigger>
                     <SelectContent
