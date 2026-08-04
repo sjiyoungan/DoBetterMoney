@@ -35,7 +35,7 @@ type CategoryDraft = {
   goal: string
   dueDay: string
   frequency: PayFrequency
-  variability: CategoryVariability
+  variability: CategoryVariability | ""
 }
 
 type Props = {
@@ -51,10 +51,10 @@ const selectH = "h-10 w-full data-[size=default]:h-10"
 
 /** Expenses / income category row columns */
 const COL_EXP =
-  "grid-cols-[minmax(0,238px)_60px_56px_102px_36px]" as const
+  "grid-cols-[minmax(0,238px)_68px_64px_94px_40px]" as const
 const COL_INC =
-  "grid-cols-[minmax(0,238px)_60px_112px_102px_36px]" as const
-const COL_SAV = "grid-cols-[minmax(0,238px)_60px_36px]" as const
+  "grid-cols-[minmax(0,238px)_68px_112px_94px_40px]" as const
+const COL_SAV = "grid-cols-[minmax(0,238px)_68px_40px]" as const
 
 const TYPE_LABEL: Record<BucketDraftType, string> = {
   expenses: "Expenses",
@@ -70,7 +70,7 @@ function newDraft(): CategoryDraft {
     goal: "",
     dueDay: "",
     frequency: "biweekly",
-    variability: "fixed",
+    variability: "",
   }
 }
 
@@ -123,7 +123,7 @@ function bucketToDrafts(bucket: Bucket): CategoryDraft[] {
           ? cat.dueDate
           : "",
     frequency: cat.frequency ?? "biweekly",
-    variability: cat.variability ?? "fixed",
+    variability: cat.variability ?? "",
   }))
 }
 
@@ -145,7 +145,7 @@ function draftsToBucket(
       id: prev?.id ?? crypto.randomUUID(),
       name: d.name.trim(),
       allocations: prev?.allocations ?? {},
-      variability: d.variability,
+      ...(d.variability ? { variability: d.variability } : {}),
     }
 
     if (bucketKind === "savings") {
@@ -251,13 +251,15 @@ function MoneyInput({
   )
 }
 
-/** Due day with small gray ordinal; edits as plain number; border always on */
+/** Due day: digits only; small gray ordinal when valid */
 function DueDayInput({
   value,
   onChange,
+  onCommit,
 }: {
   value: string
   onChange: (value: string) => void
+  onCommit?: (value: string) => void
 }) {
   const [editing, setEditing] = useState(false)
   const day = parseNum(value)
@@ -277,8 +279,11 @@ function DueDayInput({
           autoFocus
           className="h-full w-full bg-transparent text-right text-sm tabular-nums text-foreground outline-none"
           value={value}
-          onChange={(e) => onChange(e.target.value)}
-          onBlur={() => setEditing(false)}
+          onChange={(e) => onChange(e.target.value.replace(/\D/g, ""))}
+          onBlur={(e) => {
+            setEditing(false)
+            onCommit?.(e.target.value)
+          }}
           onKeyDown={(e) => {
             if (e.key === "Enter") (e.target as HTMLInputElement).blur()
           }}
@@ -291,9 +296,17 @@ function DueDayInput({
             {ordinalSuffix(n)}
           </span>
         </span>
+      ) : value !== "" ? (
+        <span className="text-sm tabular-nums text-foreground">{value}</span>
       ) : null}
     </div>
   )
+}
+
+function isDueDayInvalid(dueDay: string) {
+  if (dueDay.trim() === "") return false
+  const day = parseNum(dueDay)
+  return day === undefined || day < 1 || day > 31
 }
 
 export function AddBucketDialog({
@@ -312,6 +325,7 @@ export function AddBucketDialog({
   const [removeId, setRemoveId] = useState<string | null>(null)
   const [editingName, setEditingName] = useState(false)
   const [typeOpen, setTypeOpen] = useState(false)
+  const [dueDayError, setDueDayError] = useState(false)
 
   useEffect(() => {
     if (!open) return
@@ -333,6 +347,7 @@ export function AddBucketDialog({
     setRemoveId(null)
     setEditingName(false)
     setTypeOpen(false)
+    setDueDayError(false)
   }, [open, bucket])
 
   const dirty = useMemo(
@@ -343,7 +358,8 @@ export function AddBucketDialog({
   const canSubmit =
     dirty &&
     bucketName.trim() !== "" &&
-    drafts.some((d) => d.name.trim() !== "")
+    drafts.some((d) => d.name.trim() !== "") &&
+    !drafts.some((d) => isDueDayInvalid(d.dueDay))
 
   const removeTarget = removeId
     ? drafts.find((d) => d.id === removeId)
@@ -409,7 +425,7 @@ export function AddBucketDialog({
         }}
       >
         <DialogContent
-          className="w-max max-w-[calc(100%-2rem)] gap-5 p-6 sm:max-w-none"
+          className="w-max max-w-[calc(100%-2rem)] gap-0 pt-4 pr-4 pb-6 pl-6 sm:max-w-none"
           showCloseButton={false}
           onPointerDownOutside={(e) => {
             e.preventDefault()
@@ -428,7 +444,7 @@ export function AddBucketDialog({
           <div>
             <div
               className={cn(
-                "-mx-px rounded-md border border-transparent px-px py-0.5",
+                "-ml-0.5 rounded-md border border-transparent px-px py-0.5",
                 "hover:border-input focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/30",
               )}
               onClick={() => setEditingName(true)}
@@ -467,7 +483,7 @@ export function AddBucketDialog({
               <SelectTrigger
                 size="default"
                 className={cn(
-                  "mt-0 h-auto w-fit gap-1 border-0 bg-transparent px-0 py-0 text-sm font-normal text-muted-foreground shadow-none",
+                  "mt-0 h-auto min-w-[5.75rem] justify-between gap-3 border-0 bg-transparent px-0 py-0 text-sm font-normal text-foreground shadow-none",
                   "hover:bg-transparent hover:text-foreground",
                   "focus-visible:ring-0 focus-visible:outline-none",
                   "data-[size=default]:h-auto [&_svg]:size-3.5 [&_svg]:opacity-0 hover:[&_svg]:opacity-100 data-[state=open]:[&_svg]:opacity-100",
@@ -478,7 +494,7 @@ export function AddBucketDialog({
               <SelectContent
                 position="popper"
                 align="start"
-                className="min-w-0 w-[var(--radix-select-trigger-width)]"
+                className="w-max min-w-[var(--radix-select-trigger-width)]"
               >
                 <SelectItem value="expenses">Expenses</SelectItem>
                 <SelectItem value="savings">Savings</SelectItem>
@@ -487,7 +503,7 @@ export function AddBucketDialog({
             </Select>
           </div>
 
-          <div className="space-y-2">
+          <div className="mt-2 space-y-2">
             {bucketType === "savings" ? (
               <div
                 className={cn(
@@ -547,7 +563,7 @@ export function AddBucketDialog({
                       type="button"
                       variant="ghost"
                       size="icon-sm"
-                      className="text-muted-foreground"
+                      className="ml-1 text-muted-foreground"
                       disabled={drafts.length === 1}
                       onClick={() => requestRemove(draft.id)}
                       title="Remove category"
@@ -595,7 +611,7 @@ export function AddBucketDialog({
                       </SelectContent>
                     </Select>
                     <Select
-                      value={draft.variability}
+                      value={draft.variability || undefined}
                       onValueChange={(value) =>
                         updateDraft(draft.id, {
                           variability: value as CategoryVariability,
@@ -603,7 +619,7 @@ export function AddBucketDialog({
                       }
                     >
                       <SelectTrigger size="default" className={selectH}>
-                        <SelectValue />
+                        <SelectValue placeholder="Select type" />
                       </SelectTrigger>
                       <SelectContent
                         position="popper"
@@ -618,7 +634,7 @@ export function AddBucketDialog({
                       type="button"
                       variant="ghost"
                       size="icon-sm"
-                      className="text-muted-foreground"
+                      className="ml-1 text-muted-foreground"
                       disabled={drafts.length === 1}
                       onClick={() => requestRemove(draft.id)}
                       title="Remove category"
@@ -645,10 +661,28 @@ export function AddBucketDialog({
                   />
                   <DueDayInput
                     value={draft.dueDay}
-                    onChange={(v) => updateDraft(draft.id, { dueDay: v })}
+                    onChange={(v) => {
+                      updateDraft(draft.id, { dueDay: v })
+                      if (dueDayError) {
+                        setDueDayError(
+                          drafts.some((d) =>
+                            isDueDayInvalid(
+                              d.id === draft.id ? v : d.dueDay,
+                            ),
+                          ),
+                        )
+                      }
+                    }}
+                    onCommit={(v) => {
+                      setDueDayError(
+                        drafts.some((d) =>
+                          isDueDayInvalid(d.id === draft.id ? v : d.dueDay),
+                        ),
+                      )
+                    }}
                   />
                   <Select
-                    value={draft.variability}
+                    value={draft.variability || undefined}
                     onValueChange={(value) =>
                       updateDraft(draft.id, {
                         variability: value as CategoryVariability,
@@ -656,7 +690,7 @@ export function AddBucketDialog({
                     }
                   >
                     <SelectTrigger size="default" className={selectH}>
-                      <SelectValue />
+                      <SelectValue placeholder="Select type" />
                     </SelectTrigger>
                     <SelectContent
                       position="popper"
@@ -671,7 +705,7 @@ export function AddBucketDialog({
                     type="button"
                     variant="ghost"
                     size="icon-sm"
-                    className="text-muted-foreground"
+                    className="ml-1 text-muted-foreground"
                     disabled={drafts.length === 1}
                     onClick={() => requestRemove(draft.id)}
                     title="Remove category"
@@ -691,9 +725,14 @@ export function AddBucketDialog({
               <Plus className="size-3.5" />
               Add category
             </Button>
+            {dueDayError ? (
+              <p className="text-xs text-destructive">
+                Due day can&apos;t be more than the days in a month.
+              </p>
+            ) : null}
           </div>
 
-          <DialogFooter className="-mx-6 -mb-6 items-center px-6 py-4 sm:justify-end sm:gap-4">
+          <DialogFooter className="-ml-6 -mr-4 -mb-6 mt-5 items-center pl-6 pr-4 py-4 sm:justify-end sm:gap-4">
             <Button
               type="button"
               variant="ghost"
