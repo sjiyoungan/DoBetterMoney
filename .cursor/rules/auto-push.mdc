@@ -1,0 +1,16 @@
+---
+description: Always commit and push changes to GitHub for this repo
+alwaysApply: true
+---
+
+# Auto-push to Git
+
+After making any code or project changes in this repository:
+
+1. Stage relevant files (`git add`)
+2. Commit with a concise message explaining why
+3. Push to `origin` on the current branch (`git push`)
+
+Do this automatically at the end of each completed change set. Do not wait for the user to ask.
+
+Skip only if there is nothing to commit, or if the user explicitly says not to push.
