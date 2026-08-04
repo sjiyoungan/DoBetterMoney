@@ -1,240 +1,385 @@
-import { Badge } from "@/components/ui/badge"
+import { useMemo, useState } from "react"
+import { Check } from "lucide-react"
+import { CategoryDrawer } from "@/components/dashboard/CategoryDrawer"
 import { Button } from "@/components/ui/button"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Input } from "@/components/ui/input"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
 import { allocationKey, formatMoney, formatPayDate } from "@/lib/format"
-import type { Bucket, Paycheck } from "@/types/budget"
+import { cn } from "@/lib/utils"
+import type { Bucket, Category, Paycheck } from "@/types/budget"
 
 type Props = {
   buckets: Bucket[]
   paychecks: Paycheck[]
-  mode: "paycheck" | "planning"
-  selectedPaycheckId: string
   doneKeys: Set<string>
   onToggleDone: (key: string) => void
-  onAmountChange: (
-    categoryId: string,
-    date: string,
-    value: string,
-  ) => void
+  onAmountChange: (categoryId: string, date: string, value: string) => void
 }
+
+const bucketTints = [
+  "bg-slate-100/80 dark:bg-slate-900/40",
+  "bg-white dark:bg-background",
+  "bg-stone-100/80 dark:bg-stone-900/30",
+  "bg-zinc-100/70 dark:bg-zinc-900/40",
+]
 
 export function BudgetGrid({
   buckets,
   paychecks,
-  mode,
-  selectedPaycheckId,
   doneKeys,
   onToggleDone,
   onAmountChange,
 }: Props) {
-  const visiblePaychecks =
-    mode === "paycheck"
-      ? paychecks.filter((p) => p.id === selectedPaycheckId)
-      : paychecks.filter((p) => !p.completed || p.date >= "2026-08-01")
+  const [selected, setSelected] = useState<{
+    category: Category
+    bucket: Bucket
+  } | null>(null)
 
-  const selected = paychecks.find((p) => p.id === selectedPaycheckId)
+  const spendingBuckets = buckets.filter((b) => b.kind !== "savings")
+  const savingsBuckets = buckets.filter((b) => b.kind === "savings")
+
+  const visiblePaychecks = useMemo(
+    () => paychecks.filter((p) => !p.completed || p.date >= "2026-08-01"),
+    [paychecks],
+  )
+
+  const today = "2026-08-03"
+  const currentPaycheckId =
+    visiblePaychecks.find((p) => !p.completed && p.date >= today)?.id ??
+    visiblePaychecks.find((p) => !p.completed)?.id
+
+  const todoCount = useMemo(() => {
+    if (!currentPaycheckId) return 0
+    const current = visiblePaychecks.find((p) => p.id === currentPaycheckId)
+    if (!current) return 0
+    return buckets
+      .flatMap((b) => b.categories)
+      .filter((cat) => {
+        const amount = cat.allocations[current.date]
+        if (amount === "" || amount === undefined || amount === 0) return false
+        return !doneKeys.has(allocationKey(cat.id, current.id))
+      }).length
+  }, [buckets, visiblePaychecks, currentPaycheckId, doneKeys])
 
   return (
-    <div className="space-y-4">
-      {mode === "paycheck" && selected && (
-        <div className="flex flex-wrap items-end justify-between gap-3 rounded-xl border bg-card px-4 py-3">
+    <div className="space-y-8">
+      <div className="flex flex-wrap items-center gap-3 text-sm">
+        <LegendSwatch className="bg-emerald-100 ring-1 ring-emerald-300" />
+        <span className="text-muted-foreground">Moved</span>
+        <LegendSwatch className="bg-amber-50 ring-1 ring-amber-300" />
+        <span className="text-muted-foreground">Still to move (this week)</span>
+        <LegendSwatch className="bg-transparent ring-1 ring-border" />
+        <span className="text-muted-foreground">Planned / future</span>
+        {todoCount > 0 ? (
+          <span className="ml-auto rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-900 dark:bg-amber-950 dark:text-amber-100">
+            {todoCount} left this paycheck
+          </span>
+        ) : (
+          <span className="ml-auto rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-900 dark:bg-emerald-950 dark:text-emerald-100">
+            This paycheck clear
+          </span>
+        )}
+      </div>
+
+      <section className="space-y-3">
+        <div className="flex items-end justify-between gap-3">
           <div>
-            <p className="text-sm text-muted-foreground">This paycheck</p>
-            <p className="text-xl font-semibold">
-              {formatPayDate(selected.date)} · {formatMoney(selected.income)}
+            <h2 className="text-lg font-semibold tracking-tight">Spending</h2>
+            <p className="text-sm text-muted-foreground">
+              Bills, rent, variables — click a category for details
             </p>
           </div>
-          <ZeroBudgetMeter
-            income={selected.income}
-            buckets={buckets}
-            date={selected.date}
-          />
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" disabled>
+              Add bucket
+            </Button>
+            <Button variant="outline" size="sm" disabled>
+              Add category
+            </Button>
+          </div>
         </div>
-      )}
+        <PlanningTable
+          buckets={spendingBuckets}
+          paychecks={visiblePaychecks}
+          doneKeys={doneKeys}
+          today={today}
+          currentPaycheckId={currentPaycheckId}
+          showGoalBalance={false}
+          onToggleDone={onToggleDone}
+          onAmountChange={onAmountChange}
+          onOpenCategory={(category, bucket) => setSelected({ category, bucket })}
+        />
+      </section>
 
-      <div className="overflow-x-auto rounded-xl border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="sticky left-0 z-10 min-w-44 bg-background">
-                Category
-              </TableHead>
-              <TableHead className="min-w-20">Due</TableHead>
-              {mode === "planning" && (
-                <>
-                  <TableHead className="min-w-20">Goal</TableHead>
-                  <TableHead className="min-w-20">Balance</TableHead>
-                </>
-              )}
-              {visiblePaychecks.map((p) => (
-                <TableHead key={p.id} className="min-w-28 text-right">
-                  <div className="flex flex-col items-end gap-1">
-                    <span>{formatPayDate(p.date)}</span>
-                    {p.completed ? (
-                      <Badge className="bg-emerald-600 text-white hover:bg-emerald-600">
-                        Done
-                      </Badge>
-                    ) : (
-                      <Badge variant="outline">Plan</Badge>
-                    )}
-                  </div>
-                </TableHead>
-              ))}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {buckets.map((bucket) => (
-              <BucketRows
-                key={bucket.id}
-                bucket={bucket}
-                paychecks={visiblePaychecks}
-                mode={mode}
-                doneKeys={doneKeys}
-                onToggleDone={onToggleDone}
-                onAmountChange={onAmountChange}
-              />
-            ))}
-          </TableBody>
-        </Table>
-      </div>
+      <section className="space-y-3">
+        <div>
+          <h2 className="text-lg font-semibold tracking-tight">Savings & payback</h2>
+          <p className="text-sm text-muted-foreground">
+            Goals and remaining balance live here
+          </p>
+        </div>
+        <PlanningTable
+          buckets={savingsBuckets}
+          paychecks={visiblePaychecks}
+          doneKeys={doneKeys}
+          today={today}
+          currentPaycheckId={currentPaycheckId}
+          showGoalBalance
+          onToggleDone={onToggleDone}
+          onAmountChange={onAmountChange}
+          onOpenCategory={(category, bucket) => setSelected({ category, bucket })}
+        />
+      </section>
 
-      <div className="flex flex-wrap gap-2">
-        <Button variant="outline" size="sm" disabled>
-          Add bucket
-        </Button>
-        <Button variant="outline" size="sm" disabled>
-          Add category
-        </Button>
-        <p className="self-center text-xs text-muted-foreground">
-          Buttons are placeholders for the next pass
-        </p>
-      </div>
+      <CategoryDrawer
+        open={!!selected}
+        onOpenChange={(open) => {
+          if (!open) setSelected(null)
+        }}
+        category={selected?.category ?? null}
+        bucket={selected?.bucket ?? null}
+        paychecks={visiblePaychecks}
+        doneKeys={doneKeys}
+      />
     </div>
   )
 }
 
-function BucketRows({
-  bucket,
+function LegendSwatch({ className }: { className: string }) {
+  return <span className={cn("inline-block size-3 rounded-sm", className)} />
+}
+
+function PlanningTable({
+  buckets,
   paychecks,
-  mode,
   doneKeys,
+  today,
+  currentPaycheckId,
+  showGoalBalance,
   onToggleDone,
   onAmountChange,
+  onOpenCategory,
 }: {
-  bucket: Bucket
+  buckets: Bucket[]
   paychecks: Paycheck[]
-  mode: "paycheck" | "planning"
   doneKeys: Set<string>
+  today: string
+  currentPaycheckId?: string
+  showGoalBalance: boolean
   onToggleDone: (key: string) => void
   onAmountChange: (categoryId: string, date: string, value: string) => void
+  onOpenCategory: (category: Category, bucket: Bucket) => void
+}) {
+  const stickyExtra = showGoalBalance ? 2 : 0
+
+  return (
+    <div className="overflow-x-auto rounded-xl border">
+      <table className="w-max min-w-full border-collapse text-sm">
+        <thead>
+          <tr className="border-b">
+            <th
+              className={cn(
+                "sticky left-0 z-20 min-w-48 bg-background px-4 py-3 text-left font-medium",
+                showGoalBalance && "shadow-[2px_0_0_0_var(--border)]",
+              )}
+            >
+              Category
+            </th>
+            {showGoalBalance ? (
+              <>
+                <th className="sticky left-48 z-20 min-w-24 bg-background px-3 py-3 text-right font-medium">
+                  Goal
+                </th>
+                <th className="sticky left-72 z-20 min-w-24 bg-background px-3 py-3 text-right font-medium shadow-[2px_0_0_0_var(--border)]">
+                  Balance
+                </th>
+              </>
+            ) : null}
+            {paychecks.map((p) => (
+              <th
+                key={p.id}
+                className="min-w-32 px-3 py-3 text-right font-medium text-muted-foreground"
+              >
+                {formatPayDate(p.date)}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {buckets.map((bucket, bucketIndex) => {
+            const tint = bucketTints[bucketIndex % bucketTints.length]
+            const colSpan = 1 + stickyExtra + paychecks.length
+            return (
+              <BucketBlock
+                key={bucket.id}
+                bucket={bucket}
+                tint={tint}
+                colSpan={colSpan}
+                paychecks={paychecks}
+                doneKeys={doneKeys}
+                today={today}
+                currentPaycheckId={currentPaycheckId}
+                showGoalBalance={showGoalBalance}
+                onToggleDone={onToggleDone}
+                onAmountChange={onAmountChange}
+                onOpenCategory={onOpenCategory}
+              />
+            )
+          })}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+function BucketBlock({
+  bucket,
+  tint,
+  colSpan,
+  paychecks,
+  doneKeys,
+  today,
+  currentPaycheckId,
+  showGoalBalance,
+  onToggleDone,
+  onAmountChange,
+  onOpenCategory,
+}: {
+  bucket: Bucket
+  tint: string
+  colSpan: number
+  paychecks: Paycheck[]
+  doneKeys: Set<string>
+  today: string
+  currentPaycheckId?: string
+  showGoalBalance: boolean
+  onToggleDone: (key: string) => void
+  onAmountChange: (categoryId: string, date: string, value: string) => void
+  onOpenCategory: (category: Category, bucket: Bucket) => void
 }) {
   return (
     <>
-      <TableRow className="bg-muted/40 hover:bg-muted/40">
-        <TableCell
-          colSpan={mode === "planning" ? 4 + paychecks.length : 2 + paychecks.length}
-          className="sticky left-0 font-medium"
+      <tr className={cn(tint, "border-b")}>
+        <td
+          colSpan={colSpan}
+          className={cn("sticky left-0 z-10 px-4 py-3", tint)}
         >
-          {bucket.name}
+          <div className="text-base font-bold tracking-tight">{bucket.name}</div>
           {bucket.note ? (
-            <span className="ml-2 text-xs font-normal text-muted-foreground">
+            <div className="text-xs font-normal text-muted-foreground">
               {bucket.note}
-            </span>
+            </div>
           ) : null}
-        </TableCell>
-      </TableRow>
+        </td>
+      </tr>
       {bucket.categories.map((cat) => (
-        <TableRow key={cat.id}>
-          <TableCell className="sticky left-0 bg-background font-medium">
-            {cat.name}
-            {cat.isRecurring ? (
-              <Badge variant="secondary" className="ml-2">
-                recurring
-              </Badge>
-            ) : null}
-          </TableCell>
-          <TableCell className="text-muted-foreground">
-            {cat.dueDate ?? "—"}
-          </TableCell>
-          {mode === "planning" && (
+        <tr key={cat.id} className={cn(tint, "border-b border-border/50")}>
+          <td className={cn("sticky left-0 z-10 min-w-48 px-4 py-1.5", tint)}>
+            <button
+              type="button"
+              onClick={() => onOpenCategory(cat, bucket)}
+              className="text-left text-sm font-normal text-foreground/90 underline-offset-2 hover:underline"
+            >
+              {cat.name}
+            </button>
+          </td>
+          {showGoalBalance ? (
             <>
-              <TableCell>{formatMoney(cat.goal)}</TableCell>
-              <TableCell>{formatMoney(cat.balance)}</TableCell>
+              <td
+                className={cn(
+                  "sticky left-48 z-10 min-w-24 px-3 py-1.5 text-right tabular-nums text-muted-foreground",
+                  tint,
+                )}
+              >
+                {formatMoney(cat.goal)}
+              </td>
+              <td
+                className={cn(
+                  "sticky left-72 z-10 min-w-24 px-3 py-1.5 text-right tabular-nums text-muted-foreground shadow-[2px_0_0_0_var(--border)]",
+                  tint,
+                )}
+              >
+                {formatMoney(cat.balance)}
+              </td>
             </>
-          )}
+          ) : null}
           {paychecks.map((p) => {
             const raw = cat.allocations[p.date]
             const key = allocationKey(cat.id, p.id)
             const done = doneKeys.has(key) || p.completed
-            const showCheck = mode === "paycheck" && !p.completed
+            const hasAmount =
+              raw !== "" && raw !== undefined && Number(raw) !== 0
+            const canMarkDone = p.date <= today || p.id === currentPaycheckId
+            const isCurrentTodo =
+              p.id === currentPaycheckId && hasAmount && !done
 
             return (
-              <TableCell key={p.id} className="text-right">
-                <div
-                  className={`inline-flex items-center gap-2 rounded-md px-1 py-0.5 ${
-                    done ? "bg-emerald-100 dark:bg-emerald-950" : ""
-                  }`}
-                >
-                  {showCheck ? (
-                    <Checkbox
-                      checked={doneKeys.has(key)}
-                      onCheckedChange={() => onToggleDone(key)}
-                      aria-label={`Mark ${cat.name} moved`}
-                    />
-                  ) : null}
-                  <Input
-                    className="h-8 w-20 text-right"
-                    value={raw === "" || raw === undefined ? "" : String(raw)}
-                    onChange={(e) =>
-                      onAmountChange(cat.id, p.date, e.target.value)
-                    }
-                    inputMode="numeric"
-                  />
-                </div>
-              </TableCell>
+              <td key={p.id} className="px-2 py-1.5">
+                <AmountCell
+                  value={raw === "" || raw === undefined ? "" : String(raw)}
+                  done={done}
+                  todo={isCurrentTodo}
+                  canMarkDone={canMarkDone && hasAmount}
+                  onChange={(value) => onAmountChange(cat.id, p.date, value)}
+                  onToggleDone={() => onToggleDone(key)}
+                />
+              </td>
             )
           })}
-        </TableRow>
+        </tr>
       ))}
     </>
   )
 }
 
-function ZeroBudgetMeter({
-  income,
-  buckets,
-  date,
+function AmountCell({
+  value,
+  done,
+  todo,
+  canMarkDone,
+  onChange,
+  onToggleDone,
 }: {
-  income: number
-  buckets: Bucket[]
-  date: string
+  value: string
+  done: boolean
+  todo: boolean
+  canMarkDone: boolean
+  onChange: (value: string) => void
+  onToggleDone: () => void
 }) {
-  const allocated = buckets
-    .flatMap((b) => b.categories)
-    .reduce((sum, cat) => {
-      const v = cat.allocations[date]
-      return sum + (typeof v === "number" ? v : 0)
-    }, 0)
-  const left = income - allocated
-
   return (
-    <div className="text-right">
-      <p className="text-sm text-muted-foreground">$0 check</p>
-      <p className="text-sm">
-        Allocated {formatMoney(allocated)} · Left{" "}
-        <span className={left === 0 ? "text-emerald-600" : "text-amber-600"}>
-          {formatMoney(left)}
-        </span>
-      </p>
+    <div
+      className={cn(
+        "group relative flex items-center justify-end gap-1 rounded-md px-1 py-0.5",
+        done && "bg-emerald-100/90 dark:bg-emerald-950/70",
+        todo && !done && "bg-amber-50 dark:bg-amber-950/40",
+      )}
+    >
+      <input
+        className={cn(
+          "h-8 w-[4.5rem] rounded-md border border-transparent bg-transparent px-2 text-right tabular-nums outline-none transition-colors",
+          "hover:border-input focus:border-ring focus:ring-2 focus:ring-ring/30",
+        )}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        inputMode="numeric"
+      />
+      {canMarkDone ? (
+        <button
+          type="button"
+          onClick={onToggleDone}
+          title={done ? "Mark not moved" : "Mark moved"}
+          className={cn(
+            "inline-flex size-7 items-center justify-center rounded-md border border-transparent text-muted-foreground transition-opacity",
+            "opacity-0 group-hover:opacity-100 focus-visible:opacity-100",
+            done &&
+              "opacity-100 border-emerald-300 bg-emerald-600 text-white hover:bg-emerald-700",
+            !done && "hover:border-input hover:bg-background",
+          )}
+        >
+          <Check className="size-3.5" />
+        </button>
+      ) : (
+        <span className="size-7" aria-hidden />
+      )}
     </div>
   )
 }
