@@ -465,7 +465,7 @@ export function AddBucketDialog({
         >
           {/* Header */}
           <div>
-            <div className="group -ml-[3px] flex min-h-10 items-center gap-1.5">
+            <div className="group flex min-h-10 items-center gap-1.5">
               {editingName ? (
                 <input
                   autoFocus
