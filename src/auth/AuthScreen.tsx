@@ -208,10 +208,6 @@ export function AuthScreen() {
         </div>
       </main>
 
-      <footer className="relative z-10 pb-6 text-center text-xs text-neutral-400 motion-safe:animate-[auth-fade_1s_ease-out_both]">
-        dobettermoney.com
-      </footer>
-
       <style>{`
         @keyframes auth-fade {
           from { opacity: 0; }
