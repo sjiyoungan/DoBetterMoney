@@ -1,35 +1,9 @@
 import { useState, type FormEvent } from "react"
+import { BrandMark } from "@/components/BrandMark"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useAuth } from "@/auth/AuthProvider"
 import type { UserRole } from "@/types/budget"
-
-/** Soft, minimal money mark — rounded stroke, not a classic sharp $ */
-function BrandMark({ className }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 32 32"
-      fill="none"
-      aria-hidden
-      className={className}
-    >
-      <rect width="32" height="32" rx="8" fill="#1A1A1A" />
-      <path
-        d="M19.6 11.2c-.35-1.15-1.55-1.85-3.6-1.85-2.15 0-3.55.95-3.55 2.45 0 1.35.9 2.05 3.35 2.55l.9.18c2.55.5 3.85 1.4 3.85 3.35 0 2.05-1.7 3.35-4.35 3.35-2.3 0-3.85-1-4.35-2.7"
-        stroke="#fff"
-        strokeWidth="2"
-        strokeLinecap="round"
-        fill="none"
-      />
-      <path
-        d="M16 8.25v15.5"
-        stroke="#fff"
-        strokeWidth="2"
-        strokeLinecap="round"
-      />
-    </svg>
-  )
-}
 
 export function AuthScreen() {
   const { signIn, signUp } = useAuth()
@@ -76,7 +50,7 @@ export function AuthScreen() {
       <main className="relative z-10 flex flex-1 flex-col items-center justify-center px-6 py-12">
         <div className="w-full max-w-[22rem] motion-safe:animate-[auth-rise_0.55s_ease-out_both]">
           <div className="mb-10 flex items-center justify-center gap-3 motion-safe:animate-[auth-fade_0.7s_ease-out_both]">
-            <BrandMark className="size-11 shrink-0" />
+            <BrandMark className="size-10 shrink-0 text-neutral-950" />
             <h1 className="text-[1.65rem] font-semibold tracking-[-0.03em] text-neutral-950 sm:text-[1.85rem]">
               DoBetterMoney
             </h1>
