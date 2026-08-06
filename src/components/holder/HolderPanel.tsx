@@ -124,7 +124,7 @@ export function HolderPanel({
         <CardHeader>
           <CardTitle>Held balances</CardTitle>
           <CardDescription>
-            What the SoFi / held account should add up to by bucket
+            What the SoFi / held account should add up to by group
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">

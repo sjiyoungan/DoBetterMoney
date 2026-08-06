@@ -428,7 +428,7 @@ export function AddBucketDialog({
             onOpenChange(true)
             return
           }
-          // Nested confirm dialogs — don't treat as closing the bucket dialog
+          // Nested confirm dialogs — don't treat as closing the group dialog
           if (confirmOpen || removeId) return
           requestClose()
         }}
@@ -471,7 +471,7 @@ export function AddBucketDialog({
                   autoFocus
                   value={bucketName}
                   onChange={(e) => setBucketName(e.target.value)}
-                  placeholder="Bucket name"
+                  placeholder="Group name"
                   className={cn(fieldH, "text-base md:text-sm")}
                 />
                 <Select
@@ -512,14 +512,14 @@ export function AddBucketDialog({
                         if (e.key === "Enter")
                           (e.target as HTMLInputElement).blur()
                       }}
-                      placeholder="Bucket name"
+                      placeholder="Group name"
                     />
                   ) : (
                     <>
                       <h2 className="min-w-0 text-2xl font-semibold tracking-tight text-foreground">
                         {bucketName.trim() !== ""
                           ? bucketName
-                          : "Bucket name"}
+                          : "Group name"}
                       </h2>
                       <Button
                         type="button"
@@ -854,8 +854,8 @@ export function AddBucketDialog({
             <DialogTitle>Remove category?</DialogTitle>
             <DialogDescription>
               {removeTarget?.name
-                ? `Removing “${removeTarget.name}” will delete its existing data from this bucket.`
-                : "Removing this category will delete its existing data from this bucket."}{" "}
+                ? `Removing “${removeTarget.name}” will delete its existing data from this group.`
+                : "Removing this category will delete its existing data from this group."}{" "}
               This can’t be undone from here.
             </DialogDescription>
           </DialogHeader>

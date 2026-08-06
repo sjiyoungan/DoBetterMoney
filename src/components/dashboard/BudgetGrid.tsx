@@ -38,7 +38,7 @@ type GridRow = {
 /**
  * Split-pane budget grid.
  *
- * Left pane (Bucket → Balance) does not scroll horizontally.
+ * Left pane (Group → Balance) does not scroll horizontally.
  * Right pane (paycheck columns) scrolls independently.
  * Outer frame owns 8px radius + clip. Left pane owns the scroll shadow.
  * Sticky offsets are intentionally not used — that keeps cosmetics independent.
@@ -186,14 +186,14 @@ export function BudgetGrid({
       <div>
         <div className="flex flex-col items-center justify-center rounded-[8px] border border-dashed border-neutral-300 px-6 py-20 text-center">
           <p className="text-sm text-muted-foreground">
-            Start by creating a bucket
+            Start by creating a group
           </p>
           <Button
             type="button"
             className="mt-4 h-10 rounded-xl px-5"
             onClick={() => setBucketDialog({ mode: "create" })}
           >
-            Create bucket
+            Create group
           </Button>
         </div>
 
@@ -250,7 +250,7 @@ export function BudgetGrid({
                       className="h-7 w-full px-1 text-[11px]"
                       onClick={() => setBucketDialog({ mode: "create" })}
                     >
-                      Add bucket
+                      Add group
                     </Button>
                   </th>
                   <th
