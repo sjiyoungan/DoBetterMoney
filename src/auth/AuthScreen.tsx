@@ -48,7 +48,7 @@ export function AuthScreen() {
       <main className="relative z-10 flex flex-1 flex-col items-center justify-center px-6 py-12">
         <div className="w-full max-w-[22rem] motion-safe:animate-[auth-rise_0.55s_ease-out_both]">
           <div className="mb-10 flex items-center justify-center motion-safe:animate-[auth-fade_0.7s_ease-out_both]">
-            <BrandMark className="size-12 shrink-0" />
+            <BrandMark className="size-16 shrink-0" />
           </div>
 
           <form className="space-y-4" onSubmit={onSubmit}>
