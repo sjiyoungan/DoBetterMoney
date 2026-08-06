@@ -400,7 +400,7 @@ export function FirstGroupForm({ onCreate }: Props) {
           type="button"
           disabled={!canSubmit}
           onClick={handleCreate}
-          className="h-10 disabled:border disabled:border-neutral-200 disabled:bg-transparent disabled:text-muted-foreground/35 disabled:opacity-100"
+          className="h-10"
         >
           Create
         </Button>

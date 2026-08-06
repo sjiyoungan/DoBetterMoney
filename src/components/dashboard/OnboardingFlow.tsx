@@ -10,7 +10,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { cn } from "@/lib/utils"
 import type { IncomeSourceInput } from "@/lib/income-schedule"
 import type { Bucket, PayFrequency } from "@/types/budget"
 
@@ -26,9 +25,6 @@ type Props = {
   onSetupIncome: (sources: IncomeSourceInput[]) => void
   onAddGroup: (bucket: Bucket) => void
 }
-
-const fieldH = "h-10"
-const selectH = "h-10 w-full data-[size=default]:h-10"
 
 function newIncomeDraft(): IncomeDraft {
   return {
@@ -91,7 +87,7 @@ export function OnboardingFlow({
 
   if (step === "group") {
     return (
-      <div className="mx-auto w-full max-w-3xl space-y-6">
+      <div className="mx-auto w-full max-w-3xl space-y-6 pt-[60px]">
         <div>
           <h2 className="text-xl font-semibold tracking-tight">
             Create your first group
@@ -106,10 +102,10 @@ export function OnboardingFlow({
   }
 
   return (
-    <div className="mx-auto w-full max-w-lg space-y-6">
+    <div className="mx-auto w-full max-w-lg space-y-6 pt-[60px]">
       <div>
         <h2 className="text-xl font-semibold tracking-tight">
-          Where does your money come from?
+          Tell us about your income
         </h2>
         <p className="mt-1 text-sm text-muted-foreground">
           Add each paycheck or income source you want to plan around.
@@ -148,7 +144,6 @@ export function OnboardingFlow({
               </label>
               <Input
                 id={`income-name-${draft.id}`}
-                className={fieldH}
                 value={draft.name}
                 onChange={(e) => updateDraft(draft.id, { name: e.target.value })}
                 placeholder="Air Techniques"
@@ -162,12 +157,7 @@ export function OnboardingFlow({
               >
                 Amount
               </label>
-              <div
-                className={cn(
-                  "flex items-center rounded-lg border border-input px-2.5",
-                  fieldH,
-                )}
-              >
+              <div className="flex h-10 items-center rounded-lg border border-input px-2.5">
                 <span className="pr-1 text-sm text-muted-foreground">$</span>
                 <input
                   id={`income-amount-${draft.id}`}
@@ -192,7 +182,7 @@ export function OnboardingFlow({
                   })
                 }
               >
-                <SelectTrigger size="default" className={selectH}>
+                <SelectTrigger size="default" className="w-full">
                   <SelectValue placeholder="Select frequency" />
                 </SelectTrigger>
                 <SelectContent>
@@ -206,7 +196,7 @@ export function OnboardingFlow({
         ))}
       </div>
 
-      <div className="flex flex-wrap items-center gap-3 pt-2">
+      <div className="flex flex-wrap items-center justify-end gap-3 pt-2">
         <Button
           type="button"
           variant="outline"
