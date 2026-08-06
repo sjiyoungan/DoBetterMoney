@@ -5,6 +5,11 @@ import { HolderPanel } from "@/components/holder/HolderPanel"
 import { AppHeader } from "@/components/layout/AppHeader"
 import { emptyWorkspace } from "@/data/empty"
 import {
+  buildIncomeBucket,
+  generatePaychecksFromIncome,
+  type IncomeSourceInput,
+} from "@/lib/income-schedule"
+import {
   loadOrCreateWorkspace,
   saveWorkspace,
 } from "@/lib/workspace-api"
@@ -164,6 +169,22 @@ export default function App() {
     }))
   }
 
+  function onSetupIncome(sources: IncomeSourceInput[]) {
+    const incomeBucket = buildIncomeBucket(sources)
+    const paychecks = generatePaychecksFromIncome(sources)
+    setWorkspace((prev) => ({
+      ...prev,
+      buckets: [
+        incomeBucket,
+        ...prev.buckets.filter((b) => b.kind !== "income"),
+      ],
+      paychecks,
+    }))
+    setSelectedPaycheckId(
+      paychecks.find((p) => !p.completed)?.id ?? paychecks[0]?.id ?? "",
+    )
+  }
+
   function onToggleHolderFlag(
     paycheckId: string,
     field: "received" | "boaMoved" | "sofiMoved",
@@ -212,6 +233,7 @@ export default function App() {
             onCategoryFieldChange={onCategoryFieldChange}
             onAddBucket={onAddBucket}
             onUpdateBucket={onUpdateBucket}
+            onSetupIncome={onSetupIncome}
           />
         ) : (
           <div className="mx-auto max-w-7xl space-y-4">

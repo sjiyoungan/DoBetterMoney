@@ -498,7 +498,6 @@ export function AddBucketDialog({
                   >
                     <SelectItem value="expenses">Expenses</SelectItem>
                     <SelectItem value="savings">Savings</SelectItem>
-                    <SelectItem value="income">Income</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -540,7 +539,7 @@ export function AddBucketDialog({
                 </div>
 
                 <Select
-                  value={bucketType}
+                  value={bucketType || undefined}
                   open={typeOpen}
                   onOpenChange={setTypeOpen}
                   onValueChange={(value) =>
@@ -567,7 +566,9 @@ export function AddBucketDialog({
                   >
                     <SelectItem value="expenses">Expenses</SelectItem>
                     <SelectItem value="savings">Savings</SelectItem>
-                    <SelectItem value="income">Income</SelectItem>
+                    {bucketType === "income" ? (
+                      <SelectItem value="income">Income</SelectItem>
+                    ) : null}
                   </SelectContent>
                 </Select>
               </>

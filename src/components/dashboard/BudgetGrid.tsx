@@ -2,8 +2,10 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { Check } from "lucide-react"
 import { AddBucketDialog } from "@/components/dashboard/AddBucketDialog"
 import { CategoryDrawer } from "@/components/dashboard/CategoryDrawer"
+import { OnboardingFlow } from "@/components/dashboard/OnboardingFlow"
 import { Button } from "@/components/ui/button"
 import { allocationKey, formatPayDate } from "@/lib/format"
+import type { IncomeSourceInput } from "@/lib/income-schedule"
 import { cn } from "@/lib/utils"
 import type { Bucket, Category, Paycheck } from "@/types/budget"
 
@@ -20,6 +22,7 @@ type Props = {
   ) => void
   onAddBucket: (bucket: Bucket) => void
   onUpdateBucket: (bucket: Bucket) => void
+  onSetupIncome: (sources: IncomeSourceInput[]) => void
 }
 
 const W = { bucket: 92, category: 168, goal: 96, balance: 96, pay: 128 } as const
@@ -52,6 +55,7 @@ export function BudgetGrid({
   onCategoryFieldChange,
   onAddBucket,
   onUpdateBucket,
+  onSetupIncome,
 }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const leftTableRef = useRef<HTMLTableElement>(null)
@@ -181,32 +185,13 @@ export function BudgetGrid({
     else rightRowRefs.current.delete(key)
   }
 
-  if (buckets.length === 0) {
+  if (buckets.every((b) => b.kind === "income")) {
     return (
-      <div>
-        <div className="flex flex-col items-center justify-center rounded-[8px] border border-dashed border-neutral-300 px-6 py-20 text-center">
-          <p className="text-sm text-muted-foreground">
-            Start by creating a group
-          </p>
-          <Button
-            type="button"
-            className="mt-4 h-10 rounded-xl px-5"
-            onClick={() => setBucketDialog({ mode: "create" })}
-          >
-            Create group
-          </Button>
-        </div>
-
-        <AddBucketDialog
-          open={!!bucketDialog}
-          bucket={bucketDialog?.mode === "edit" ? bucketDialog.bucket : null}
-          onOpenChange={(open) => {
-            if (!open) setBucketDialog(null)
-          }}
-          onAdd={onAddBucket}
-          onUpdate={onUpdateBucket}
-        />
-      </div>
+      <OnboardingFlow
+        hasIncome={buckets.some((b) => b.kind === "income")}
+        onSetupIncome={onSetupIncome}
+        onAddGroup={onAddBucket}
+      />
     )
   }
 
