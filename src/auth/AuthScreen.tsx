@@ -1,7 +1,6 @@
 import { useState, type FormEvent } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { useAuth } from "@/auth/AuthProvider"
 import type { UserRole } from "@/types/budget"
 
@@ -85,65 +84,49 @@ export function AuthScreen() {
 
           <form className="space-y-4" onSubmit={onSubmit}>
             {mode === "signup" ? (
-              <div className="space-y-2 motion-safe:animate-[auth-rise_0.35s_ease-out_both]">
-                <Label htmlFor="email" className="text-neutral-700">
-                  Email
-                </Label>
-                <Input
-                  id="email"
-                  type="email"
-                  autoComplete="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="h-11 rounded-xl border-neutral-200 bg-white px-3.5 text-sm shadow-none"
-                  placeholder="you@email.com"
-                  required
-                />
-              </div>
+              <Input
+                id="email"
+                type="email"
+                autoComplete="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="h-11 rounded-xl border-neutral-200 bg-white px-3.5 text-sm shadow-none motion-safe:animate-[auth-rise_0.35s_ease-out_both]"
+                placeholder="Email"
+                required
+              />
             ) : null}
 
-            <div className="space-y-2">
-              <Label htmlFor="username" className="text-neutral-700">
-                Username
-              </Label>
-              <Input
-                id="username"
-                type="text"
-                autoComplete="username"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                className="h-11 rounded-xl border-neutral-200 bg-white px-3.5 text-sm shadow-none"
-                placeholder="liz"
-                minLength={3}
-                maxLength={24}
-                pattern="[A-Za-z0-9_]+"
-                title="3–24 characters: letters, numbers, underscore"
-                required
-              />
-            </div>
+            <Input
+              id="username"
+              type="text"
+              autoComplete="username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              className="h-11 rounded-xl border-neutral-200 bg-white px-3.5 text-sm shadow-none"
+              placeholder="Username"
+              minLength={3}
+              maxLength={24}
+              pattern="[A-Za-z0-9_]+"
+              title="3–24 characters: letters, numbers, underscore"
+              required
+            />
 
-            <div className="space-y-2">
-              <Label htmlFor="password" className="text-neutral-700">
-                Password
-              </Label>
-              <Input
-                id="password"
-                type="password"
-                autoComplete={
-                  mode === "signin" ? "current-password" : "new-password"
-                }
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="h-11 rounded-xl border-neutral-200 bg-white px-3.5 text-sm shadow-none"
-                placeholder="••••••••"
-                minLength={6}
-                required
-              />
-            </div>
+            <Input
+              id="password"
+              type="password"
+              autoComplete={
+                mode === "signin" ? "current-password" : "new-password"
+              }
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="h-11 rounded-xl border-neutral-200 bg-white px-3.5 text-sm shadow-none"
+              placeholder="Password"
+              minLength={6}
+              required
+            />
 
             {mode === "signup" ? (
               <div className="space-y-2 motion-safe:animate-[auth-rise_0.35s_ease-out_both]">
-                <Label className="text-neutral-700">I am</Label>
                 <div className="grid grid-cols-2 gap-1 rounded-xl border border-neutral-200 bg-white p-1">
                   <Button
                     type="button"
