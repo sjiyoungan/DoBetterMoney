@@ -3,13 +3,6 @@ import { Plus, Trash2 } from "lucide-react"
 import { FirstGroupForm } from "@/components/dashboard/FirstGroupForm"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 import type { IncomeSourceInput } from "@/lib/income-schedule"
 import type { Bucket, PayFrequency } from "@/types/budget"
 
@@ -25,6 +18,12 @@ type Props = {
   onSetupIncome: (sources: IncomeSourceInput[]) => void
   onAddGroup: (bucket: Bucket) => void
 }
+
+const FREQUENCY_OPTIONS = [
+  { value: "weekly", label: "Weekly" },
+  { value: "biweekly", label: "Every 2 weeks" },
+  { value: "monthly", label: "Monthly" },
+]
 
 function newIncomeDraft(): IncomeDraft {
   return {
@@ -157,40 +156,37 @@ export function OnboardingFlow({
               >
                 Amount
               </label>
-              <div className="flex h-10 items-center rounded-lg border border-input px-2.5">
-                <span className="pr-1 text-sm text-muted-foreground/50">$</span>
-                <input
-                  id={`income-amount-${draft.id}`}
-                  className="h-full w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground/50"
-                  value={draft.amount}
-                  onChange={(e) =>
-                    updateDraft(draft.id, { amount: e.target.value })
-                  }
-                  inputMode="decimal"
-                  placeholder="1,000"
-                />
-              </div>
+              <Input
+                leftIcon
+                id={`income-amount-${draft.id}`}
+                value={draft.amount}
+                onChange={(e) =>
+                  updateDraft(draft.id, { amount: e.target.value })
+                }
+                inputMode="decimal"
+                placeholder="1,000"
+              />
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">Pay frequency</label>
-              <Select
+              <label
+                className="text-sm font-medium"
+                htmlFor={`income-frequency-${draft.id}`}
+              >
+                Pay frequency
+              </label>
+              <Input
+                variant="dropdown"
+                id={`income-frequency-${draft.id}`}
                 value={draft.frequency || undefined}
                 onValueChange={(value) =>
                   updateDraft(draft.id, {
                     frequency: value as PayFrequency,
                   })
                 }
-              >
-                <SelectTrigger size="default" className="w-full">
-                  <SelectValue placeholder="Select frequency" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="weekly">Weekly</SelectItem>
-                  <SelectItem value="biweekly">Every 2 weeks</SelectItem>
-                  <SelectItem value="monthly">Monthly</SelectItem>
-                </SelectContent>
-              </Select>
+                placeholder="Select frequency"
+                options={FREQUENCY_OPTIONS}
+              />
             </div>
           </div>
         ))}
