@@ -556,7 +556,9 @@ export function AddBucketDialog({
                       "data-[size=default]:h-auto [&_svg]:size-3.5 [&_svg]:opacity-0 hover:[&_svg]:opacity-100 data-[state=open]:[&_svg]:opacity-100",
                     )}
                   >
-                    <SelectValue>{TYPE_LABEL[bucketType]}</SelectValue>
+                    <SelectValue>
+                      {bucketType ? TYPE_LABEL[bucketType] : "Select type"}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent
                     position="popper"
