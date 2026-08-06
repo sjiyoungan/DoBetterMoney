@@ -125,13 +125,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return "Enter a valid email."
       }
 
-      // Fail fast if username is taken (before creating auth user)
+      // Fail fast if username is taken (when the lookup RPC exists)
       const { data: existingEmail, error: existingError } = await supabase.rpc(
         "get_email_for_username",
         { p_username: normalized },
       )
-      if (existingError) return existingError.message
-      if (existingEmail) return "That username is already taken."
+      if (existingError) {
+        const missingFn =
+          existingError.code === "PGRST202" ||
+          /get_email_for_username/i.test(existingError.message)
+        if (!missingFn) return existingError.message
+        // Schema not applied yet — continue; uniqueness is enforced in DB when ready
+      } else if (existingEmail) {
+        return "That username is already taken."
+      }
 
       const { error } = await supabase.auth.signUp({
         email: trimmedEmail,

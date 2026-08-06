@@ -1,12 +1,9 @@
--- DoBetterMoney schema
--- Paste into Supabase → SQL Editor → Run
---
--- Also turn OFF email confirmation:
--- Authentication → Providers → Email → "Confirm email" = OFF
+-- Run this once in Supabase → SQL Editor → New query → Run
+-- Project: nidatvbaflkwajvadwts
+-- Fixes: "Could not find the function public.get_email_for_username"
 
 create extension if not exists "pgcrypto";
 
--- Profiles (1:1 with auth.users)
 create table if not exists public.profiles (
   id uuid primary key references auth.users (id) on delete cascade,
   email text,
@@ -16,7 +13,6 @@ create table if not exists public.profiles (
   created_at timestamptz not null default now()
 );
 
--- Safe if table already existed without username
 alter table public.profiles
   add column if not exists username text;
 
@@ -44,7 +40,6 @@ create policy "profiles_update_own"
   using (auth.uid() = id)
   with check (auth.uid() = id);
 
--- Shared budget workspace (Liz + Ji both read/write)
 create table if not exists public.budget_workspace (
   id uuid primary key default gen_random_uuid(),
   name text not null default 'DoBetterMoney',
@@ -75,7 +70,6 @@ create policy "workspace_update_authenticated"
   using (true)
   with check (true);
 
--- Resolve username → email for password login (anon-safe)
 create or replace function public.get_email_for_username(p_username text)
 returns text
 language sql
@@ -93,7 +87,6 @@ $$;
 revoke all on function public.get_email_for_username(text) from public;
 grant execute on function public.get_email_for_username(text) to anon, authenticated;
 
--- Auto-create profile on signup
 create or replace function public.handle_new_user()
 returns trigger
 language plpgsql
@@ -120,3 +113,6 @@ drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function public.handle_new_user();
+
+-- Refresh API schema cache so the new function is visible immediately
+notify pgrst, 'reload schema';
