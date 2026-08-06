@@ -184,17 +184,56 @@ export function BudgetGrid({
   if (buckets.length === 0) {
     return (
       <div>
-        <div className="flex flex-col items-center justify-center rounded-[8px] border border-dashed border-neutral-300 px-6 py-20 text-center">
-          <p className="text-sm text-muted-foreground">
-            Start by creating a bucket
-          </p>
-          <Button
-            type="button"
-            className="mt-4 h-10 rounded-xl px-5"
-            onClick={() => setBucketDialog({ mode: "create" })}
-          >
-            Create bucket
-          </Button>
+        <div className="overflow-hidden rounded-[8px] border border-dashed border-neutral-300">
+          <div className="border-b-2 border-b-neutral-900 bg-white dark:bg-background">
+            <table className="w-full border-separate border-spacing-0 text-sm">
+              <colgroup>
+                <col style={{ width: W.bucket }} />
+                <col style={{ width: W.category }} />
+                <col style={{ width: W.goal }} />
+                <col style={{ width: W.balance }} />
+                <col />
+              </colgroup>
+              <thead>
+                <tr>
+                  <th className="border-r border-r-neutral-900 px-1 py-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 w-full px-1 text-[11px]"
+                      onClick={() => setBucketDialog({ mode: "create" })}
+                    >
+                      Add bucket
+                    </Button>
+                  </th>
+                  <th className="border-r border-r-border/60 px-3 py-3 text-left font-medium">
+                    Category
+                  </th>
+                  <th className="border-r border-r-border/60 px-3 py-3 text-right font-medium">
+                    Goal
+                  </th>
+                  <th className="border-r border-r-neutral-900 px-3 py-3 text-right font-medium">
+                    Balance
+                  </th>
+                  <th className="px-3 py-3" aria-hidden />
+                </tr>
+              </thead>
+            </table>
+          </div>
+
+          <div className="flex min-h-[min(28rem,calc(100svh-12rem))] flex-col items-center justify-center px-6 py-16 text-center">
+            <p className="text-sm text-muted-foreground">
+              Start by creating a bucket
+            </p>
+            <Button
+              type="button"
+              className="mt-4 h-10 rounded-xl px-5"
+              onClick={() => setBucketDialog({ mode: "create" })}
+            >
+              Create bucket
+            </Button>
+          </div>
         </div>
 
         <AddBucketDialog
