@@ -53,7 +53,18 @@ export default function App() {
       })
       .catch((err: Error) => {
         if (cancelled) return
-        setSaveError(err.message)
+        const msg = err.message ?? String(err)
+        const missingSchema =
+          /budget_workspace|schema cache|get_email_for_username/i.test(msg)
+        setSaveError(
+          missingSchema
+            ? "Database tables aren’t set up yet. In Supabase → SQL Editor, paste and Run supabase/schema.sql, then refresh this page."
+            : msg,
+        )
+        // Keep mock data visible; don't attempt cloud saves until setup is done
+        setWorkspace(mockWorkspace)
+        setWorkspaceId(null)
+        readyToSave.current = false
         setLoadingWorkspace(false)
       })
 
