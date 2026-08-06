@@ -3,7 +3,7 @@ import { useAuth } from "@/auth/AuthProvider"
 import { BudgetGrid } from "@/components/dashboard/BudgetGrid"
 import { HolderPanel } from "@/components/holder/HolderPanel"
 import { AppHeader } from "@/components/layout/AppHeader"
-import { mockWorkspace } from "@/data/mock"
+import { emptyWorkspace } from "@/data/empty"
 import {
   loadOrCreateWorkspace,
   saveWorkspace,
@@ -14,10 +14,8 @@ export default function App() {
   const { user, profile, setPreferredRole, signOut } = useAuth()
   const [role, setRole] = useState<UserRole>("liz")
   const [workspaceId, setWorkspaceId] = useState<string | null>(null)
-  const [workspace, setWorkspace] = useState<BudgetWorkspace>(mockWorkspace)
-  const [selectedPaycheckId, setSelectedPaycheckId] = useState(
-    () => mockWorkspace.paychecks.find((p) => !p.completed)?.id ?? "p15",
-  )
+  const [workspace, setWorkspace] = useState<BudgetWorkspace>(emptyWorkspace)
+  const [selectedPaycheckId, setSelectedPaycheckId] = useState("")
   const [doneKeys, setDoneKeys] = useState<Set<string>>(new Set())
   const [loadingWorkspace, setLoadingWorkspace] = useState(true)
   const [saveError, setSaveError] = useState<string | null>(null)
@@ -61,8 +59,8 @@ export default function App() {
             ? "Database tables aren’t set up yet. In Supabase → SQL Editor, paste and Run supabase/schema.sql, then refresh this page."
             : msg,
         )
-        // Keep mock data visible; don't attempt cloud saves until setup is done
-        setWorkspace(mockWorkspace)
+        // Keep empty workspace visible; don't attempt cloud saves until setup is done
+        setWorkspace(emptyWorkspace)
         setWorkspaceId(null)
         readyToSave.current = false
         setLoadingWorkspace(false)

@@ -1,4 +1,4 @@
-import { mockWorkspace } from "@/data/mock"
+import { emptyWorkspace } from "@/data/empty"
 import { supabase } from "@/lib/supabase"
 import type { BudgetWorkspace } from "@/types/budget"
 
@@ -32,7 +32,7 @@ export async function loadOrCreateWorkspace(
     .from("budget_workspace")
     .insert({
       name: "DoBetterMoney",
-      data: mockWorkspace,
+      data: emptyWorkspace,
       done_keys: [],
       updated_by: userId,
     })

@@ -181,6 +181,35 @@ export function BudgetGrid({
     else rightRowRefs.current.delete(key)
   }
 
+  if (buckets.length === 0) {
+    return (
+      <div>
+        <div className="flex flex-col items-center justify-center rounded-[8px] border border-dashed border-neutral-300 px-6 py-20 text-center">
+          <p className="text-sm text-muted-foreground">
+            Start by creating a bucket
+          </p>
+          <Button
+            type="button"
+            className="mt-4 h-10 rounded-xl px-5"
+            onClick={() => setBucketDialog({ mode: "create" })}
+          >
+            Create bucket
+          </Button>
+        </div>
+
+        <AddBucketDialog
+          open={!!bucketDialog}
+          bucket={bucketDialog?.mode === "edit" ? bucketDialog.bucket : null}
+          onOpenChange={(open) => {
+            if (!open) setBucketDialog(null)
+          }}
+          onAdd={onAddBucket}
+          onUpdate={onUpdateBucket}
+        />
+      </div>
+    )
+  }
+
   return (
     <div>
       <div className="overflow-hidden rounded-[8px] border border-neutral-500">
