@@ -93,40 +93,24 @@ function MoneyInput({
   value: string
   onChange: (value: string) => void
 }) {
-  const [editing, setEditing] = useState(false)
-
   return (
     <div
       className={cn(
-        "flex h-10 cursor-text items-center rounded-md border border-input px-1.5",
+        "flex h-10 items-center rounded-md border border-input px-1.5",
         "hover:border-neutral-400 focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/30",
       )}
-      onClick={() => setEditing(true)}
     >
       <span className="pr-1 text-sm text-neutral-500">$</span>
-      {editing ? (
-        <input
-          autoFocus
-          className="h-full w-full bg-transparent text-right text-sm tabular-nums text-foreground outline-none"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          onBlur={() => setEditing(false)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") (e.target as HTMLInputElement).blur()
-          }}
-          inputMode="numeric"
-          placeholder="0"
-        />
-      ) : (
-        <span
-          className={cn(
-            "w-full text-right text-sm tabular-nums",
-            value !== "" ? "text-foreground" : "text-muted-foreground/50",
-          )}
-        >
-          {value !== "" ? value : "0"}
-        </span>
-      )}
+      <input
+        className="h-full w-full bg-transparent text-right text-sm tabular-nums text-foreground outline-none placeholder:text-muted-foreground/50"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") (e.target as HTMLInputElement).blur()
+        }}
+        inputMode="numeric"
+        placeholder="0"
+      />
     </div>
   )
 }
@@ -142,7 +126,6 @@ function DueDayInput({
   onCommit?: (value: string) => void
   invalid?: boolean
 }) {
-  const [editing, setEditing] = useState(false)
   const day = parseNum(value)
   const valid = day !== undefined && day >= 1 && day <= 31
   const n = valid ? Math.round(day) : null
@@ -150,37 +133,26 @@ function DueDayInput({
   return (
     <div
       className={cn(
-        "flex h-10 cursor-text items-center justify-end rounded-md border px-1.5",
+        "flex h-10 items-center justify-end rounded-md border px-1.5",
         invalid
           ? "border-destructive hover:border-destructive focus-within:border-destructive focus-within:ring-2 focus-within:ring-destructive/25"
           : "border-input hover:border-neutral-400 focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/30",
       )}
-      onClick={() => setEditing(true)}
     >
-      {editing ? (
-        <input
-          autoFocus
-          className="h-full w-full bg-transparent text-right text-sm tabular-nums text-foreground outline-none"
-          value={value}
-          onChange={(e) => onChange(e.target.value.replace(/\D/g, ""))}
-          onBlur={(e) => {
-            setEditing(false)
-            onCommit?.(e.target.value)
-          }}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") (e.target as HTMLInputElement).blur()
-          }}
-          inputMode="numeric"
-        />
-      ) : n !== null ? (
-        <span className="inline-flex items-baseline text-sm tabular-nums text-foreground">
-          {n}
-          <span className="ml-px text-[10px] leading-none text-muted-foreground">
-            {ordinalSuffix(n)}
-          </span>
+      <input
+        className="h-full w-full min-w-0 bg-transparent text-right text-sm tabular-nums text-foreground outline-none"
+        value={value}
+        onChange={(e) => onChange(e.target.value.replace(/\D/g, ""))}
+        onBlur={(e) => onCommit?.(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") (e.target as HTMLInputElement).blur()
+        }}
+        inputMode="numeric"
+      />
+      {n !== null ? (
+        <span className="shrink-0 text-[10px] leading-none text-muted-foreground">
+          {ordinalSuffix(n)}
         </span>
-      ) : value !== "" ? (
-        <span className="text-sm tabular-nums text-foreground">{value}</span>
       ) : null}
     </div>
   )
