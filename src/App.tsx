@@ -1,17 +1,90 @@
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
+import { useAuth } from "@/auth/AuthProvider"
 import { BudgetGrid } from "@/components/dashboard/BudgetGrid"
 import { HolderPanel } from "@/components/holder/HolderPanel"
 import { AppHeader } from "@/components/layout/AppHeader"
 import { mockWorkspace } from "@/data/mock"
+import {
+  loadOrCreateWorkspace,
+  saveWorkspace,
+} from "@/lib/workspace-api"
 import type { Bucket, BudgetWorkspace, UserRole } from "@/types/budget"
 
 export default function App() {
-  const [user, setUser] = useState<UserRole>("liz")
+  const { user, profile, setPreferredRole, signOut } = useAuth()
+  const [role, setRole] = useState<UserRole>("liz")
+  const [workspaceId, setWorkspaceId] = useState<string | null>(null)
   const [workspace, setWorkspace] = useState<BudgetWorkspace>(mockWorkspace)
   const [selectedPaycheckId, setSelectedPaycheckId] = useState(
     () => mockWorkspace.paychecks.find((p) => !p.completed)?.id ?? "p15",
   )
   const [doneKeys, setDoneKeys] = useState<Set<string>>(new Set())
+  const [loadingWorkspace, setLoadingWorkspace] = useState(true)
+  const [saveError, setSaveError] = useState<string | null>(null)
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const readyToSave = useRef(false)
+
+  useEffect(() => {
+    if (profile?.preferred_role) setRole(profile.preferred_role)
+  }, [profile?.preferred_role])
+
+  useEffect(() => {
+    if (!user) return
+    let cancelled = false
+    setLoadingWorkspace(true)
+    readyToSave.current = false
+
+    loadOrCreateWorkspace(user.id)
+      .then((state) => {
+        if (cancelled) return
+        setWorkspaceId(state.id)
+        setWorkspace(state.workspace)
+        setDoneKeys(new Set(state.doneKeys))
+        setSelectedPaycheckId(
+          state.workspace.paychecks.find((p) => !p.completed)?.id ??
+            state.workspace.paychecks[0]?.id ??
+            "",
+        )
+        setLoadingWorkspace(false)
+        // Avoid saving the initial hydrate
+        queueMicrotask(() => {
+          readyToSave.current = true
+        })
+      })
+      .catch((err: Error) => {
+        if (cancelled) return
+        setSaveError(err.message)
+        setLoadingWorkspace(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [user])
+
+  useEffect(() => {
+    if (!user || !workspaceId || !readyToSave.current) return
+    if (saveTimer.current) clearTimeout(saveTimer.current)
+
+    saveTimer.current = setTimeout(() => {
+      saveWorkspace(workspaceId, workspace, [...doneKeys], user.id)
+        .then(() => setSaveError(null))
+        .catch((err: Error) => setSaveError(err.message))
+    }, 600)
+
+    return () => {
+      if (saveTimer.current) clearTimeout(saveTimer.current)
+    }
+  }, [workspace, doneKeys, workspaceId, user])
+
+  async function onUserChange(next: UserRole) {
+    setRole(next)
+    try {
+      await setPreferredRole(next)
+    } catch {
+      // Keep local toggle even if profile update fails
+    }
+  }
 
   function toggleDone(key: string) {
     setDoneKeys((prev) => {
@@ -96,12 +169,31 @@ export default function App() {
     }))
   }
 
+  if (loadingWorkspace) {
+    return (
+      <div className="flex min-h-svh items-center justify-center text-sm text-muted-foreground">
+        Loading budget…
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-svh bg-background text-foreground">
-      <AppHeader user={user} onUserChange={setUser} />
+      <AppHeader
+        user={role}
+        onUserChange={onUserChange}
+        onSignOut={signOut}
+        email={user?.email}
+      />
+
+      {saveError ? (
+        <div className="border-b border-destructive/30 bg-destructive/10 px-[60px] py-2 text-xs text-destructive">
+          Couldn’t save: {saveError}
+        </div>
+      ) : null}
 
       <main className="px-[60px] py-4">
-        {user === "liz" ? (
+        {role === "liz" ? (
           <BudgetGrid
             buckets={workspace.buckets}
             paychecks={workspace.paychecks}
