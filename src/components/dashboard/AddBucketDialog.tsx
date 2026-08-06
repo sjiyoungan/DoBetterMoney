@@ -431,6 +431,8 @@ export function AddBucketDialog({
           }
           // Nested confirm dialogs — don't treat as closing the group dialog
           if (confirmOpen || removeId) return
+          // Tab blur / backgrounding can emit a dismiss — keep the modal open
+          if (document.visibilityState === "hidden") return
           requestClose()
         }}
       >
@@ -440,16 +442,19 @@ export function AddBucketDialog({
           onPointerDownOutside={(e) => {
             e.preventDefault()
             if (confirmOpen || removeId) return
+            // Ignore dismissals from leaving the browser tab
+            if (document.visibilityState === "hidden") return
             requestClose()
           }}
           onInteractOutside={(e) => {
             e.preventDefault()
             if (confirmOpen || removeId) return
+            if (document.visibilityState === "hidden") return
             requestClose()
           }}
           onFocusOutside={(e) => {
-            // Keep focus when a nested confirm dialog takes over
-            if (confirmOpen || removeId) e.preventDefault()
+            // Keep the dialog open when focus leaves the page (tab switch)
+            e.preventDefault()
           }}
           onEscapeKeyDown={(e) => {
             e.preventDefault()

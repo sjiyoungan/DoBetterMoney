@@ -27,7 +27,7 @@ export default function App() {
   }, [profile?.preferred_role])
 
   useEffect(() => {
-    if (!user) return
+    if (!user?.id) return
     let cancelled = false
     setLoadingWorkspace(true)
     readyToSave.current = false
@@ -69,10 +69,10 @@ export default function App() {
     return () => {
       cancelled = true
     }
-  }, [user])
+  }, [user?.id])
 
   useEffect(() => {
-    if (!user || !workspaceId || !readyToSave.current) return
+    if (!user?.id || !workspaceId || !readyToSave.current) return
     if (saveTimer.current) clearTimeout(saveTimer.current)
 
     saveTimer.current = setTimeout(() => {
@@ -84,7 +84,7 @@ export default function App() {
     return () => {
       if (saveTimer.current) clearTimeout(saveTimer.current)
     }
-  }, [workspace, doneKeys, workspaceId, user])
+  }, [workspace, doneKeys, workspaceId, user?.id])
 
   async function onUserChange(next: UserRole) {
     setRole(next)
