@@ -18,12 +18,14 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
+import { prefillAllocations } from "@/lib/allocations"
 import type {
   Bucket,
   BucketKind,
   Category,
   CategoryVariability,
   PayFrequency,
+  Paycheck,
 } from "@/types/budget"
 
 export type BucketDraftType = "expenses" | "savings" | "income"
@@ -34,13 +36,14 @@ type CategoryDraft = {
   amount: string
   goal: string
   dueDay: string
-  frequency: PayFrequency
+  frequency: PayFrequency | ""
   variability: CategoryVariability | ""
 }
 
 type Props = {
   open: boolean
   bucket?: Bucket | null
+  paychecks?: Paycheck[]
   onOpenChange: (open: boolean) => void
   onAdd: (bucket: Bucket) => void
   onUpdate: (bucket: Bucket) => void
@@ -50,19 +53,27 @@ const fieldH = "h-10" // 40px
 const selectH = "h-10 w-full data-[size=default]:h-10"
 /** Type column hugs “Select type” / Fixed / Variable */
 const selectTypeH = "h-10 w-max data-[size=default]:h-10"
+const selectFreqH = "h-10 w-max min-w-[7.5rem] data-[size=default]:h-10"
 
 /** Expenses / income category row columns */
 const COL_EXP =
-  "grid-cols-[minmax(0,238px)_68px_64px_max-content_40px]" as const
+  "grid-cols-[minmax(0,200px)_68px_64px_max-content_max-content_40px]" as const
 const COL_INC =
   "grid-cols-[minmax(0,238px)_68px_112px_max-content_40px]" as const
-const COL_SAV = "grid-cols-[minmax(0,238px)_68px_40px]" as const
+const COL_SAV =
+  "grid-cols-[minmax(0,200px)_68px_68px_max-content_40px]" as const
 
 const TYPE_LABEL: Record<BucketDraftType, string> = {
   expenses: "Expenses",
   savings: "Savings",
   income: "Income",
 }
+
+const FREQUENCY_OPTIONS: { value: PayFrequency; label: string }[] = [
+  { value: "weekly", label: "Weekly" },
+  { value: "biweekly", label: "Every 2 weeks" },
+  { value: "monthly", label: "Monthly" },
+]
 
 function newDraft(): CategoryDraft {
   return {
@@ -71,7 +82,7 @@ function newDraft(): CategoryDraft {
     amount: "",
     goal: "",
     dueDay: "",
-    frequency: "biweekly",
+    frequency: "",
     variability: "",
   }
 }
@@ -124,15 +135,45 @@ function bucketToDrafts(bucket: Bucket): CategoryDraft[] {
         : cat.dueDate && /^\d+$/.test(cat.dueDate)
           ? cat.dueDate
           : "",
-    frequency: cat.frequency ?? "biweekly",
+    frequency: cat.frequency ?? "",
     variability: cat.variability ?? "",
   }))
+}
+
+function resolveAllocations(opts: {
+  prev?: Category
+  paychecks: Paycheck[]
+  frequency: PayFrequency | ""
+  amount: number | undefined
+  dueDay: number | undefined
+}) {
+  const { prev, paychecks, frequency, amount, dueDay } = opts
+  if (!frequency || amount === undefined) {
+    return prev?.allocations ?? {}
+  }
+
+  const prevAmount = prev?.amount ?? prev?.recurringAmount
+  const unchanged =
+    prev &&
+    prev.frequency === frequency &&
+    prevAmount === amount &&
+    (prev.dueDay ?? undefined) === dueDay
+
+  if (unchanged) return prev.allocations
+
+  return prefillAllocations({
+    paychecks,
+    frequency,
+    amount,
+    dueDay,
+  })
 }
 
 function draftsToBucket(
   bucketName: string,
   bucketType: BucketDraftType,
   drafts: CategoryDraft[],
+  paychecks: Paycheck[],
   existing?: Bucket | null,
 ): Bucket {
   const bucketKind = mapType(bucketType)
@@ -141,13 +182,25 @@ function draftsToBucket(
     const prev = existing?.categories.find((c) => c.id === d.id)
     const amount = parseNum(d.amount)
     const goal = parseNum(d.goal)
-    const dueDay = parseNum(d.dueDay)
+    const dueDayRaw = parseNum(d.dueDay)
+    const dueDay =
+      dueDayRaw !== undefined && dueDayRaw >= 1 && dueDayRaw <= 31
+        ? Math.round(dueDayRaw)
+        : undefined
+    const frequency = d.frequency
 
     const base: Category = {
       id: prev?.id ?? crypto.randomUUID(),
       name: d.name.trim(),
-      allocations: prev?.allocations ?? {},
+      allocations: resolveAllocations({
+        prev,
+        paychecks,
+        frequency,
+        amount,
+        dueDay,
+      }),
       ...(d.variability ? { variability: d.variability } : {}),
+      ...(frequency ? { frequency } : {}),
     }
 
     if (bucketKind === "savings") {
@@ -155,6 +208,9 @@ function draftsToBucket(
         ...base,
         goal: goal ?? prev?.goal ?? 0,
         balance: prev?.balance ?? 0,
+        ...(amount !== undefined
+          ? { amount, recurringAmount: amount, isRecurring: true }
+          : {}),
       }
     }
 
@@ -162,16 +218,15 @@ function draftsToBucket(
       return {
         ...base,
         ...(amount !== undefined ? { amount } : {}),
-        frequency: d.frequency,
       }
     }
 
     return {
       ...base,
-      ...(amount !== undefined ? { amount } : {}),
-      ...(dueDay !== undefined && dueDay >= 1 && dueDay <= 31
-        ? { dueDay: Math.round(dueDay) }
+      ...(amount !== undefined
+        ? { amount, recurringAmount: amount, isRecurring: true }
         : {}),
+      ...(dueDay !== undefined ? { dueDay } : {}),
     }
   })
 
@@ -318,6 +373,7 @@ function isDueDayInvalid(dueDay: string) {
 export function AddBucketDialog({
   open,
   bucket = null,
+  paychecks = [],
   onOpenChange,
   onAdd,
   onUpdate,
@@ -366,6 +422,9 @@ export function AddBucketDialog({
     bucketName.trim() !== "" &&
     bucketType !== "" &&
     drafts.some((d) => d.name.trim() !== "") &&
+    drafts
+      .filter((d) => d.name.trim() !== "")
+      .every((d) => d.frequency !== "") &&
     !drafts.some((d) => isDueDayInvalid(d.dueDay))
 
   const removeTarget = removeId
@@ -408,7 +467,13 @@ export function AddBucketDialog({
   function handleSubmit() {
     if (!canSubmit || !bucketType) return
     const validDrafts = drafts.filter((d) => d.name.trim() !== "")
-    const next = draftsToBucket(bucketName, bucketType, validDrafts, bucket)
+    const next = draftsToBucket(
+      bucketName,
+      bucketType,
+      validDrafts,
+      paychecks,
+      bucket,
+    )
     if (editing) onUpdate(next)
     else onAdd(next)
     closeClean()
@@ -584,7 +649,9 @@ export function AddBucketDialog({
                 )}
               >
                 <span>Category</span>
+                <span>Amount</span>
                 <span>Goal</span>
+                <span>Frequency</span>
                 <span />
               </div>
             ) : bucketType === "income" ? (
@@ -610,6 +677,7 @@ export function AddBucketDialog({
                 <span>Category</span>
                 <span>Payment</span>
                 <span>Due day</span>
+                <span>Frequency</span>
                 <span>Type</span>
                 <span />
               </div>
@@ -628,9 +696,36 @@ export function AddBucketDialog({
                       placeholder="Category name"
                     />
                     <MoneyInput
+                      value={draft.amount}
+                      onChange={(v) => updateDraft(draft.id, { amount: v })}
+                    />
+                    <MoneyInput
                       value={draft.goal}
                       onChange={(v) => updateDraft(draft.id, { goal: v })}
                     />
+                    <Select
+                      value={draft.frequency || undefined}
+                      onValueChange={(value) =>
+                        updateDraft(draft.id, {
+                          frequency: value as PayFrequency,
+                        })
+                      }
+                    >
+                      <SelectTrigger size="default" className={selectFreqH}>
+                        <SelectValue placeholder="Select frequency" />
+                      </SelectTrigger>
+                      <SelectContent
+                        position="popper"
+                        align="start"
+                        className="min-w-0 w-[var(--radix-select-trigger-width)]"
+                      >
+                        {FREQUENCY_OPTIONS.map((opt) => (
+                          <SelectItem key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <Button
                       type="button"
                       variant="ghost"
@@ -662,7 +757,7 @@ export function AddBucketDialog({
                       onChange={(v) => updateDraft(draft.id, { amount: v })}
                     />
                     <Select
-                      value={draft.frequency}
+                      value={draft.frequency || undefined}
                       onValueChange={(value) =>
                         updateDraft(draft.id, {
                           frequency: value as PayFrequency,
@@ -670,16 +765,18 @@ export function AddBucketDialog({
                       }
                     >
                       <SelectTrigger size="default" className={selectH}>
-                        <SelectValue />
+                        <SelectValue placeholder="Select frequency" />
                       </SelectTrigger>
                       <SelectContent
                         position="popper"
                         align="start"
                         className="min-w-0 w-[var(--radix-select-trigger-width)]"
                       >
-                        <SelectItem value="weekly">Weekly</SelectItem>
-                        <SelectItem value="biweekly">Bi-weekly</SelectItem>
-                        <SelectItem value="monthly">Monthly</SelectItem>
+                        {FREQUENCY_OPTIONS.map((opt) => (
+                          <SelectItem key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                     <Select
@@ -754,6 +851,29 @@ export function AddBucketDialog({
                       )
                     }}
                   />
+                  <Select
+                    value={draft.frequency || undefined}
+                    onValueChange={(value) =>
+                      updateDraft(draft.id, {
+                        frequency: value as PayFrequency,
+                      })
+                    }
+                  >
+                    <SelectTrigger size="default" className={selectFreqH}>
+                      <SelectValue placeholder="Select frequency" />
+                    </SelectTrigger>
+                    <SelectContent
+                      position="popper"
+                      align="start"
+                      className="min-w-0 w-[var(--radix-select-trigger-width)]"
+                    >
+                      {FREQUENCY_OPTIONS.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <Select
                     value={draft.variability || undefined}
                     onValueChange={(value) =>

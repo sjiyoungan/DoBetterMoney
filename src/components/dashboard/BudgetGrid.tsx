@@ -189,6 +189,7 @@ export function BudgetGrid({
     return (
       <OnboardingFlow
         hasIncome={buckets.some((b) => b.kind === "income")}
+        paychecks={paychecks}
         onSetupIncome={onSetupIncome}
         onAddGroup={onAddBucket}
       />
@@ -506,6 +507,7 @@ export function BudgetGrid({
       <AddBucketDialog
         open={!!bucketDialog}
         bucket={bucketDialog?.mode === "edit" ? bucketDialog.bucket : null}
+        paychecks={paychecks}
         onOpenChange={(open) => {
           if (!open) setBucketDialog(null)
         }}

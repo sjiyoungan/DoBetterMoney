@@ -9,12 +9,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { prefillAllocations } from "@/lib/allocations"
 import { cn } from "@/lib/utils"
 import type {
   Bucket,
   BucketKind,
   Category,
   CategoryVariability,
+  PayFrequency,
+  Paycheck,
 } from "@/types/budget"
 
 type GroupType = "expenses" | "savings"
@@ -25,19 +28,29 @@ type CategoryDraft = {
   amount: string
   goal: string
   dueDay: string
+  frequency: PayFrequency | ""
   variability: CategoryVariability | ""
 }
 
 type Props = {
+  paychecks: Paycheck[]
   onCreate: (bucket: Bucket) => void
 }
 
 const fieldH = "h-10"
 const selectH = "h-10 w-full data-[size=default]:h-10"
 const selectTypeH = "h-10 w-max data-[size=default]:h-10"
+const selectFreqH = "h-10 w-max min-w-[7.5rem] data-[size=default]:h-10"
 const COL_EXP =
-  "grid-cols-[minmax(0,238px)_68px_64px_max-content_40px]" as const
-const COL_SAV = "grid-cols-[minmax(0,238px)_68px_40px]" as const
+  "grid-cols-[minmax(0,200px)_68px_64px_max-content_max-content_40px]" as const
+const COL_SAV =
+  "grid-cols-[minmax(0,200px)_68px_68px_max-content_40px]" as const
+
+const FREQUENCY_OPTIONS: { value: PayFrequency; label: string }[] = [
+  { value: "weekly", label: "Weekly" },
+  { value: "biweekly", label: "Every 2 weeks" },
+  { value: "monthly", label: "Monthly" },
+]
 
 function newDraft(): CategoryDraft {
   return {
@@ -46,6 +59,7 @@ function newDraft(): CategoryDraft {
     amount: "",
     goal: "",
     dueDay: "",
+    frequency: "",
     variability: "",
   }
 }
@@ -164,31 +178,85 @@ function DueDayInput({
   )
 }
 
+function FrequencySelect({
+  value,
+  onChange,
+}: {
+  value: PayFrequency | ""
+  onChange: (value: PayFrequency) => void
+}) {
+  return (
+    <Select
+      value={value || undefined}
+      onValueChange={(v) => onChange(v as PayFrequency)}
+    >
+      <SelectTrigger size="default" className={selectFreqH}>
+        <SelectValue placeholder="Select frequency" />
+      </SelectTrigger>
+      <SelectContent
+        position="popper"
+        align="start"
+        className="min-w-0 w-[var(--radix-select-trigger-width)]"
+      >
+        {FREQUENCY_OPTIONS.map((opt) => (
+          <SelectItem key={opt.value} value={opt.value}>
+            {opt.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  )
+}
+
 function toBucket(
   name: string,
   type: GroupType,
   drafts: CategoryDraft[],
+  paychecks: Paycheck[],
 ): Bucket {
   const kind: BucketKind = type === "savings" ? "savings" : "spending"
   const categories: Category[] = drafts.map((d) => {
     const amount = parseNum(d.amount)
     const goal = parseNum(d.goal)
-    const dueDay = parseNum(d.dueDay)
+    const dueDayRaw = parseNum(d.dueDay)
+    const dueDay =
+      dueDayRaw !== undefined && dueDayRaw >= 1 && dueDayRaw <= 31
+        ? Math.round(dueDayRaw)
+        : undefined
+    const frequency = d.frequency || undefined
+    const allocations =
+      frequency && amount !== undefined
+        ? prefillAllocations({
+            paychecks,
+            frequency,
+            amount,
+            dueDay,
+          })
+        : {}
+
     const base: Category = {
       id: crypto.randomUUID(),
       name: d.name.trim(),
-      allocations: {},
+      allocations,
       ...(d.variability ? { variability: d.variability } : {}),
+      ...(frequency ? { frequency } : {}),
     }
     if (kind === "savings") {
-      return { ...base, goal: goal ?? 0, balance: 0 }
+      return {
+        ...base,
+        goal: goal ?? 0,
+        balance: 0,
+        ...(amount !== undefined
+          ? { amount, recurringAmount: amount, isRecurring: true }
+          : {}),
+      }
     }
     return {
       ...base,
-      ...(amount !== undefined ? { amount } : {}),
-      ...(dueDay !== undefined && dueDay >= 1 && dueDay <= 31
-        ? { dueDay: Math.round(dueDay) }
+      ...(amount !== undefined
+        ? { amount, recurringAmount: amount, isRecurring: true }
         : {}),
+      ...(dueDay !== undefined ? { dueDay } : {}),
     }
   })
 
@@ -200,7 +268,7 @@ function toBucket(
   }
 }
 
-export function FirstGroupForm({ onCreate }: Props) {
+export function FirstGroupForm({ paychecks, onCreate }: Props) {
   const [name, setName] = useState("")
   const [type, setType] = useState<GroupType | "">("")
   const [drafts, setDrafts] = useState<CategoryDraft[]>([newDraft()])
@@ -211,6 +279,9 @@ export function FirstGroupForm({ onCreate }: Props) {
       name.trim() !== "" &&
       type !== "" &&
       drafts.some((d) => d.name.trim() !== "") &&
+      drafts
+        .filter((d) => d.name.trim() !== "")
+        .every((d) => d.frequency !== "") &&
       !drafts.some((d) => isDueDayInvalid(d.dueDay)),
     [name, type, drafts],
   )
@@ -224,7 +295,7 @@ export function FirstGroupForm({ onCreate }: Props) {
   function handleCreate() {
     if (!canSubmit || !type) return
     const valid = drafts.filter((d) => d.name.trim() !== "")
-    onCreate(toBucket(name, type, valid))
+    onCreate(toBucket(name, type, valid, paychecks))
   }
 
   return (
@@ -264,7 +335,9 @@ export function FirstGroupForm({ onCreate }: Props) {
             )}
           >
             <span>Category</span>
+            <span>Amount</span>
             <span>Goal</span>
+            <span>Frequency</span>
             <span />
           </div>
         ) : (
@@ -277,6 +350,7 @@ export function FirstGroupForm({ onCreate }: Props) {
             <span>Category</span>
             <span>Payment</span>
             <span>Due day</span>
+            <span>Frequency</span>
             <span>Type</span>
             <span />
           </div>
@@ -292,8 +366,16 @@ export function FirstGroupForm({ onCreate }: Props) {
                 placeholder="Category name"
               />
               <MoneyInput
+                value={draft.amount}
+                onChange={(v) => updateDraft(draft.id, { amount: v })}
+              />
+              <MoneyInput
                 value={draft.goal}
                 onChange={(v) => updateDraft(draft.id, { goal: v })}
+              />
+              <FrequencySelect
+                value={draft.frequency}
+                onChange={(v) => updateDraft(draft.id, { frequency: v })}
               />
               <Button
                 type="button"
@@ -341,6 +423,10 @@ export function FirstGroupForm({ onCreate }: Props) {
                     ),
                   )
                 }}
+              />
+              <FrequencySelect
+                value={draft.frequency}
+                onChange={(v) => updateDraft(draft.id, { frequency: v })}
               />
               <Select
                 value={draft.variability || undefined}

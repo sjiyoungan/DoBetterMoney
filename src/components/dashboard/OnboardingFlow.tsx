@@ -4,7 +4,7 @@ import { FirstGroupForm } from "@/components/dashboard/FirstGroupForm"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import type { IncomeSourceInput } from "@/lib/income-schedule"
-import type { Bucket, PayFrequency } from "@/types/budget"
+import type { Bucket, Paycheck, PayFrequency } from "@/types/budget"
 
 type IncomeDraft = {
   id: string
@@ -15,6 +15,7 @@ type IncomeDraft = {
 
 type Props = {
   hasIncome: boolean
+  paychecks: Paycheck[]
   onSetupIncome: (sources: IncomeSourceInput[]) => void
   onAddGroup: (bucket: Bucket) => void
 }
@@ -43,6 +44,7 @@ function parseAmount(value: string): number | undefined {
 
 export function OnboardingFlow({
   hasIncome,
+  paychecks,
   onSetupIncome,
   onAddGroup,
 }: Props) {
@@ -95,7 +97,7 @@ export function OnboardingFlow({
             Groups hold related categories like bills or savings.
           </p>
         </div>
-        <FirstGroupForm onCreate={onAddGroup} />
+        <FirstGroupForm paychecks={paychecks} onCreate={onAddGroup} />
       </div>
     )
   }
