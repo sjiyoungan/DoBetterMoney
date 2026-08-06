@@ -98,11 +98,12 @@ function MoneyInput({
   return (
     <div
       className={cn(
-        "flex h-10 cursor-text items-center justify-end rounded-md border border-input px-1.5",
+        "flex h-10 cursor-text items-center rounded-md border border-input px-1.5",
         "hover:border-neutral-400 focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/30",
       )}
       onClick={() => setEditing(true)}
     >
+      <span className="pr-1 text-sm text-neutral-500">$</span>
       {editing ? (
         <input
           autoFocus
@@ -116,9 +117,16 @@ function MoneyInput({
           inputMode="numeric"
           placeholder="0"
         />
-      ) : value !== "" ? (
-        <span className="text-sm tabular-nums text-foreground">${value}</span>
-      ) : null}
+      ) : (
+        <span
+          className={cn(
+            "w-full text-right text-sm tabular-nums",
+            value !== "" ? "text-foreground" : "text-muted-foreground/50",
+          )}
+        >
+          {value !== "" ? value : "0"}
+        </span>
+      )}
     </div>
   )
 }
