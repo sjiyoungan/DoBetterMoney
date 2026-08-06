@@ -8,7 +8,8 @@ In [Supabase Dashboard](https://supabase.com/dashboard) → your project:
    - Enable Email
    - Turn **Confirm email** OFF
 2. **Authentication → URL Configuration**
-   - Site URL: `http://localhost:5173` for local, and your Vercel URL for prod
+   - Site URL: `https://dobettermoney.com`
+   - Redirect URLs: `https://dobettermoney.com/**`, `http://localhost:5173/**`
 
 ## 2. Run the schema
 
