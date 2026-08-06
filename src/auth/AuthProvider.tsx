@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from "react"
 import type { Session, User } from "@supabase/supabase-js"
+import { isValidUsername, normalizeUsername } from "@/lib/auth-identity"
 import { supabase, type ProfileRow } from "@/lib/supabase"
 import type { UserRole } from "@/types/budget"
 
@@ -16,9 +17,10 @@ type AuthContextValue = {
   user: User | null
   profile: ProfileRow | null
   loading: boolean
-  signIn: (email: string, password: string) => Promise<string | null>
+  signIn: (username: string, password: string) => Promise<string | null>
   signUp: (
     email: string,
+    username: string,
     password: string,
     preferredRole?: UserRole,
   ) => Promise<string | null>
@@ -83,18 +85,62 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [session?.user?.id])
 
-  const signIn = useCallback(async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
-    return error?.message ?? null
+  const signIn = useCallback(async (username: string, password: string) => {
+    const normalized = normalizeUsername(username)
+    if (!isValidUsername(normalized)) {
+      return "Username must be 3–24 characters: letters, numbers, underscore."
+    }
+
+    const { data: email, error: lookupError } = await supabase.rpc(
+      "get_email_for_username",
+      { p_username: normalized },
+    )
+
+    if (lookupError) return lookupError.message
+    if (!email || typeof email !== "string") {
+      return "Invalid username or password."
+    }
+
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    })
+    return error ? "Invalid username or password." : null
   }, [])
 
   const signUp = useCallback(
-    async (email: string, password: string, preferredRole: UserRole = "liz") => {
+    async (
+      email: string,
+      username: string,
+      password: string,
+      preferredRole: UserRole = "liz",
+    ) => {
+      const normalized = normalizeUsername(username)
+      if (!isValidUsername(normalized)) {
+        return "Username must be 3–24 characters: letters, numbers, underscore."
+      }
+
+      const trimmedEmail = email.trim().toLowerCase()
+      if (!trimmedEmail.includes("@")) {
+        return "Enter a valid email."
+      }
+
+      // Fail fast if username is taken (before creating auth user)
+      const { data: existingEmail, error: existingError } = await supabase.rpc(
+        "get_email_for_username",
+        { p_username: normalized },
+      )
+      if (existingError) return existingError.message
+      if (existingEmail) return "That username is already taken."
+
       const { error } = await supabase.auth.signUp({
-        email,
+        email: trimmedEmail,
         password,
         options: {
-          data: { preferred_role: preferredRole },
+          data: {
+            username: normalized,
+            preferred_role: preferredRole,
+          },
         },
       })
       return error?.message ?? null

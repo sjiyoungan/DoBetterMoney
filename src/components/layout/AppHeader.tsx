@@ -6,18 +6,18 @@ type Props = {
   user: UserRole
   onUserChange: (user: UserRole) => void
   onSignOut?: () => void
-  email?: string | null
+  username?: string | null
 }
 
-export function AppHeader({ user, onUserChange, onSignOut, email }: Props) {
+export function AppHeader({ user, onUserChange, onSignOut, username }: Props) {
   return (
     <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur">
       <div className="flex items-center justify-between gap-3 px-[60px] py-3">
         <p className="text-lg font-semibold tracking-tight">DoBetterMoney</p>
         <div className="flex flex-wrap items-center justify-end gap-2">
-          {email ? (
+          {username ? (
             <span className="hidden text-xs text-muted-foreground sm:inline">
-              {email}
+              @{username}
             </span>
           ) : null}
           <div className="flex rounded-lg border p-0.5">

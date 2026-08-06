@@ -4,6 +4,7 @@ import type { BudgetWorkspace, UserRole } from "@/types/budget"
 export type ProfileRow = {
   id: string
   email: string | null
+  username: string
   preferred_role: UserRole
   created_at: string
 }

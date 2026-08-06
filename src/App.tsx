@@ -183,7 +183,7 @@ export default function App() {
         user={role}
         onUserChange={onUserChange}
         onSignOut={signOut}
-        email={user?.email}
+        username={profile?.username}
       />
 
       {saveError ? (

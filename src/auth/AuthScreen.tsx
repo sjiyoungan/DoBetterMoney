@@ -9,6 +9,7 @@ export function AuthScreen() {
   const { signIn, signUp } = useAuth()
   const [mode, setMode] = useState<"signin" | "signup">("signin")
   const [email, setEmail] = useState("")
+  const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
   const [role, setRole] = useState<UserRole>("liz")
   const [error, setError] = useState<string | null>(null)
@@ -20,8 +21,8 @@ export function AuthScreen() {
     setBusy(true)
     const message =
       mode === "signin"
-        ? await signIn(email.trim(), password)
-        : await signUp(email.trim(), password, role)
+        ? await signIn(username, password)
+        : await signUp(email, username, password, role)
     setBusy(false)
     if (message) setError(message)
   }
@@ -32,22 +33,43 @@ export function AuthScreen() {
         <div className="space-y-1">
           <h1 className="text-2xl font-semibold tracking-tight">DoBetterMoney</h1>
           <p className="text-sm text-muted-foreground">
-            {mode === "signin" ? "Sign in with email and password" : "Create an account"}
+            {mode === "signin"
+              ? "Sign in with username and password"
+              : "Create an account"}
           </p>
         </div>
 
         <form className="space-y-4" onSubmit={onSubmit}>
+          {mode === "signup" ? (
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                autoComplete="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
+            </div>
+          ) : null}
+
           <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
+            <Label htmlFor="username">Username</Label>
             <Input
-              id="email"
-              type="email"
-              autoComplete="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              id="username"
+              type="text"
+              autoComplete="username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              minLength={3}
+              maxLength={24}
+              pattern="[A-Za-z0-9_]+"
+              title="3–24 characters: letters, numbers, underscore"
               required
             />
           </div>
+
           <div className="space-y-2">
             <Label htmlFor="password">Password</Label>
             <Input
