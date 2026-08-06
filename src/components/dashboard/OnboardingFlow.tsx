@@ -158,10 +158,10 @@ export function OnboardingFlow({
                 Amount
               </label>
               <div className="flex h-10 items-center rounded-lg border border-input px-2.5">
-                <span className="pr-1 text-sm text-muted-foreground">$</span>
+                <span className="pr-1 text-sm text-muted-foreground/50">$</span>
                 <input
                   id={`income-amount-${draft.id}`}
-                  className="h-full w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+                  className="h-full w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground/50"
                   value={draft.amount}
                   onChange={(e) =>
                     updateDraft(draft.id, { amount: e.target.value })
