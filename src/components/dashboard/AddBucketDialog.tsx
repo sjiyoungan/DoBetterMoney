@@ -465,71 +465,107 @@ export function AddBucketDialog({
         >
           {/* Header */}
           <div>
-            <div className="group flex min-h-10 items-center gap-1.5">
-              {editingName ? (
-                <input
+            {!editing ? (
+              <div className="space-y-3">
+                <Input
                   autoFocus
-                  className="min-w-0 flex-1 bg-transparent text-2xl font-semibold tracking-tight text-foreground outline-none"
                   value={bucketName}
                   onChange={(e) => setBucketName(e.target.value)}
-                  onBlur={() => setEditingName(false)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") (e.target as HTMLInputElement).blur()
-                  }}
-                  placeholder={editing ? "Bucket name" : "New bucket"}
+                  placeholder="Bucket name"
+                  className={cn(fieldH, "text-base md:text-sm")}
                 />
-              ) : (
-                <>
-                  <h2 className="min-w-0 text-2xl font-semibold tracking-tight text-foreground">
-                    {bucketName.trim() !== ""
-                      ? bucketName
-                      : editing
-                        ? "Bucket name"
-                        : "New bucket"}
-                  </h2>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    className="shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 hover:text-foreground"
-                    onClick={() => setEditingName(true)}
-                    title="Edit name"
+                <Select
+                  value={bucketType}
+                  open={typeOpen}
+                  onOpenChange={setTypeOpen}
+                  onValueChange={(value) =>
+                    setBucketType(value as BucketDraftType)
+                  }
+                >
+                  <SelectTrigger size="default" className={selectH}>
+                    <SelectValue placeholder="Select type">
+                      {TYPE_LABEL[bucketType]}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent
+                    position="popper"
+                    align="start"
+                    className="w-max min-w-[var(--radix-select-trigger-width)]"
                   >
-                    <Pencil className="size-3.5" />
-                  </Button>
-                </>
-              )}
-            </div>
+                    <SelectItem value="expenses">Expenses</SelectItem>
+                    <SelectItem value="savings">Savings</SelectItem>
+                    <SelectItem value="income">Income</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : (
+              <>
+                <div className="group flex min-h-10 items-center gap-1.5">
+                  {editingName ? (
+                    <input
+                      autoFocus
+                      className="min-w-0 flex-1 bg-transparent text-2xl font-semibold tracking-tight text-foreground outline-none"
+                      value={bucketName}
+                      onChange={(e) => setBucketName(e.target.value)}
+                      onBlur={() => setEditingName(false)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter")
+                          (e.target as HTMLInputElement).blur()
+                      }}
+                      placeholder="Bucket name"
+                    />
+                  ) : (
+                    <>
+                      <h2 className="min-w-0 text-2xl font-semibold tracking-tight text-foreground">
+                        {bucketName.trim() !== ""
+                          ? bucketName
+                          : "Bucket name"}
+                      </h2>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-sm"
+                        className="shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 hover:text-foreground"
+                        onClick={() => setEditingName(true)}
+                        title="Edit name"
+                      >
+                        <Pencil className="size-3.5" />
+                      </Button>
+                    </>
+                  )}
+                </div>
 
-            <Select
-              value={bucketType}
-              open={typeOpen}
-              onOpenChange={setTypeOpen}
-              onValueChange={(value) =>
-                setBucketType(value as BucketDraftType)
-              }
-            >
-              <SelectTrigger
-                size="default"
-                className={cn(
-                  "mt-0 h-auto min-w-[5.75rem] justify-between gap-3 border-0 bg-transparent px-0 py-0 text-sm font-normal text-foreground shadow-none",
-                  "hover:bg-transparent hover:text-foreground",
-                  "focus-visible:ring-0 focus-visible:outline-none",
-                  "data-[size=default]:h-auto [&_svg]:size-3.5 [&_svg]:opacity-0 hover:[&_svg]:opacity-100 data-[state=open]:[&_svg]:opacity-100",
-                )}
-              >
-                <SelectValue>{TYPE_LABEL[bucketType]}</SelectValue>
-              </SelectTrigger>
-              <SelectContent
-                position="popper"
-                align="start"
-                className="w-max min-w-[var(--radix-select-trigger-width)]"
-              >
-                <SelectItem value="expenses">Expenses</SelectItem>
-                <SelectItem value="savings">Savings</SelectItem>
-                <SelectItem value="income">Income</SelectItem>
-              </SelectContent>
-            </Select>
+                <Select
+                  value={bucketType}
+                  open={typeOpen}
+                  onOpenChange={setTypeOpen}
+                  onValueChange={(value) =>
+                    setBucketType(value as BucketDraftType)
+                  }
+                >
+                  <SelectTrigger
+                    size="default"
+                    className={cn(
+                      "mt-0 h-auto min-w-[5.75rem] justify-between gap-3 border-0 bg-transparent px-0 py-0 text-sm font-normal text-foreground shadow-none",
+                      "hover:bg-transparent hover:text-foreground",
+                      "focus-visible:ring-0 focus-visible:outline-none",
+                      "data-[size=default]:h-auto [&_svg]:size-3.5 [&_svg]:opacity-0 hover:[&_svg]:opacity-100 data-[state=open]:[&_svg]:opacity-100",
+                    )}
+                  >
+                    <SelectValue>{TYPE_LABEL[bucketType]}</SelectValue>
+                  </SelectTrigger>
+                  <SelectContent
+                    position="popper"
+                    align="start"
+                    className="w-max min-w-[var(--radix-select-trigger-width)]"
+                  >
+                    <SelectItem value="expenses">Expenses</SelectItem>
+                    <SelectItem value="savings">Savings</SelectItem>
+                    <SelectItem value="income">Income</SelectItem>
+                  </SelectContent>
+                </Select>
+              </>
+            )}
           </div>
 
           <div className="mt-6 space-y-2">
@@ -777,7 +813,7 @@ export function AddBucketDialog({
               onClick={handleSubmit}
               className="h-10 disabled:border disabled:border-neutral-200 disabled:bg-transparent disabled:text-muted-foreground/35 disabled:opacity-100 dark:disabled:border-neutral-700"
             >
-              {editing ? "Update" : "Add"}
+              {editing ? "Update" : "Create"}
             </Button>
           </DialogFooter>
         </DialogContent>
