@@ -1,4 +1,4 @@
-import { createClient } from "@supabase/supabase-js"
+import { createClient, type SupabaseClient } from "@supabase/supabase-js"
 import type { BudgetWorkspace, UserRole } from "@/types/budget"
 
 export type ProfileRow = {
@@ -18,13 +18,11 @@ export type WorkspaceRow = {
   updated_by: string | null
 }
 
-const url = import.meta.env.VITE_SUPABASE_URL
-const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+const url = import.meta.env.VITE_SUPABASE_URL as string | undefined
+const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
 
-if (!url || !anonKey) {
-  throw new Error(
-    "Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY. Copy .env.example to .env.local.",
-  )
-}
+export const supabaseConfigured = Boolean(url && anonKey)
 
-export const supabase = createClient(url, anonKey)
+export const supabase: SupabaseClient = supabaseConfigured
+  ? createClient(url!, anonKey!)
+  : (null as unknown as SupabaseClient)
