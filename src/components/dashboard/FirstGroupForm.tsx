@@ -39,12 +39,12 @@ type Props = {
 
 const fieldH = "h-10"
 const selectH = "h-10 w-full data-[size=default]:h-10"
-const selectTypeH = "h-10 w-max data-[size=default]:h-10"
-const selectFreqH = "h-10 w-max min-w-[7.5rem] data-[size=default]:h-10"
+const selectTypeH = "h-10 w-full data-[size=default]:h-10"
+const selectFreqH = "h-10 w-full data-[size=default]:h-10"
 const COL_EXP =
-  "grid-cols-[minmax(0,200px)_68px_64px_max-content_max-content_40px]" as const
+  "grid-cols-[minmax(0,200px)_68px_64px_9.75rem_7.5rem_40px]" as const
 const COL_SAV =
-  "grid-cols-[minmax(0,200px)_68px_68px_max-content_40px]" as const
+  "grid-cols-[minmax(0,200px)_68px_68px_9.75rem_40px]" as const
 
 const FREQUENCY_OPTIONS: { value: PayFrequency; label: string }[] = [
   { value: "weekly", label: "Weekly" },
