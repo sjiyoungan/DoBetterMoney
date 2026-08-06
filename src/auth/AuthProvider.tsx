@@ -17,7 +17,7 @@ type AuthContextValue = {
   user: User | null
   profile: ProfileRow | null
   loading: boolean
-  signIn: (username: string, password: string) => Promise<string | null>
+  signIn: (usernameOrEmail: string, password: string) => Promise<string | null>
   signUp: (
     email: string,
     username: string,
@@ -30,6 +30,16 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | null>(null)
 
+const SCHEMA_HINT =
+  "Database isn’t set up yet. In Supabase → SQL Editor, run supabase/schema.sql, then try again."
+
+function isMissingUsernameFn(error: { code?: string; message: string }) {
+  return (
+    error.code === "PGRST202" ||
+    /get_email_for_username/i.test(error.message)
+  )
+}
+
 async function fetchProfile(userId: string) {
   const { data, error } = await supabase
     .from("profiles")
@@ -38,6 +48,38 @@ async function fetchProfile(userId: string) {
     .maybeSingle()
   if (error) throw error
   return data
+}
+
+async function resolveEmailForLogin(usernameOrEmail: string) {
+  const raw = usernameOrEmail.trim()
+  if (raw.includes("@")) {
+    return { email: raw.toLowerCase(), error: null as string | null }
+  }
+
+  const normalized = normalizeUsername(raw)
+  if (!isValidUsername(normalized)) {
+    return {
+      email: null,
+      error: "Username must be 3–24 characters: letters, numbers, underscore.",
+    }
+  }
+
+  const { data: email, error } = await supabase.rpc("get_email_for_username", {
+    p_username: normalized,
+  })
+
+  if (error) {
+    return {
+      email: null,
+      error: isMissingUsernameFn(error) ? SCHEMA_HINT : error.message,
+    }
+  }
+
+  if (!email || typeof email !== "string") {
+    return { email: null, error: "Invalid username or password." }
+  }
+
+  return { email, error: null }
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -85,21 +127,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [session?.user?.id])
 
-  const signIn = useCallback(async (username: string, password: string) => {
-    const normalized = normalizeUsername(username)
-    if (!isValidUsername(normalized)) {
-      return "Username must be 3–24 characters: letters, numbers, underscore."
-    }
-
-    const { data: email, error: lookupError } = await supabase.rpc(
-      "get_email_for_username",
-      { p_username: normalized },
-    )
-
-    if (lookupError) return lookupError.message
-    if (!email || typeof email !== "string") {
-      return "Invalid username or password."
-    }
+  const signIn = useCallback(async (usernameOrEmail: string, password: string) => {
+    const { email, error: resolveError } =
+      await resolveEmailForLogin(usernameOrEmail)
+    if (resolveError) return resolveError
+    if (!email) return "Invalid username or password."
 
     const { error } = await supabase.auth.signInWithPassword({
       email,
@@ -125,22 +157,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return "Enter a valid email."
       }
 
-      // Fail fast if username is taken (when the lookup RPC exists)
       const { data: existingEmail, error: existingError } = await supabase.rpc(
         "get_email_for_username",
         { p_username: normalized },
       )
       if (existingError) {
-        const missingFn =
-          existingError.code === "PGRST202" ||
-          /get_email_for_username/i.test(existingError.message)
-        if (!missingFn) return existingError.message
-        // Schema not applied yet — continue; uniqueness is enforced in DB when ready
+        if (!isMissingUsernameFn(existingError)) return existingError.message
       } else if (existingEmail) {
         return "That username is already taken."
       }
 
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email: trimmedEmail,
         password,
         options: {
@@ -150,7 +177,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           },
         },
       })
-      return error?.message ?? null
+      if (error) return error.message
+
+      // Land on dashboard immediately (needs Confirm email = OFF in Supabase)
+      if (!data.session) {
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email: trimmedEmail,
+          password,
+        })
+        if (signInError) {
+          return "Account created, but email confirmation is still required. Turn OFF Confirm email in Supabase → Authentication → Providers → Email."
+        }
+      }
+
+      return null
     },
     [],
   )

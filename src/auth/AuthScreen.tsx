@@ -108,7 +108,7 @@ export function AuthScreen() {
               {busy
                 ? "Working…"
                 : mode === "signin"
-                  ? "Sign in"
+                  ? "Log in"
                   : "Create account"}
             </Button>
           </form>
@@ -128,7 +128,7 @@ export function AuthScreen() {
                 className="text-neutral-600 underline-offset-4 transition-colors hover:text-neutral-950 hover:underline"
                 onClick={() => switchMode("signin")}
               >
-                Sign in
+                Log in
               </button>
             )}
           </p>
