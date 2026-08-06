@@ -3,7 +3,6 @@ import { BrandMark } from "@/components/BrandMark"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useAuth } from "@/auth/AuthProvider"
-import type { UserRole } from "@/types/budget"
 
 export function AuthScreen() {
   const { signIn, signUp } = useAuth()
@@ -11,7 +10,6 @@ export function AuthScreen() {
   const [email, setEmail] = useState("")
   const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
-  const [role, setRole] = useState<UserRole>("liz")
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
@@ -22,7 +20,7 @@ export function AuthScreen() {
     const message =
       mode === "signin"
         ? await signIn(username, password)
-        : await signUp(email, username, password, role)
+        : await signUp(email, username, password)
     setBusy(false)
     if (message) setError(message)
   }
@@ -98,31 +96,6 @@ export function AuthScreen() {
               minLength={6}
               required
             />
-
-            {mode === "signup" ? (
-              <div className="space-y-2 motion-safe:animate-[auth-rise_0.35s_ease-out_both]">
-                <div className="grid grid-cols-2 gap-1 rounded-xl border border-neutral-200 bg-white p-1">
-                  <Button
-                    type="button"
-                    size="sm"
-                    className="h-9 flex-1 rounded-lg"
-                    variant={role === "liz" ? "default" : "ghost"}
-                    onClick={() => setRole("liz")}
-                  >
-                    Liz
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    className="h-9 flex-1 rounded-lg"
-                    variant={role === "ji" ? "default" : "ghost"}
-                    onClick={() => setRole("ji")}
-                  >
-                    Ji
-                  </Button>
-                </div>
-              </div>
-            ) : null}
 
             {error ? (
               <p className="text-xs text-destructive" role="alert">
