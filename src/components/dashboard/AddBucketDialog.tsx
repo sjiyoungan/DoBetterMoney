@@ -186,7 +186,7 @@ function draftsToBucket(
 
 function snapshotKey(
   name: string,
-  type: BucketDraftType,
+  type: BucketDraftType | "",
   drafts: CategoryDraft[],
 ) {
   return JSON.stringify({
@@ -324,7 +324,7 @@ export function AddBucketDialog({
 }: Props) {
   const editing = !!bucket
   const [bucketName, setBucketName] = useState("")
-  const [bucketType, setBucketType] = useState<BucketDraftType>("expenses")
+  const [bucketType, setBucketType] = useState<BucketDraftType | "">("")
   const [drafts, setDrafts] = useState<CategoryDraft[]>([newDraft()])
   const [baseline, setBaseline] = useState("")
   const [confirmOpen, setConfirmOpen] = useState(false)
@@ -345,9 +345,9 @@ export function AddBucketDialog({
     } else {
       const nextDrafts = [newDraft()]
       setBucketName("")
-      setBucketType("expenses")
+      setBucketType("")
       setDrafts(nextDrafts)
-      setBaseline(snapshotKey("", "expenses", nextDrafts))
+      setBaseline(snapshotKey("", "", nextDrafts))
     }
     setConfirmOpen(false)
     setRemoveId(null)
@@ -364,6 +364,7 @@ export function AddBucketDialog({
   const canSubmit =
     dirty &&
     bucketName.trim() !== "" &&
+    bucketType !== "" &&
     drafts.some((d) => d.name.trim() !== "") &&
     !drafts.some((d) => isDueDayInvalid(d.dueDay))
 
@@ -405,7 +406,7 @@ export function AddBucketDialog({
   }
 
   function handleSubmit() {
-    if (!canSubmit) return
+    if (!canSubmit || !bucketType) return
     const validDrafts = drafts.filter((d) => d.name.trim() !== "")
     const next = draftsToBucket(bucketName, bucketType, validDrafts, bucket)
     if (editing) onUpdate(next)
@@ -475,7 +476,7 @@ export function AddBucketDialog({
                   className={cn(fieldH, "text-base md:text-sm")}
                 />
                 <Select
-                  value={bucketType}
+                  value={bucketType || undefined}
                   open={typeOpen}
                   onOpenChange={setTypeOpen}
                   onValueChange={(value) =>
@@ -483,9 +484,7 @@ export function AddBucketDialog({
                   }
                 >
                   <SelectTrigger size="default" className={selectH}>
-                    <SelectValue placeholder="Select type">
-                      {TYPE_LABEL[bucketType]}
-                    </SelectValue>
+                    <SelectValue placeholder="Select type" />
                   </SelectTrigger>
                   <SelectContent
                     position="popper"
