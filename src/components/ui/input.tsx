@@ -69,7 +69,7 @@ function Input(props: InputProps) {
           )}
         >
           {leftIcon ? (
-            <span className="pr-1 text-sm text-muted-foreground/50">$</span>
+            <span className="pr-1 text-sm text-neutral-500">$</span>
           ) : null}
           <SelectValue placeholder={placeholder} />
         </SelectTrigger>
@@ -94,7 +94,7 @@ function Input(props: InputProps) {
           className,
         )}
       >
-        <span className="pr-1 text-sm text-muted-foreground/50">$</span>
+        <span className="pr-1 text-sm text-neutral-500">$</span>
         <input
           type={type}
           data-slot="input"
