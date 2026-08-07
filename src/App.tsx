@@ -45,6 +45,7 @@ export default function App() {
   const [doneKeys, setDoneKeys] = useState<Set<string>>(new Set())
   const [loadingWorkspace, setLoadingWorkspace] = useState(!freshPreview)
   const [saveError, setSaveError] = useState<string | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [saveReady, setSaveReady] = useState(false)
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">(
     "idle",
@@ -288,6 +289,8 @@ export default function App() {
             "",
         )
         clearHistory()
+        setLoadError(null)
+        setSaveError(null)
         setLoadingWorkspace(false)
         setSaveStatus("idle")
         setSaveReady(true)
@@ -297,7 +300,7 @@ export default function App() {
         const msg = err.message ?? String(err)
         const missingSchema =
           /budget_workspace|schema cache|get_email_for_username/i.test(msg)
-        setSaveError(
+        setLoadError(
           missingSchema
             ? "Database tables aren’t set up yet. In Supabase → SQL Editor, paste and Run supabase/schema.sql, then refresh this page."
             : msg,
@@ -639,6 +642,12 @@ export default function App() {
           Fresh preview — empty workspace, not saved to your account. Remove{" "}
           <code className="font-mono">?fresh</code> from the URL to use your
           real data.
+        </div>
+      ) : null}
+
+      {loadError ? (
+        <div className="border-b border-destructive/30 bg-destructive/10 px-[60px] py-2 text-xs text-destructive">
+          Couldn’t load: {loadError}
         </div>
       ) : null}
 

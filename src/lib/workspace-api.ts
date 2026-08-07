@@ -1,4 +1,5 @@
 import { emptyWorkspace, emptyYearBudget } from "@/data/empty"
+import { withAuthRetry } from "@/lib/auth-retry"
 import { supabase } from "@/lib/supabase"
 import { normalizeWorkspace } from "@/lib/year-workspace"
 import type { BudgetWorkspace, Category, YearBudget } from "@/types/budget"
@@ -63,7 +64,7 @@ export function sanitizeWorkspaceAllocations(
   return { ...workspace, years }
 }
 
-export async function loadOrCreateWorkspace(
+async function loadOrCreateWorkspaceOnce(
   userId: string,
 ): Promise<WorkspaceState> {
   const { data: rows, error: selectError } = await supabase
@@ -112,7 +113,13 @@ export async function loadOrCreateWorkspace(
   }
 }
 
-export async function saveWorkspace(
+export async function loadOrCreateWorkspace(
+  userId: string,
+): Promise<WorkspaceState> {
+  return withAuthRetry(() => loadOrCreateWorkspaceOnce(userId))
+}
+
+async function saveWorkspaceOnce(
   workspaceId: string,
   workspace: BudgetWorkspace,
   doneKeys: string[],
@@ -157,4 +164,15 @@ export async function saveWorkspace(
       "Save verification failed — stored grid didn’t match what we wrote. Try again.",
     )
   }
+}
+
+export async function saveWorkspace(
+  workspaceId: string,
+  workspace: BudgetWorkspace,
+  doneKeys: string[],
+  userId: string,
+) {
+  return withAuthRetry(() =>
+    saveWorkspaceOnce(workspaceId, workspace, doneKeys, userId),
+  )
 }
