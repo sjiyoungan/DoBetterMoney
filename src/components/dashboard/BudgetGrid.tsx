@@ -386,7 +386,7 @@ export function BudgetGrid({
               {upcomingIndex >= 0 ? (
                 <div
                   aria-hidden
-                  className="pointer-events-none absolute z-[5] border-2 border-sky-400"
+                  className="pointer-events-none absolute z-[5] border-2 border-[#C9A8AE]"
                   style={{
                     left: upcomingIndex * W.pay,
                     top: 0,
@@ -418,7 +418,7 @@ export function BudgetGrid({
                             "border-b-2 border-b-neutral-900 px-1 py-3 text-center font-medium",
                             !isLast && "border-r border-r-border/60",
                             isUpcoming
-                              ? "bg-sky-100 text-sky-950"
+                              ? "bg-rose-50 text-foreground"
                               : p.completed
                                 ? "bg-neutral-100 text-muted-foreground"
                                 : cn(paneBg, "text-muted-foreground"),
@@ -466,14 +466,17 @@ export function BudgetGrid({
                               <td
                                 key={p.id}
                                 className={cn(
-                                  "bg-white px-1 dark:bg-background",
+                                  "px-1",
+                                  cellGray
+                                    ? "bg-neutral-100 dark:bg-neutral-900"
+                                    : isUpcoming
+                                      ? "bg-rose-50 dark:bg-rose-950/15"
+                                      : "bg-white dark:bg-background",
                                   !isLastCol && "border-r border-r-border/60",
                                   row.showBucketDivider &&
                                     "border-t-2 border-t-neutral-900",
                                   !row.isLastInBucket &&
                                     "border-b border-b-border/60",
-                                  cellGray &&
-                                    "bg-neutral-100 dark:bg-neutral-900",
                                 )}
                                 style={{ width: W.pay, minWidth: W.pay }}
                               >
