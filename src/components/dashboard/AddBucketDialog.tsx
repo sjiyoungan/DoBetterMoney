@@ -411,14 +411,7 @@ export function AddBucketDialog({
       setBucketName(bucket.name)
       setBucketType(nextType)
       setDrafts(nextDrafts)
-      const needsRecurrencePersist =
-        bucket.kind === "income" &&
-        bucket.categories.some((c) => !c.recurrence && !!c.frequency)
-      setBaseline(
-        needsRecurrencePersist
-          ? ""
-          : snapshotKey(bucket.name, nextType, nextDrafts),
-      )
+      setBaseline(snapshotKey(bucket.name, nextType, nextDrafts))
     } else {
       const nextDrafts = [newDraft()]
       setBucketName("")
