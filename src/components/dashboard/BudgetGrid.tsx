@@ -418,7 +418,7 @@ export function BudgetGrid({
                             "border-b-2 border-b-neutral-900 px-1 py-3 text-center font-medium",
                             !isLast && "border-r border-r-border/60",
                             isUpcoming
-                              ? "bg-[#FDF9FA] text-[#2A0F14]"
+                              ? "bg-[#FDF9FA] text-[#5C2430]"
                               : p.completed
                                 ? "bg-neutral-100 text-muted-foreground"
                                 : cn(paneBg, "text-muted-foreground"),
@@ -470,7 +470,7 @@ export function BudgetGrid({
                                   cellGray
                                     ? "bg-neutral-100 dark:bg-neutral-900"
                                     : isUpcoming
-                                      ? "bg-[#FDF9FA] text-[#2A0F14] dark:bg-rose-950/10 dark:text-rose-200"
+                                      ? "bg-[#FDF9FA] text-[#5C2430] dark:bg-rose-950/10 dark:text-rose-200"
                                       : "bg-white dark:bg-background",
                                   !isLastCol && "border-r border-r-border/60",
                                   row.showBucketDivider &&
@@ -627,7 +627,7 @@ function AmountCell({
             autoFocus
             className={cn(
               "h-full w-full bg-transparent text-right text-sm tabular-nums outline-none",
-              accent && "text-[#2A0F14]",
+              accent && "text-[#5C2430]",
             )}
             value={value}
             onChange={(e) => onChange(e.target.value)}
@@ -642,7 +642,7 @@ function AmountCell({
             className={cn(
               "text-sm tabular-nums",
               done && "text-muted-foreground",
-              !done && accent && "text-[#2A0F14]",
+              !done && accent && "text-[#5C2430]",
             )}
           >
             ${value}
