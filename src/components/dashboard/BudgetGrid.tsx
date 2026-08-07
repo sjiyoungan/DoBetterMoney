@@ -30,11 +30,6 @@ const LEFT_WIDTH = W.bucket + W.category + W.goal + W.balance
 
 const paneBg = "bg-white dark:bg-background"
 
-/** Upcoming paycheck column highlight */
-const UPCOMING_STROKE = "#946A74"
-const UPCOMING_FILL = "#FDF9FA"
-const UPCOMING_TEXT = "#2A0F14"
-
 type GridRow = {
   key: string
   rowCount: number
@@ -203,11 +198,11 @@ export function BudgetGrid({
 
   return (
     <div>
-      <div className="rounded-[8px] border border-neutral-500">
-        <div className="flex overflow-hidden rounded-[7px]">
+      <div className="overflow-hidden rounded-[8px] border border-neutral-500">
+        <div className="flex">
           {/* Left pane: labels stay put; owns the continuous scroll shadow */}
           <div
-            className={cn("relative z-10 shrink-0 py-[2px]", paneBg)}
+            className={cn("relative z-10 shrink-0", paneBg)}
             style={{
               width: LEFT_WIDTH,
               boxShadow: scrolled
@@ -387,18 +382,16 @@ export function BudgetGrid({
             ref={scrollRef}
             className="min-w-0 flex-1 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           >
-            <div className="relative w-max min-w-full p-[2px]">
+            <div className="relative w-max min-w-full">
               {upcomingIndex >= 0 ? (
                 <div
                   aria-hidden
-                  className="pointer-events-none absolute z-20"
+                  className="pointer-events-none absolute z-[5] border-2 border-[#C9A8AE]"
                   style={{
-                    // Align to column; 2px pad + outside box-shadow = stroke sits outside
-                    left: 2 + upcomingIndex * W.pay,
-                    top: 2,
-                    bottom: 2,
-                    width: W.pay,
-                    boxShadow: `0 0 0 2px ${UPCOMING_STROKE}`,
+                    left: upcomingIndex * W.pay - 2,
+                    top: -2,
+                    bottom: -2,
+                    width: W.pay + 4,
                   }}
                 />
               ) : null}
@@ -425,21 +418,12 @@ export function BudgetGrid({
                             "border-b-2 border-b-neutral-900 px-1 py-3 text-center font-medium",
                             !isLast && "border-r border-r-border/60",
                             isUpcoming
-                              ? undefined
+                              ? "bg-[#FDF9FA] text-rose-900"
                               : p.completed
                                 ? "bg-neutral-100 text-muted-foreground"
                                 : cn(paneBg, "text-muted-foreground"),
                           )}
-                          style={{
-                            width: W.pay,
-                            minWidth: W.pay,
-                            ...(isUpcoming
-                              ? {
-                                  backgroundColor: UPCOMING_FILL,
-                                  color: UPCOMING_TEXT,
-                                }
-                              : null),
-                          }}
+                          style={{ width: W.pay, minWidth: W.pay }}
                         >
                           {formatPayDate(p.date)}
                         </th>
@@ -485,24 +469,16 @@ export function BudgetGrid({
                                   "px-1",
                                   cellGray
                                     ? "bg-neutral-100 dark:bg-neutral-900"
-                                    : !isUpcoming &&
-                                        "bg-white dark:bg-background",
+                                    : isUpcoming
+                                      ? "bg-[#FDF9FA] text-rose-900 dark:bg-rose-950/10 dark:text-rose-200"
+                                      : "bg-white dark:bg-background",
                                   !isLastCol && "border-r border-r-border/60",
                                   row.showBucketDivider &&
                                     "border-t-2 border-t-neutral-900",
                                   !row.isLastInBucket &&
                                     "border-b border-b-border/60",
                                 )}
-                                style={{
-                                  width: W.pay,
-                                  minWidth: W.pay,
-                                  ...(isUpcoming && !cellGray
-                                    ? {
-                                        backgroundColor: UPCOMING_FILL,
-                                        color: UPCOMING_TEXT,
-                                      }
-                                    : null),
-                                }}
+                                style={{ width: W.pay, minWidth: W.pay }}
                               >
                                 <AmountCell
                                   value={
@@ -651,7 +627,7 @@ function AmountCell({
             autoFocus
             className={cn(
               "h-full w-full bg-transparent text-right text-sm tabular-nums outline-none",
-              accent && "text-[#2A0F14]",
+              accent && "text-rose-900",
             )}
             value={value}
             onChange={(e) => onChange(e.target.value)}
@@ -666,7 +642,7 @@ function AmountCell({
             className={cn(
               "text-sm tabular-nums",
               done && "text-muted-foreground",
-              !done && accent && "text-[#2A0F14]",
+              !done && accent && "text-rose-900",
             )}
           >
             ${value}
