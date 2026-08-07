@@ -46,12 +46,11 @@ export function todayIso() {
 }
 
 export function defaultRecurrence(anchor = todayIso()): IncomeRecurrence {
-  const d = parseIsoDate(anchor)
   return {
     interval: 1,
-    unit: "week",
-    weekdays: [d.getDay()],
-    monthDays: [d.getDate()],
+    unit: "month",
+    weekdays: [],
+    monthDays: [],
     startDate: anchor,
     ends: { kind: "never" },
   }
@@ -102,9 +101,6 @@ export function isRecurrenceComplete(r: IncomeRecurrence | null | undefined) {
 
 export function formatRecurrenceSummary(r: IncomeRecurrence): string {
   const n = r.interval
-  if (r.unit === "day") {
-    return n === 1 ? "Every day" : `Every ${n} days`
-  }
 
   if (r.unit === "week") {
     const days = [...r.weekdays]
@@ -116,7 +112,7 @@ export function formatRecurrenceSummary(r: IncomeRecurrence): string {
         : days.length === 1
           ? ` on ${days[0]}`
           : ` on ${days.slice(0, -1).join(", ")} and ${days[days.length - 1]}`
-    return n === 1 ? `Weekly${dayPart}` : `Every ${n} weeks${dayPart}`
+    return n === 1 ? `Every week${dayPart}` : `Every ${n} weeks${dayPart}`
   }
 
   if (r.unit === "month") {
@@ -133,7 +129,11 @@ export function formatRecurrenceSummary(r: IncomeRecurrence): string {
         : labels.length === 1
           ? ` on the ${labels[0]}`
           : ` on the ${labels.slice(0, -1).join(", ")} and ${labels[labels.length - 1]}`
-    return n === 1 ? `Monthly${dayPart}` : `Every ${n} months${dayPart}`
+    return `Monthly${dayPart}`
+  }
+
+  if (r.unit === "day") {
+    return n === 1 ? "Every day" : `Every ${n} days`
   }
 
   const start = parseIsoDate(r.startDate)

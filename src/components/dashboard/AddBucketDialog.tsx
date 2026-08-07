@@ -811,7 +811,7 @@ export function AddBucketDialog({
                     >
                       {draft.recurrence
                         ? formatRecurrenceSummary(draft.recurrence)
-                        : "Set frequency"}
+                        : "Select frequency"}
                     </Button>
                     <Button
                       type="button"
