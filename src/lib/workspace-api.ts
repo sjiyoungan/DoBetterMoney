@@ -12,15 +12,15 @@ export type WorkspaceState = {
 export async function loadOrCreateWorkspace(
   userId: string,
 ): Promise<WorkspaceState> {
-  const { data: existing, error: selectError } = await supabase
+  const { data: rows, error: selectError } = await supabase
     .from("budget_workspace")
-    .select("id, data, done_keys")
+    .select("id, data, done_keys, updated_at")
     .order("updated_at", { ascending: false })
     .limit(1)
-    .maybeSingle()
 
   if (selectError) throw selectError
 
+  const existing = rows?.[0]
   if (existing) {
     const doneKeysCol = (existing.done_keys as string[] | null) ?? []
     const workspace = normalizeWorkspace(existing.data, doneKeysCol)
@@ -60,7 +60,6 @@ export async function saveWorkspace(
   doneKeys: string[],
   userId: string,
 ) {
-  // Keep active year doneKeys in sync inside the JSON payload
   const activeKey = String(workspace.activeYear)
   const years = {
     ...workspace.years,
@@ -78,7 +77,7 @@ export async function saveWorkspace(
   }
   const payload: BudgetWorkspace = { ...workspace, years }
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("budget_workspace")
     .update({
       data: payload,
@@ -87,6 +86,13 @@ export async function saveWorkspace(
       updated_at: new Date().toISOString(),
     })
     .eq("id", workspaceId)
+    .select("id")
+    .maybeSingle()
 
   if (error) throw error
+  if (!data?.id) {
+    throw new Error(
+      "Save didn’t update the workspace row. Try signing out and back in.",
+    )
+  }
 }

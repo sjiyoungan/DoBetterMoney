@@ -45,9 +45,14 @@ export default function App() {
   const [loadingWorkspace, setLoadingWorkspace] = useState(!freshPreview)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [saveReady, setSaveReady] = useState(false)
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">(
+    "idle",
+  )
   const [undoDepth, setUndoDepth] = useState(0)
   const [redoDepth, setRedoDepth] = useState(0)
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const dirtyRef = useRef(false)
+  const saveReadyRef = useRef(false)
   const workspaceRef = useRef(workspace)
   const doneKeysRef = useRef(doneKeys)
   const workspaceIdRef = useRef(workspaceId)
@@ -60,6 +65,7 @@ export default function App() {
   doneKeysRef.current = doneKeys
   workspaceIdRef.current = workspaceId
   userIdRef.current = user?.id
+  saveReadyRef.current = saveReady
 
   const yearBudget = useMemo(() => getActiveYearBudget(workspace), [workspace])
   const years = useMemo(() => listYears(workspace), [workspace])
@@ -92,6 +98,8 @@ export default function App() {
   }
 
   function applySnapshot(snapshot: UndoSnapshot) {
+    workspaceRef.current = snapshot.workspace
+    doneKeysRef.current = new Set(snapshot.doneKeys)
     setWorkspace(snapshot.workspace)
     setDoneKeys(new Set(snapshot.doneKeys))
     const slice = getActiveYearBudget(snapshot.workspace)
@@ -102,6 +110,71 @@ export default function App() {
           slice.paychecks[0]?.id ??
           ""),
     )
+    markDirty()
+  }
+
+  function queueSave() {
+    if (freshPreview || !saveReadyRef.current) return
+    if (saveTimer.current) clearTimeout(saveTimer.current)
+    saveTimer.current = setTimeout(() => {
+      void flushSave()
+    }, 250)
+  }
+
+  function markDirty() {
+    dirtyRef.current = true
+    setSaveStatus("idle")
+    queueSave()
+  }
+
+  async function flushSave() {
+    if (freshPreview) return
+    const id = workspaceIdRef.current
+    const uid = userIdRef.current
+    if (!id || !uid || !saveReadyRef.current) return
+    if (!dirtyRef.current) return
+    if (saveTimer.current) {
+      clearTimeout(saveTimer.current)
+      saveTimer.current = null
+    }
+
+    const ws = workspaceRef.current
+    const keys = [...doneKeysRef.current]
+    dirtyRef.current = false
+    setSaveStatus("saving")
+
+    try {
+      await saveWorkspace(id, ws, keys, uid)
+      if (dirtyRef.current) {
+        queueSave()
+        return
+      }
+      setSaveError(null)
+      setSaveStatus("saved")
+    } catch (err) {
+      dirtyRef.current = true
+      const msg = err instanceof Error ? err.message : String(err)
+      setSaveError(msg)
+      setSaveStatus("error")
+    }
+  }
+
+  function patchWorkspace(updater: (prev: BudgetWorkspace) => BudgetWorkspace) {
+    setWorkspace((prev) => {
+      const next = updater(prev)
+      workspaceRef.current = next
+      return next
+    })
+    markDirty()
+  }
+
+  function patchDoneKeys(updater: (prev: Set<string>) => Set<string>) {
+    setDoneKeys((prev) => {
+      const next = updater(prev)
+      doneKeysRef.current = next
+      return next
+    })
+    markDirty()
   }
 
   function undo() {
@@ -140,8 +213,10 @@ export default function App() {
 
   const undoRef = useRef(undo)
   const redoRef = useRef(redo)
+  const flushSaveRef = useRef(flushSave)
   undoRef.current = undo
   redoRef.current = redo
+  flushSaveRef.current = flushSave
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -168,6 +243,7 @@ export default function App() {
       setSelectedPaycheckId("")
       setLoadingWorkspace(false)
       setSaveReady(false)
+      dirtyRef.current = false
       clearHistory()
       return
     }
@@ -175,10 +251,14 @@ export default function App() {
     let cancelled = false
     setLoadingWorkspace(true)
     setSaveReady(false)
+    dirtyRef.current = false
 
     loadOrCreateWorkspace(user.id)
       .then((state) => {
         if (cancelled) return
+        dirtyRef.current = false
+        workspaceRef.current = state.workspace
+        doneKeysRef.current = new Set(state.doneKeys)
         setWorkspaceId(state.id)
         setWorkspace(state.workspace)
         setDoneKeys(new Set(state.doneKeys))
@@ -190,6 +270,7 @@ export default function App() {
         )
         clearHistory()
         setLoadingWorkspace(false)
+        setSaveStatus("idle")
         setSaveReady(true)
       })
       .catch((err: Error) => {
@@ -214,52 +295,21 @@ export default function App() {
     }
   }, [user?.id, freshPreview])
 
-  useEffect(() => {
-    if (freshPreview) return
-    if (!saveReady || !user?.id || !workspaceId) return
-    if (saveTimer.current) clearTimeout(saveTimer.current)
-
-    saveTimer.current = setTimeout(() => {
-      saveWorkspace(workspaceId, workspace, [...doneKeys], user.id)
-        .then(() => setSaveError(null))
-        .catch((err: Error) => setSaveError(err.message))
-    }, 400)
-
-    return () => {
-      if (saveTimer.current) clearTimeout(saveTimer.current)
-    }
-  }, [workspace, doneKeys, workspaceId, user?.id, freshPreview, saveReady])
-
   // Flush pending edits if the tab is closing/hiding before debounce fires
   useEffect(() => {
-    function flushSave() {
-      if (freshPreview) return
-      const id = workspaceIdRef.current
-      const uid = userIdRef.current
-      if (!id || !uid || !saveReady) return
-      if (saveTimer.current) {
-        clearTimeout(saveTimer.current)
-        saveTimer.current = null
-      }
-      void saveWorkspace(
-        id,
-        workspaceRef.current,
-        [...doneKeysRef.current],
-        uid,
-      ).catch(() => {
-        // best-effort flush
-      })
+    function onFlush() {
+      void flushSaveRef.current()
     }
     function onVisibilityChange() {
-      if (document.visibilityState === "hidden") flushSave()
+      if (document.visibilityState === "hidden") onFlush()
     }
-    window.addEventListener("pagehide", flushSave)
+    window.addEventListener("pagehide", onFlush)
     document.addEventListener("visibilitychange", onVisibilityChange)
     return () => {
-      window.removeEventListener("pagehide", flushSave)
+      window.removeEventListener("pagehide", onFlush)
       document.removeEventListener("visibilitychange", onVisibilityChange)
     }
-  }, [freshPreview, saveReady])
+  }, [])
 
   async function onUserChange(next: UserRole) {
     setRole(next)
@@ -272,13 +322,14 @@ export default function App() {
 
   function switchYear(year: number) {
     recordHistory()
-    setWorkspace((prev) => {
+    patchWorkspace((prev) => {
       const leaving = updateActiveYearBudget(prev, (y) => ({
         ...y,
-        doneKeys: [...doneKeys],
+        doneKeys: [...doneKeysRef.current],
       }))
       const next = setActiveYear(leaving, year)
       const slice = getActiveYearBudget(next)
+      doneKeysRef.current = new Set(slice.doneKeys)
       setDoneKeys(new Set(slice.doneKeys))
       setSelectedPaycheckId(
         slice.paychecks.find((p) => !p.completed)?.id ??
@@ -291,13 +342,14 @@ export default function App() {
 
   function onCreateYear() {
     recordHistory()
-    setWorkspace((prev) => {
+    patchWorkspace((prev) => {
       const withDone = updateActiveYearBudget(prev, (y) => ({
         ...y,
-        doneKeys: [...doneKeys],
+        doneKeys: [...doneKeysRef.current],
       }))
       const next = createNextYear(withDone)
       const slice = getActiveYearBudget(next)
+      doneKeysRef.current = new Set(slice.doneKeys)
       setDoneKeys(new Set(slice.doneKeys))
       setSelectedPaycheckId(
         slice.paychecks.find((p) => !p.completed)?.id ??
@@ -310,7 +362,7 @@ export default function App() {
 
   function toggleDone(key: string) {
     recordHistory()
-    setDoneKeys((prev) => {
+    patchDoneKeys((prev) => {
       const next = new Set(prev)
       if (next.has(key)) next.delete(key)
       else next.add(key)
@@ -326,7 +378,7 @@ export default function App() {
       trimmed === "" || !Number.isFinite(num) || num === 0
         ? ("" as const)
         : num
-    setWorkspace((prev) =>
+    patchWorkspace((prev) =>
       updateActiveYearBudget(prev, (year) => ({
         ...year,
         buckets: year.buckets.map((bucket) => ({
@@ -359,7 +411,7 @@ export default function App() {
         : num
 
     recordHistory()
-    setWorkspace((prev) =>
+    patchWorkspace((prev) =>
       updateActiveYearBudget(prev, (year) => ({
         ...year,
         buckets: year.buckets.map((bucket) => ({
@@ -387,7 +439,7 @@ export default function App() {
     value: string,
   ) {
     recordHistory(`field:${categoryId}:${field}`)
-    setWorkspace((prev) =>
+    patchWorkspace((prev) =>
       updateActiveYearBudget(prev, (year) => ({
         ...year,
         buckets: year.buckets.map((bucket) => ({
@@ -411,7 +463,7 @@ export default function App() {
 
   function onAddBucket(bucket: Bucket) {
     recordHistory()
-    setWorkspace((prev) =>
+    patchWorkspace((prev) =>
       updateActiveYearBudget(prev, (year) => ({
         ...year,
         buckets: [...year.buckets, bucket],
@@ -423,7 +475,7 @@ export default function App() {
     recordHistory()
     if (bucket.kind === "income") {
       const today = new Date().toISOString().slice(0, 10)
-      setWorkspace((prev) =>
+      patchWorkspace((prev) =>
         updateActiveYearBudget(prev, (year) => {
           const yearNum = prev.activeYear
           const yearPrefix = String(yearNum)
@@ -472,7 +524,7 @@ export default function App() {
       )
       return
     }
-    setWorkspace((prev) =>
+    patchWorkspace((prev) =>
       updateActiveYearBudget(prev, (year) => ({
         ...year,
         buckets: year.buckets.map((b) => (b.id === bucket.id ? bucket : b)),
@@ -482,7 +534,7 @@ export default function App() {
 
   function onSetupIncome(sources: IncomeSourceInput[]) {
     recordHistory()
-    setWorkspace((prev) => {
+    patchWorkspace((prev) => {
       const yearNum = prev.activeYear
       const anchored = sources.map((s) => ({
         ...s,
@@ -519,7 +571,7 @@ export default function App() {
     field: "received" | "boaMoved" | "sofiMoved",
   ) {
     recordHistory()
-    setWorkspace((prev) =>
+    patchWorkspace((prev) =>
       updateActiveYearBudget(prev, (year) => ({
         ...year,
         holderSplits: year.holderSplits.map((split) =>
@@ -556,6 +608,7 @@ export default function App() {
         canRedo={redoDepth > 0}
         onUndo={undo}
         onRedo={redo}
+        saveStatus={saveStatus}
       />
 
       {freshPreview ? (

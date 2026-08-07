@@ -24,6 +24,7 @@ type Props = {
   canRedo?: boolean
   onUndo?: () => void
   onRedo?: () => void
+  saveStatus?: "idle" | "saving" | "saved" | "error"
 }
 
 export function AppHeader({
@@ -41,6 +42,7 @@ export function AppHeader({
   canRedo = false,
   onUndo,
   onRedo,
+  saveStatus = "idle",
 }: Props) {
   const label = username?.trim() ? username : "Profile"
   const initial = (username?.trim()?.[0] ?? "P").toUpperCase()
@@ -113,6 +115,13 @@ export function AppHeader({
             >
               <Redo2 className="size-4" />
             </Button>
+            {saveStatus === "saving" ? (
+              <span className="ml-1 text-xs text-muted-foreground">Saving…</span>
+            ) : saveStatus === "saved" ? (
+              <span className="ml-1 text-xs text-muted-foreground">Saved</span>
+            ) : saveStatus === "error" ? (
+              <span className="ml-1 text-xs text-destructive">Save failed</span>
+            ) : null}
           </div>
         </div>
 

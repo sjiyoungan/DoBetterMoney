@@ -74,7 +74,7 @@ export function normalizeWorkspace(
         doneKeys: doneKeysFromColumn,
       }
     }
-    return { startYear, activeYear, years: syncAllYearPrefills(years) }
+    return { startYear, activeYear, years }
   }
 
   if (isLegacyWorkspace(data)) {
@@ -87,6 +87,7 @@ export function normalizeWorkspace(
       doneKeys: doneKeysFromColumn,
     }
     const year = inferStartYear(slice)
+    // One-time legacy upgrade: attach prefills onto year columns
     return {
       startYear: year,
       activeYear: year,
