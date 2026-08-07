@@ -1,5 +1,12 @@
-import { useLayoutEffect, useMemo, useState } from "react"
-import { Eye, EyeOff, Pencil, Plus, Trash2 } from "lucide-react"
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+} from "react"
+import { Eye, EyeOff, Menu, Pencil, Plus, Trash2 } from "lucide-react"
 import { FrequencyEditor } from "@/components/dashboard/FrequencyEditor"
 import { Button } from "@/components/ui/button"
 import {
@@ -24,6 +31,7 @@ import {
   formatRecurrenceSummary,
   legacyFrequencyToRecurrence,
 } from "@/lib/recurrence"
+import { isReorderNoOp, reorderById } from "@/lib/reorder"
 import type {
   Bucket,
   BucketKind,
@@ -63,13 +71,16 @@ const selectH = "h-10 w-full data-[size=default]:h-10"
 const selectTypeH = "h-10 w-full data-[size=default]:h-10"
 const selectFreqH = "h-10 w-full data-[size=default]:h-10"
 
-/** Eye column is tight (24px); trash matches icon-sm (28px). Gap-2 = Type↔trash spacing. */
+/** Eye 24px · fields · trash 28px · rearrange grip 24px */
 const COL_EXP =
-  "grid-cols-[24px_minmax(0,200px)_68px_64px_9.75rem_7.5rem_28px]" as const
+  "grid-cols-[24px_minmax(0,200px)_68px_64px_9.75rem_7.5rem_28px_24px]" as const
 const COL_INC =
-  "grid-cols-[24px_minmax(0,238px)_68px_minmax(11rem,1fr)_28px]" as const
+  "grid-cols-[24px_minmax(0,238px)_68px_minmax(11rem,1fr)_28px_24px]" as const
 const COL_SAV =
-  "grid-cols-[24px_minmax(0,1fr)_68px_68px_28px]" as const
+  "grid-cols-[24px_minmax(0,1fr)_68px_68px_28px_24px]" as const
+
+const headerStroke =
+  "border-b border-neutral-300 pb-2" as const
 
 const TYPE_LABEL: Record<BucketDraftType, string> = {
   expenses: "Expenses",
@@ -340,8 +351,59 @@ function HideToggle({
   )
 }
 
+function ReorderGrip({
+  active,
+  dimmed,
+  onPointerDown,
+}: {
+  active: boolean
+  dimmed?: boolean
+  onPointerDown: (e: ReactPointerEvent<HTMLButtonElement>) => void
+}) {
+  return (
+    <button
+      type="button"
+      title="Rearrange category"
+      aria-label="Rearrange category"
+      onPointerDown={onPointerDown}
+      className={cn(
+        "flex size-6 cursor-grab items-center justify-center justify-self-center text-neutral-400 opacity-0 transition-opacity hover:opacity-100 active:cursor-grabbing",
+        "group-hover/row:opacity-100",
+        dimmed && "text-neutral-400",
+        active && "opacity-100",
+      )}
+    >
+      <Menu className="size-3.5" strokeWidth={2} />
+    </button>
+  )
+}
+
+/** Thinner than the main grid drop line (2px vs 4px). */
+function CategoryDropLine({
+  show,
+  edge,
+}: {
+  show: boolean
+  edge: "top" | "bottom"
+}) {
+  if (!show) return null
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        "pointer-events-none absolute inset-x-0 z-20 h-0.5 bg-neutral-900",
+        edge === "top" ? "top-0 -translate-y-1/2" : "bottom-0 translate-y-1/2",
+      )}
+    />
+  )
+}
+
 function draftRowClass(hidden: boolean, cols: string) {
-  return cn("grid items-center gap-2", cols, hidden && "text-neutral-400")
+  return cn(
+    "group/row relative grid items-center gap-2",
+    cols,
+    hidden && "text-neutral-400",
+  )
 }
 
 function dimField(hidden: boolean) {
@@ -494,6 +556,12 @@ export function AddBucketDialog({
   const [typeOpen, setTypeOpen] = useState(false)
   const [dueDayError, setDueDayError] = useState(false)
   const [frequencyDraftId, setFrequencyDraftId] = useState<string | null>(null)
+  const [draggingId, setDraggingId] = useState<string | null>(null)
+  const [dropBeforeId, setDropBeforeId] = useState<string | null | undefined>(
+    undefined,
+  )
+  const rowRefs = useRef(new Map<string, HTMLDivElement>())
+  const dragMovedRef = useRef(false)
 
   useLayoutEffect(() => {
     if (!open) return
@@ -517,7 +585,70 @@ export function AddBucketDialog({
     setTypeOpen(false)
     setDueDayError(false)
     setFrequencyDraftId(null)
+    setDraggingId(null)
+    setDropBeforeId(undefined)
   }, [open, bucket])
+
+  const draftIds = useMemo(() => drafts.map((d) => d.id), [drafts])
+
+  const dropIndicatorActive =
+    draggingId !== null &&
+    dropBeforeId !== undefined &&
+    !isReorderNoOp(draftIds, draggingId, dropBeforeId)
+
+  // Category rearrange within the modal list
+  useEffect(() => {
+    if (!draggingId) return
+
+    const resolveDropBefore = (clientY: number) => {
+      for (let i = 0; i < draftIds.length; i++) {
+        const id = draftIds[i]!
+        const el = rowRefs.current.get(id)
+        if (!el) continue
+        const rect = el.getBoundingClientRect()
+        if (clientY < rect.top) return id
+        if (clientY <= rect.bottom) {
+          const mid = rect.top + rect.height / 2
+          if (clientY < mid) return id
+          return draftIds[i + 1] ?? null
+        }
+      }
+      return null
+    }
+
+    const onMove = (e: PointerEvent) => {
+      dragMovedRef.current = true
+      setDropBeforeId(resolveDropBefore(e.clientY))
+    }
+
+    const onUp = (e: PointerEvent) => {
+      const before = resolveDropBefore(e.clientY)
+      const from = draggingId
+      setDraggingId(null)
+      setDropBeforeId(undefined)
+      document.body.style.removeProperty("cursor")
+      document.body.style.removeProperty("user-select")
+      if (
+        dragMovedRef.current &&
+        !isReorderNoOp(draftIds, from, before)
+      ) {
+        setDrafts((prev) => reorderById(prev, from, before))
+      }
+    }
+
+    document.body.style.cursor = "grabbing"
+    document.body.style.userSelect = "none"
+    window.addEventListener("pointermove", onMove)
+    window.addEventListener("pointerup", onUp)
+    window.addEventListener("pointercancel", onUp)
+    return () => {
+      window.removeEventListener("pointermove", onMove)
+      window.removeEventListener("pointerup", onUp)
+      window.removeEventListener("pointercancel", onUp)
+      document.body.style.removeProperty("cursor")
+      document.body.style.removeProperty("user-select")
+    }
+  }, [draggingId, draftIds])
 
   const dirty = useMemo(
     () => snapshotKey(bucketName, bucketType, drafts) !== baseline,
@@ -589,6 +720,39 @@ export function AddBucketDialog({
   function updateDraft(id: string, patch: Partial<CategoryDraft>) {
     setDrafts((prev) =>
       prev.map((d) => (d.id === id ? { ...d, ...patch } : d)),
+    )
+  }
+
+  function setRowRef(id: string, el: HTMLDivElement | null) {
+    if (el) rowRefs.current.set(id, el)
+    else rowRefs.current.delete(id)
+  }
+
+  function startCategoryDrag(
+    draftId: string,
+    e: ReactPointerEvent<HTMLButtonElement>,
+  ) {
+    e.preventDefault()
+    e.stopPropagation()
+    dragMovedRef.current = false
+    setDraggingId(draftId)
+    setDropBeforeId(draftId)
+  }
+
+  function isDropBeforeRow(draftId: string) {
+    return (
+      dropIndicatorActive &&
+      dropBeforeId !== undefined &&
+      dropBeforeId === draftId
+    )
+  }
+
+  function isDropAfterLastRow(draftId: string) {
+    const lastId = draftIds[draftIds.length - 1]
+    return (
+      dropIndicatorActive &&
+      dropBeforeId === null &&
+      draftId === lastId
     )
   }
 
@@ -767,6 +931,7 @@ export function AddBucketDialog({
               <div
                 className={cn(
                   "grid gap-2 text-xs font-medium text-muted-foreground",
+                  headerStroke,
                   COL_SAV,
                 )}
               >
@@ -775,11 +940,13 @@ export function AddBucketDialog({
                 <span>Goal</span>
                 <span>Carry over</span>
                 <span />
+                <span />
               </div>
             ) : bucketType === "income" ? (
               <div
                 className={cn(
                   "grid gap-2 text-xs font-medium text-muted-foreground",
+                  headerStroke,
                   COL_INC,
                 )}
               >
@@ -788,11 +955,13 @@ export function AddBucketDialog({
                 <span>Income</span>
                 <span>Frequency</span>
                 <span />
+                <span />
               </div>
             ) : (
               <div
                 className={cn(
                   "grid gap-2 text-xs font-medium text-muted-foreground",
+                  headerStroke,
                   COL_EXP,
                 )}
               >
@@ -803,16 +972,33 @@ export function AddBucketDialog({
                 <span>Frequency</span>
                 <span>Type</span>
                 <span />
+                <span />
               </div>
             )}
 
             {drafts.map((draft) => {
+              const showTopLine = isDropBeforeRow(draft.id)
+              const showBottomLine = isDropAfterLastRow(draft.id)
+              const grip = (
+                <ReorderGrip
+                  active={draggingId === draft.id}
+                  dimmed={draft.hidden}
+                  onPointerDown={(e) => startCategoryDrag(draft.id, e)}
+                />
+              )
+
               if (bucketType === "savings") {
                 return (
                   <div
                     key={draft.id}
-                    className={draftRowClass(draft.hidden, COL_SAV)}
+                    ref={(el) => setRowRef(draft.id, el)}
+                    className={cn(
+                      draftRowClass(draft.hidden, COL_SAV),
+                      draggingId === draft.id && "opacity-50",
+                    )}
                   >
+                    <CategoryDropLine show={showTopLine} edge="top" />
+                    <CategoryDropLine show={showBottomLine} edge="bottom" />
                     <HideToggle
                       hidden={draft.hidden}
                       onToggle={() =>
@@ -853,6 +1039,7 @@ export function AddBucketDialog({
                     >
                       <Trash2 className="size-3.5" />
                     </Button>
+                    {grip}
                   </div>
                 )
               }
@@ -861,8 +1048,14 @@ export function AddBucketDialog({
                 return (
                   <div
                     key={draft.id}
-                    className={draftRowClass(draft.hidden, COL_INC)}
+                    ref={(el) => setRowRef(draft.id, el)}
+                    className={cn(
+                      draftRowClass(draft.hidden, COL_INC),
+                      draggingId === draft.id && "opacity-50",
+                    )}
                   >
+                    <CategoryDropLine show={showTopLine} edge="top" />
+                    <CategoryDropLine show={showBottomLine} edge="bottom" />
                     <HideToggle
                       hidden={draft.hidden}
                       onToggle={() =>
@@ -913,6 +1106,7 @@ export function AddBucketDialog({
                     >
                       <Trash2 className="size-3.5" />
                     </Button>
+                    {grip}
                   </div>
                 )
               }
@@ -920,8 +1114,14 @@ export function AddBucketDialog({
               return (
                 <div
                   key={draft.id}
-                  className={draftRowClass(draft.hidden, COL_EXP)}
+                  ref={(el) => setRowRef(draft.id, el)}
+                  className={cn(
+                    draftRowClass(draft.hidden, COL_EXP),
+                    draggingId === draft.id && "opacity-50",
+                  )}
                 >
+                  <CategoryDropLine show={showTopLine} edge="top" />
+                  <CategoryDropLine show={showBottomLine} edge="bottom" />
                   <HideToggle
                     hidden={draft.hidden}
                     onToggle={() =>
@@ -1030,6 +1230,7 @@ export function AddBucketDialog({
                   >
                     <Trash2 className="size-3.5" />
                   </Button>
+                  {grip}
                 </div>
               )
             })}
