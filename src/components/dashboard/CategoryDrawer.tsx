@@ -7,7 +7,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet"
-import { formatMoney, formatPayDate } from "@/lib/format"
+import { formatMoney, formatPayDate, savingsBalanceLeft } from "@/lib/format"
 import type { Bucket, Category, Paycheck } from "@/types/budget"
 
 type Props = {
@@ -78,7 +78,14 @@ export function CategoryDrawer({
                 </div>
                 <div>
                   <dt className="text-muted-foreground">Balance left</dt>
-                  <dd className="font-medium">{formatMoney(category.balance)}</dd>
+                  <dd className="font-medium">
+                    {formatMoney(
+                      savingsBalanceLeft(
+                        category.goal,
+                        category.allocations,
+                      ),
+                    )}
+                  </dd>
                 </div>
                 <div>
                   <dt className="text-muted-foreground">Total saved</dt>

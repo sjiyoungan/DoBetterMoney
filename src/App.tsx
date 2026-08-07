@@ -458,7 +458,7 @@ export default function App() {
 
   function onCategoryFieldChange(
     categoryId: string,
-    field: "goal" | "balance",
+    field: "goal",
     value: string,
   ) {
     recordHistory(`field:${categoryId}:${field}`)

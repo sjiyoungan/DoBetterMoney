@@ -10,7 +10,7 @@ import { AddBucketDialog } from "@/components/dashboard/AddBucketDialog"
 import { CategoryDrawer } from "@/components/dashboard/CategoryDrawer"
 import { OnboardingFlow } from "@/components/dashboard/OnboardingFlow"
 import { Button } from "@/components/ui/button"
-import { allocationKey, formatPayDate } from "@/lib/format"
+import { allocationKey, formatPayDate, savingsBalanceLeft } from "@/lib/format"
 import type { IncomeSourceInput } from "@/lib/income-schedule"
 import { isReorderNoOp } from "@/lib/reorder"
 import { cn } from "@/lib/utils"
@@ -30,7 +30,7 @@ type Props = {
   onAmountCommit?: () => void
   onCategoryFieldChange: (
     categoryId: string,
-    field: "goal" | "balance",
+    field: "goal",
     value: string,
   ) => void
   onAddBucket: (bucket: Bucket) => void
@@ -551,6 +551,12 @@ export function BudgetGrid({
                     )
                     const showTopLine = dropBefore && row.isFirstInBucket
                     const showBottomLine = dropAfterLast
+                    const balanceLeft = isSavings
+                      ? savingsBalanceLeft(
+                          category.goal,
+                          category.allocations,
+                        )
+                      : undefined
 
                     return (
                       <tr
@@ -641,21 +647,12 @@ export function BudgetGrid({
                         >
                           <DropLine show={showTopLine} edge="top" />
                           <DropLine show={showBottomLine} edge="bottom" />
-                          {isSavings ? (
-                            <MoneyField
-                              value={
-                                category.balance === undefined
-                                  ? ""
-                                  : String(category.balance)
-                              }
-                              onChange={(value) =>
-                                onCategoryFieldChange(
-                                  category.id,
-                                  "balance",
-                                  value,
-                                )
-                              }
-                            />
+                          {isSavings && balanceLeft !== undefined ? (
+                            <div className="flex h-9 items-center justify-end px-2">
+                              <span className="text-sm tabular-nums text-muted-foreground">
+                                ${balanceLeft}
+                              </span>
+                            </div>
                           ) : null}
                         </td>
                       </tr>
