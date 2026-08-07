@@ -622,11 +622,6 @@ export default function App() {
         onYearChange={switchYear}
         onCreateYear={onCreateYear}
         canCreateYear={canCreateYear}
-        canUndo={undoDepth > 0}
-        canRedo={redoDepth > 0}
-        onUndo={undo}
-        onRedo={redo}
-        saveStatus={saveStatus}
       />
 
       {freshPreview ? (
@@ -657,6 +652,11 @@ export default function App() {
             onAddBucket={onAddBucket}
             onUpdateBucket={onUpdateBucket}
             onSetupIncome={onSetupIncome}
+            canUndo={undoDepth > 0}
+            canRedo={redoDepth > 0}
+            onUndo={undo}
+            onRedo={redo}
+            saveStatus={saveStatus}
           />
         ) : (
           <div className="mx-auto max-w-7xl space-y-4">

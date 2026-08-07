@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react"
-import { Check } from "lucide-react"
+import { Check, Redo2, Undo2 } from "lucide-react"
 import { AddBucketDialog } from "@/components/dashboard/AddBucketDialog"
 import { CategoryDrawer } from "@/components/dashboard/CategoryDrawer"
 import { OnboardingFlow } from "@/components/dashboard/OnboardingFlow"
@@ -29,6 +29,11 @@ type Props = {
   onAddBucket: (bucket: Bucket) => void
   onUpdateBucket: (bucket: Bucket) => void
   onSetupIncome: (sources: IncomeSourceInput[]) => void
+  canUndo?: boolean
+  canRedo?: boolean
+  onUndo?: () => void
+  onRedo?: () => void
+  saveStatus?: "idle" | "saving" | "saved" | "error"
 }
 
 const W = { bucket: 92, category: 168, goal: 96, balance: 96, pay: 128 } as const
@@ -66,6 +71,11 @@ export function BudgetGrid({
   onAddBucket,
   onUpdateBucket,
   onSetupIncome,
+  canUndo = false,
+  canRedo = false,
+  onUndo,
+  onRedo,
+  saveStatus = "idle",
 }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const leftTableRef = useRef<HTMLTableElement>(null)
@@ -533,7 +543,7 @@ export function BudgetGrid({
         ) : null}
       </div>
 
-      <div className="mt-4">
+      <div className="mt-4 flex items-center">
         <Button
           type="button"
           variant="outline"
@@ -542,6 +552,47 @@ export function BudgetGrid({
         >
           Add group
         </Button>
+        <div className="ml-6 flex items-center gap-0.5">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="size-8 text-muted-foreground"
+            disabled={!canUndo}
+            title={
+              typeof navigator !== "undefined" &&
+              /Mac|iPhone|iPad/.test(navigator.platform)
+                ? "Undo (⌘Z)"
+                : "Undo (Ctrl+Z)"
+            }
+            onClick={() => onUndo?.()}
+          >
+            <Undo2 className="size-4" />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="size-8 text-muted-foreground"
+            disabled={!canRedo}
+            title={
+              typeof navigator !== "undefined" &&
+              /Mac|iPhone|iPad/.test(navigator.platform)
+                ? "Redo (⌘Shift+Z)"
+                : "Redo (Ctrl+Shift+Z)"
+            }
+            onClick={() => onRedo?.()}
+          >
+            <Redo2 className="size-4" />
+          </Button>
+          {saveStatus === "saving" ? (
+            <span className="ml-1 text-xs text-muted-foreground">Saving…</span>
+          ) : saveStatus === "saved" ? (
+            <span className="ml-1 text-xs text-muted-foreground">Saved</span>
+          ) : saveStatus === "error" ? (
+            <span className="ml-1 text-xs text-destructive">Save failed</span>
+          ) : null}
+        </div>
       </div>
 
       <AddBucketDialog
