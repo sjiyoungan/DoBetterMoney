@@ -365,7 +365,6 @@ function ReorderGrip({
       onPointerDown={onPointerDown}
       className={cn(
         "flex size-6 cursor-grab items-center justify-center justify-self-center text-neutral-400 opacity-0 transition-opacity hover:opacity-100 active:cursor-grabbing",
-        "group-hover/row:opacity-100",
         dimmed && "text-neutral-400",
         active && "opacity-100",
       )}

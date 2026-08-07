@@ -157,7 +157,6 @@ export function BudgetGrid({
   const [dropBeforeId, setDropBeforeId] = useState<string | null | undefined>(
     undefined,
   )
-  const [hoveredBucketId, setHoveredBucketId] = useState<string | null>(null)
   const [gripRects, setGripRects] = useState<
     Record<string, { top: number; height: number }>
   >({})
@@ -431,8 +430,6 @@ export function BudgetGrid({
           {displayBuckets.map((bucket) => {
             const rect = gripRects[bucket.id]
             if (!rect) return null
-            const visible =
-              hoveredBucketId === bucket.id || draggingId === bucket.id
             return (
               <button
                 key={bucket.id}
@@ -440,14 +437,12 @@ export function BudgetGrid({
                 title="Rearrange group"
                 aria-label={`Rearrange ${bucket.name}`}
                 onPointerDown={(e) => startBucketDrag(bucket.id, e)}
-                onMouseEnter={() => setHoveredBucketId(bucket.id)}
-                onMouseLeave={() =>
-                  setHoveredBucketId((id) => (id === bucket.id ? null : id))
-                }
-                style={{ top: rect.top, height: rect.height }}
+                style={{
+                  top: rect.top + rect.height / 2,
+                }}
                 className={cn(
-                  "pointer-events-auto absolute left-0 flex w-full cursor-grab items-center justify-center text-neutral-400 opacity-0 transition-opacity hover:opacity-100 active:cursor-grabbing",
-                  visible && "opacity-100",
+                  "pointer-events-auto absolute left-0 flex size-5 -translate-y-1/2 cursor-grab items-center justify-center text-neutral-400 opacity-0 transition-opacity hover:opacity-100 active:cursor-grabbing",
+                  draggingId === bucket.id && "opacity-100",
                 )}
               >
                 <Menu className="size-3.5" strokeWidth={2} />
@@ -523,20 +518,6 @@ export function BudgetGrid({
                   ref={(el) => setBucketBodyRef(bucket.id, el)}
                   data-bucket-id={bucket.id}
                   className={cn(draggingId === bucket.id && "opacity-50")}
-                  onMouseEnter={() => setHoveredBucketId(bucket.id)}
-                  onMouseLeave={(e) => {
-                    // Keep grip visible when moving left into the external rail
-                    const frame = gridFrameRef.current
-                    if (
-                      frame &&
-                      e.clientX < frame.getBoundingClientRect().left
-                    ) {
-                      return
-                    }
-                    setHoveredBucketId((id) =>
-                      id === bucket.id ? null : id,
-                    )
-                  }}
                 >
                   {bucket.categories.map((category) => {
                     const row = rows.find((r) => r.key === category.id)!
