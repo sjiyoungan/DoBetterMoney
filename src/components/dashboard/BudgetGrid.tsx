@@ -684,7 +684,7 @@ function AmountCell({
           <button
             type="button"
             title="Apply this amount to matching future pay periods"
-            className="px-1.5 py-1 text-[10px] leading-none text-muted-foreground transition-colors hover:bg-neutral-100 hover:text-foreground whitespace-nowrap"
+            className="flex items-center px-1.5 py-[10px] text-[10px] leading-none text-muted-foreground transition-colors hover:bg-neutral-100 hover:text-foreground whitespace-nowrap"
             onMouseDown={(e) => e.preventDefault()}
             onClick={(e) => {
               e.stopPropagation()
