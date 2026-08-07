@@ -388,10 +388,10 @@ export function BudgetGrid({
                   aria-hidden
                   className="pointer-events-none absolute z-[5] border-2 border-[#C9A8AE]"
                   style={{
-                    left: upcomingIndex * W.pay,
-                    top: 0,
-                    bottom: 0,
-                    width: W.pay,
+                    left: upcomingIndex * W.pay - 2,
+                    top: -2,
+                    bottom: -2,
+                    width: W.pay + 4,
                   }}
                 />
               ) : null}
@@ -418,7 +418,7 @@ export function BudgetGrid({
                             "border-b-2 border-b-neutral-900 px-1 py-3 text-center font-medium",
                             !isLast && "border-r border-r-border/60",
                             isUpcoming
-                              ? "bg-rose-50 text-foreground"
+                              ? "bg-[#FDF9FA] text-rose-900"
                               : p.completed
                                 ? "bg-neutral-100 text-muted-foreground"
                                 : cn(paneBg, "text-muted-foreground"),
@@ -470,7 +470,7 @@ export function BudgetGrid({
                                   cellGray
                                     ? "bg-neutral-100 dark:bg-neutral-900"
                                     : isUpcoming
-                                      ? "bg-rose-50 dark:bg-rose-950/15"
+                                      ? "bg-[#FDF9FA] text-rose-900 dark:bg-rose-950/10 dark:text-rose-200"
                                       : "bg-white dark:bg-background",
                                   !isLastCol && "border-r border-r-border/60",
                                   row.showBucketDivider &&
@@ -487,6 +487,7 @@ export function BudgetGrid({
                                       : String(raw)
                                   }
                                   done={manuallyDone}
+                                  accent={isUpcoming && !cellGray}
                                   showCheck={canMarkDone || manuallyDone}
                                   onChange={(value) =>
                                     onAmountChange(category.id, p.date, value)
@@ -573,12 +574,14 @@ function MoneyField({
 function AmountCell({
   value,
   done,
+  accent = false,
   showCheck,
   onChange,
   onToggleDone,
 }: {
   value: string
   done: boolean
+  accent?: boolean
   showCheck: boolean
   onChange: (value: string) => void
   onToggleDone: () => void
@@ -622,7 +625,10 @@ function AmountCell({
         {editing ? (
           <input
             autoFocus
-            className="h-full w-full bg-transparent text-right text-sm tabular-nums outline-none"
+            className={cn(
+              "h-full w-full bg-transparent text-right text-sm tabular-nums outline-none",
+              accent && "text-rose-900",
+            )}
             value={value}
             onChange={(e) => onChange(e.target.value)}
             onBlur={() => setEditing(false)}
@@ -636,6 +642,7 @@ function AmountCell({
             className={cn(
               "text-sm tabular-nums",
               done && "text-muted-foreground",
+              !done && accent && "text-rose-900",
             )}
           >
             ${value}
