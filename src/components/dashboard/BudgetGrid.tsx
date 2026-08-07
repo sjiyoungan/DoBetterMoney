@@ -478,9 +478,9 @@ export function BudgetGrid({
                         title="Add group"
                         aria-label="Add group"
                         onClick={() => setBucketDialog({ mode: "create" })}
-                        className="inline-flex text-muted-foreground transition-colors hover:text-foreground"
+                        className="inline-flex size-8 shrink-0 items-center justify-center text-muted-foreground transition-colors hover:text-foreground"
                       >
-                        <CirclePlus className="size-4" strokeWidth={1.75} />
+                        <CirclePlus className="size-5" strokeWidth={1.75} />
                       </button>
                     </div>
                   </th>
