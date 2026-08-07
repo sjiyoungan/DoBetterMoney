@@ -1,4 +1,10 @@
-import { useEffect, useMemo, useRef, useState, type PointerEvent } from "react"
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+} from "react"
 import { Check, Menu, Redo2, Undo2 } from "lucide-react"
 import { AddBucketDialog } from "@/components/dashboard/AddBucketDialog"
 import { CategoryDrawer } from "@/components/dashboard/CategoryDrawer"
@@ -341,7 +347,10 @@ export function BudgetGrid({
     else bucketBodyRefs.current.delete(id)
   }
 
-  function startBucketDrag(bucketId: string, e: PointerEvent<HTMLButtonElement>) {
+  function startBucketDrag(
+    bucketId: string,
+    e: ReactPointerEvent<HTMLButtonElement>,
+  ) {
     e.preventDefault()
     e.stopPropagation()
     dragMovedRef.current = false
