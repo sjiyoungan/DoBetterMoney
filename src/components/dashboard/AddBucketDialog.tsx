@@ -64,13 +64,13 @@ const selectH = "h-10 w-full data-[size=default]:h-10"
 const selectTypeH = "h-10 w-full data-[size=default]:h-10"
 const selectFreqH = "h-10 w-full data-[size=default]:h-10"
 
-/** Expenses / income category row columns — eye | fields… | trash */
+/** Eye column is tight (24px); trash matches icon-sm (28px). Gap-2 = Type↔trash spacing. */
 const COL_EXP =
-  "grid-cols-[40px_minmax(0,200px)_68px_64px_9.75rem_7.5rem_40px]" as const
+  "grid-cols-[24px_minmax(0,200px)_68px_64px_9.75rem_7.5rem_28px]" as const
 const COL_INC =
-  "grid-cols-[40px_minmax(0,238px)_68px_minmax(11rem,1fr)_40px]" as const
+  "grid-cols-[24px_minmax(0,238px)_68px_minmax(11rem,1fr)_28px]" as const
 const COL_SAV =
-  "grid-cols-[40px_minmax(0,200px)_68px_68px_9.75rem_40px]" as const
+  "grid-cols-[24px_minmax(0,200px)_68px_68px_9.75rem_28px]" as const
 
 const TYPE_LABEL: Record<BucketDraftType, string> = {
   expenses: "Expenses",
@@ -319,7 +319,7 @@ function HideToggle({
       variant="ghost"
       size="icon-sm"
       className={cn(
-        "text-muted-foreground hover:bg-transparent",
+        "-ml-1 size-7 shrink-0 justify-self-start text-muted-foreground hover:bg-transparent",
         hidden
           ? "text-neutral-400 hover:text-neutral-400"
           : "hover:text-foreground",
@@ -872,7 +872,7 @@ export function AddBucketDialog({
                       variant="ghost"
                       size="icon-sm"
                       className={cn(
-                        "ml-1 hover:bg-transparent",
+                        "justify-self-end hover:bg-transparent",
                         draft.hidden
                           ? "text-neutral-400 hover:text-neutral-400"
                           : "text-muted-foreground",
@@ -932,7 +932,7 @@ export function AddBucketDialog({
                       variant="ghost"
                       size="icon-sm"
                       className={cn(
-                        "ml-1 hover:bg-transparent",
+                        "justify-self-end hover:bg-transparent",
                         draft.hidden
                           ? "text-neutral-400 hover:text-neutral-400"
                           : "text-muted-foreground",
@@ -1049,7 +1049,7 @@ export function AddBucketDialog({
                     variant="ghost"
                     size="icon-sm"
                     className={cn(
-                      "ml-1 hover:bg-transparent",
+                      "justify-self-end hover:bg-transparent",
                       draft.hidden
                         ? "text-neutral-400 hover:text-neutral-400"
                         : "text-muted-foreground",
@@ -1067,7 +1067,7 @@ export function AddBucketDialog({
             <Button
               type="button"
               variant="outline"
-              className="ml-[calc(40px+0.5rem)] h-10 gap-1"
+              className="ml-[calc(24px+0.5rem)] h-10 gap-1"
               onClick={() => setDrafts((prev) => [...prev, newDraft()])}
             >
               <Plus className="size-3.5" />
