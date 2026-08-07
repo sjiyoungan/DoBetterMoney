@@ -513,7 +513,7 @@ export function BudgetGrid({
         ) : null}
       </div>
 
-      <div className="mt-6">
+      <div className="mt-4">
         <Button
           type="button"
           variant="outline"
