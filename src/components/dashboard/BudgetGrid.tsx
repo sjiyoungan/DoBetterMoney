@@ -415,7 +415,7 @@ export function BudgetGrid({
                             "border-b-2 border-b-neutral-900 px-1 py-3 text-center font-medium",
                             !isLast && "border-r border-r-border/60",
                             isUpcoming
-                              ? "bg-[#FDF9FA] text-[#5C2430]"
+                              ? "bg-[#FDF9FA] text-[#3A121C]"
                               : isPast
                                 ? "bg-neutral-100 text-[#969696]"
                                 : cn(paneBg, "text-muted-foreground"),
@@ -464,7 +464,7 @@ export function BudgetGrid({
                                   cellGray
                                     ? "bg-neutral-100 text-[#969696] dark:bg-neutral-900"
                                     : isUpcoming
-                                      ? "bg-[#FDF9FA] text-[#5C2430] dark:bg-rose-950/10 dark:text-rose-200"
+                                      ? "bg-[#FDF9FA] text-[#3A121C] dark:bg-rose-950/10 dark:text-rose-100"
                                       : "bg-white dark:bg-background",
                                   !isLastCol && "border-r border-r-border/60",
                                   row.showBucketDivider &&
@@ -713,8 +713,8 @@ function AmountCell({
             autoFocus
             className={cn(
               "h-full w-full bg-transparent text-right text-sm tabular-nums outline-none",
-              accent && !done && "text-[#5C2430]",
-              accent && done && "text-[#9A8086]",
+              accent && !done && "text-[#3A121C]",
+              accent && done && "text-[#7A5C62]",
             )}
             value={value}
             onChange={(e) => onChange(e.target.value)}
@@ -743,9 +743,9 @@ function AmountCell({
           <span
             className={cn(
               "text-sm tabular-nums",
-              done && accent && "text-[#9A8086]",
+              done && accent && "text-[#7A5C62]",
               done && !accent && "text-[#969696]",
-              !done && accent && "text-[#5C2430]",
+              !done && accent && "text-[#3A121C]",
             )}
           >
             ${value}
