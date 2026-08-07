@@ -855,12 +855,12 @@ export function AddBucketDialog({
                 </Select>
               </div>
             ) : (
-              <div className="flex items-center gap-6">
-                <div className="group flex min-h-10 min-w-0 items-center gap-1.5">
+              <div className="flex items-center gap-3">
+                <div className="group flex min-h-10 min-w-0 flex-1 items-center gap-1.5">
                   {editingName ? (
                     <input
                       autoFocus
-                      className="min-w-0 bg-transparent text-2xl font-semibold tracking-tight text-foreground outline-none"
+                      className="min-w-0 flex-1 bg-transparent text-2xl font-semibold tracking-tight text-foreground outline-none"
                       value={bucketName}
                       onChange={(e) => setBucketName(e.target.value)}
                       onBlur={() => setEditingName(false)}
@@ -869,7 +869,6 @@ export function AddBucketDialog({
                           (e.target as HTMLInputElement).blur()
                       }}
                       placeholder="Group name"
-                      size={Math.max(bucketName.length, 8)}
                     />
                   ) : (
                     <>
@@ -892,39 +891,9 @@ export function AddBucketDialog({
                   )}
                 </div>
 
-                <Select
-                  value={bucketType || undefined}
-                  open={typeOpen}
-                  onOpenChange={setTypeOpen}
-                  onValueChange={(value) =>
-                    setBucketType(value as BucketDraftType)
-                  }
-                >
-                  <SelectTrigger
-                    size="default"
-                    className={cn(
-                      "h-auto w-auto shrink-0 justify-start gap-1.5 border-0 bg-transparent px-0 py-0 text-sm font-normal text-foreground shadow-none",
-                      "hover:bg-transparent hover:text-foreground",
-                      "focus-visible:ring-0 focus-visible:outline-none",
-                      "data-[size=default]:h-auto [&_svg]:size-3.5 [&_svg]:opacity-0 hover:[&_svg]:opacity-100 data-[state=open]:[&_svg]:opacity-100",
-                    )}
-                  >
-                    <SelectValue>
-                      {bucketType ? TYPE_LABEL[bucketType] : "Select type"}
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent
-                    position="popper"
-                    align="start"
-                    className="w-max min-w-[var(--radix-select-trigger-width)]"
-                  >
-                    <SelectItem value="expenses">Expenses</SelectItem>
-                    <SelectItem value="savings">Savings</SelectItem>
-                    {bucketType === "income" ? (
-                      <SelectItem value="income">Income</SelectItem>
-                    ) : null}
-                  </SelectContent>
-                </Select>
+                <span className="shrink-0 text-sm font-normal text-neutral-400">
+                  {bucketType ? TYPE_LABEL[bucketType] : ""}
+                </span>
               </div>
             )}
           </div>
