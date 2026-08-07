@@ -20,6 +20,7 @@ type Props = {
     fromDate: string,
     value: string,
   ) => void
+  onAmountCommit?: () => void
   onCategoryFieldChange: (
     categoryId: string,
     field: "goal" | "balance",
@@ -60,6 +61,7 @@ export function BudgetGrid({
   onToggleDone,
   onAmountChange,
   onAmountApplyToFuture,
+  onAmountCommit,
   onCategoryFieldChange,
   onAddBucket,
   onUpdateBucket,
@@ -495,6 +497,7 @@ export function BudgetGrid({
                                       value,
                                     )
                                   }
+                                  onCommit={() => onAmountCommit?.()}
                                   onToggleDone={() => onToggleDone(key)}
                                 />
                               </td>
@@ -618,6 +621,7 @@ function AmountCell({
   showCheck,
   onChange,
   onApplyToFuture,
+  onCommit,
   onToggleDone,
 }: {
   value: string
@@ -626,6 +630,7 @@ function AmountCell({
   showCheck: boolean
   onChange: (value: string) => void
   onApplyToFuture: (value: string) => void
+  onCommit?: () => void
   onToggleDone: () => void
 }) {
   const [editing, setEditing] = useState(false)
@@ -686,6 +691,7 @@ function AmountCell({
               if (Date.now() < suppressApplyUntilRef.current) return
               onApplyToFuture(value)
               setShowFutureHint(false)
+              window.setTimeout(() => onCommit?.(), 0)
             }}
           >
             Apply to future
@@ -744,14 +750,23 @@ function AmountCell({
             value={value}
             onChange={(e) => onChange(e.target.value)}
             onBlur={() => {
+              let changed = false
               if (value.trim() === "" || Number(value) === 0) {
-                if (value !== "") onChange("")
+                if (value !== "") {
+                  onChange("")
+                  changed = true
+                }
               }
               setEditing(false)
               const next =
                 value.trim() === "" || Number(value) === 0 ? "" : value
               if (next !== startValueRef.current) {
+                changed = true
                 offerApplyToFuture()
+              }
+              if (changed) {
+                // Let React commit the cell patch into workspaceRef first
+                window.setTimeout(() => onCommit?.(), 0)
               }
             }}
             onKeyDown={(e) => {

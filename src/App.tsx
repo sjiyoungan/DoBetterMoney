@@ -53,6 +53,8 @@ export default function App() {
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const dirtyRef = useRef(false)
   const saveReadyRef = useRef(false)
+  const saveGenerationRef = useRef(0)
+  const savingRef = useRef(false)
   const workspaceRef = useRef(workspace)
   const doneKeysRef = useRef(doneKeys)
   const workspaceIdRef = useRef(workspaceId)
@@ -118,11 +120,12 @@ export default function App() {
     if (saveTimer.current) clearTimeout(saveTimer.current)
     saveTimer.current = setTimeout(() => {
       void flushSave()
-    }, 250)
+    }, 200)
   }
 
   function markDirty() {
     dirtyRef.current = true
+    saveGenerationRef.current += 1
     setSaveStatus("idle")
     queueSave()
   }
@@ -133,30 +136,45 @@ export default function App() {
     const uid = userIdRef.current
     if (!id || !uid || !saveReadyRef.current) return
     if (!dirtyRef.current) return
+    if (savingRef.current) return
     if (saveTimer.current) {
       clearTimeout(saveTimer.current)
       saveTimer.current = null
     }
 
+    const generation = saveGenerationRef.current
     const ws = workspaceRef.current
     const keys = [...doneKeysRef.current]
     dirtyRef.current = false
+    savingRef.current = true
     setSaveStatus("saving")
 
     try {
       await saveWorkspace(id, ws, keys, uid)
-      if (dirtyRef.current) {
+      savingRef.current = false
+      if (saveGenerationRef.current !== generation || dirtyRef.current) {
+        dirtyRef.current = true
         queueSave()
         return
       }
       setSaveError(null)
       setSaveStatus("saved")
     } catch (err) {
+      savingRef.current = false
       dirtyRef.current = true
       const msg = err instanceof Error ? err.message : String(err)
       setSaveError(msg)
       setSaveStatus("error")
     }
+  }
+
+  /** Force an immediate save after a cell commit (blur). */
+  function onAmountCommit() {
+    if (saveTimer.current) {
+      clearTimeout(saveTimer.current)
+      saveTimer.current = null
+    }
+    void flushSave()
   }
 
   function patchWorkspace(updater: (prev: BudgetWorkspace) => BudgetWorkspace) {
@@ -634,6 +652,7 @@ export default function App() {
             onToggleDone={toggleDone}
             onAmountChange={onAmountChange}
             onAmountApplyToFuture={onAmountApplyToFuture}
+            onAmountCommit={onAmountCommit}
             onCategoryFieldChange={onCategoryFieldChange}
             onAddBucket={onAddBucket}
             onUpdateBucket={onUpdateBucket}

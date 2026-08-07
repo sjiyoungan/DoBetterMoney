@@ -87,11 +87,11 @@ export function normalizeWorkspace(
       doneKeys: doneKeysFromColumn,
     }
     const year = inferStartYear(slice)
-    // One-time legacy upgrade: attach prefills onto year columns
+    // Structure-only migration — never invent or rewrite cell amounts on load
     return {
       startYear: year,
       activeYear: year,
-      years: syncAllYearPrefills({ [String(year)]: slice }),
+      years: { [String(year)]: slice },
     }
   }
 
@@ -113,17 +113,6 @@ export function listYears(workspace: BudgetWorkspace): number[] {
     .map(Number)
     .filter((n) => Number.isFinite(n))
     .sort((a, b) => a - b)
-}
-
-function syncAllYearPrefills(
-  years: Record<string, YearBudget>,
-): Record<string, YearBudget> {
-  const next: Record<string, YearBudget> = {}
-  for (const [key, slice] of Object.entries(years)) {
-    const year = Number(key)
-    next[key] = Number.isFinite(year) ? syncYearPrefills(slice, year) : slice
-  }
-  return next
 }
 
 export function getActiveYearBudget(workspace: BudgetWorkspace): YearBudget {
@@ -225,9 +214,31 @@ function prefillExpenseCategory(
 }
 
 /**
- * Re-attach prefills to the current paycheck columns for a year slice.
- * Expense amounts follow frequency (e.g. monthly → one paycheck ≥3 days before due).
- * Clears cells that fall outside the schedule so amounts don't stick on every column.
+ * Align category allocations to the current paycheck columns.
+ * Preserves existing cell values exactly; new columns stay empty.
+ * Does NOT re-run frequency prefills (those only run on add/edit category
+ * or Create next year).
+ */
+function preserveAllocationsOnPaychecks(
+  cat: Category,
+  paychecks: YearBudget["paychecks"],
+): Category {
+  const allocations: Record<string, number | ""> = {}
+  for (const p of paychecks) {
+    const prev = cat.allocations?.[p.date]
+    if (prev === undefined || prev === "" || Number(prev) === 0) {
+      allocations[p.date] = ""
+    } else {
+      allocations[p.date] = prev
+    }
+  }
+  return { ...cat, allocations }
+}
+
+/**
+ * After paycheck columns change (e.g. income schedule update):
+ * keep stored cell values on matching dates; leave new columns empty.
+ * Income categories still follow their pay-date schedule for amounts.
  */
 export function syncYearPrefills(slice: YearBudget, year: number): YearBudget {
   let paychecks = slice.paychecks.filter((p) =>
@@ -246,35 +257,29 @@ export function syncYearPrefills(slice: YearBudget, year: number): YearBudget {
         categories: bucket.categories.map((cat) => {
           const recurrence = categoryRecurrence(cat)
           if (!recurrence || cat.amount === undefined) {
-            return {
-              ...cat,
-              allocations: mergeAllocationsOntoPaychecks(
-                paychecks,
-                cat.allocations,
-                {},
-              ),
-            }
+            return preserveAllocationsOnPaychecks(cat, paychecks)
           }
           const ownDates = new Set(generateRecurrenceDates(recurrence, { year }))
-          const prefill: Record<string, number | ""> = {}
+          const allocations: Record<string, number | ""> = {}
           for (const p of paychecks) {
-            prefill[p.date] = ownDates.has(p.date) ? cat.amount : ""
+            if (Object.prototype.hasOwnProperty.call(cat.allocations ?? {}, p.date)) {
+              const prev = cat.allocations[p.date]
+              allocations[p.date] =
+                prev === undefined || prev === "" || Number(prev) === 0
+                  ? ""
+                  : prev
+            } else {
+              allocations[p.date] = ownDates.has(p.date) ? cat.amount : ""
+            }
           }
-          return {
-            ...cat,
-            allocations: mergeAllocationsOntoPaychecks(
-              paychecks,
-              cat.allocations,
-              prefill,
-            ),
-          }
+          return { ...cat, allocations }
         }),
       }
     }
     return {
       ...bucket,
       categories: bucket.categories.map((cat) =>
-        prefillExpenseCategory(cat, paychecks),
+        preserveAllocationsOnPaychecks(cat, paychecks),
       ),
     }
   })
