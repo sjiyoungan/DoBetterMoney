@@ -630,7 +630,7 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-svh bg-background text-foreground">
+    <div className="flex h-svh flex-col overflow-hidden bg-background text-foreground">
       <AppHeader
         user={role}
         onUserChange={onUserChange}
@@ -645,7 +645,7 @@ export default function App() {
       />
 
       {freshPreview ? (
-        <div className="border-b border-amber-200 bg-amber-50 px-[60px] py-2 text-xs text-amber-900">
+        <div className="shrink-0 border-b border-amber-200 bg-amber-50 px-[60px] py-2 text-xs text-amber-900">
           Fresh preview — empty workspace, not saved to your account. Remove{" "}
           <code className="font-mono">?fresh</code> from the URL to use your
           real data.
@@ -653,18 +653,19 @@ export default function App() {
       ) : null}
 
       {loadError ? (
-        <div className="border-b border-destructive/30 bg-destructive/10 px-[60px] py-2 text-xs text-destructive">
+        <div className="shrink-0 border-b border-destructive/30 bg-destructive/10 px-[60px] py-2 text-xs text-destructive">
           Couldn’t load: {loadError}
         </div>
       ) : null}
 
       {saveError ? (
-        <div className="border-b border-destructive/30 bg-destructive/10 px-[60px] py-2 text-xs text-destructive">
+        <div className="shrink-0 border-b border-destructive/30 bg-destructive/10 px-[60px] py-2 text-xs text-destructive">
           Couldn’t save: {saveError}
         </div>
       ) : null}
 
-      <main className="px-[60px] py-4">
+      {/* Sole vertical scrollport: page chrome stays put; table header sticks here */}
+      <main className="min-h-0 flex-1 overflow-y-auto px-[60px] py-4">
         {role === "liz" ? (
           <BudgetGrid
             buckets={yearBudget.buckets}
