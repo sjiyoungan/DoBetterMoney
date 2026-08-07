@@ -3,9 +3,10 @@ import {
   useMemo,
   useRef,
   useState,
+  type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
 } from "react"
-import { Check, CirclePlus, Menu } from "lucide-react"
+import { Check, CirclePlus, Menu, MessageSquare } from "lucide-react"
 import { AddBucketDialog } from "@/components/dashboard/AddBucketDialog"
 import { CategoryDrawer } from "@/components/dashboard/CategoryDrawer"
 import { OnboardingFlow } from "@/components/dashboard/OnboardingFlow"
@@ -38,6 +39,8 @@ type Props = {
     value: string,
   ) => void
   onAmountCommit?: () => void
+  onCommentChange: (categoryId: string, date: string, comment: string) => void
+  onCommentCommit?: () => void
   onCategoryFieldChange: (
     categoryId: string,
     field: "goal" | "amount",
@@ -161,6 +164,8 @@ export function BudgetGrid({
   onAmountChange,
   onAmountApplyToFuture,
   onAmountCommit,
+  onCommentChange,
+  onCommentCommit,
   onCategoryFieldChange,
   onAddBucket,
   onUpdateBucket,
@@ -1006,6 +1011,9 @@ export function BudgetGrid({
                                       ? ""
                                       : String(raw)
                                   }
+                                  comment={
+                                    category.comments?.[p.date]?.trim() ?? ""
+                                  }
                                   done={manuallyDone}
                                   accent={isUpcoming && !cellGray}
                                   showCheck={canMarkDone || manuallyDone}
@@ -1021,6 +1029,10 @@ export function BudgetGrid({
                                   }
                                   onCommit={() => onAmountCommit?.()}
                                   onToggleDone={() => onToggleDone(key)}
+                                  onCommentChange={(next) =>
+                                    onCommentChange(category.id, p.date, next)
+                                  }
+                                  onCommentCommit={() => onCommentCommit?.()}
                                 />
                               </td>
                             )
@@ -1451,6 +1463,7 @@ function MoneyField({
 
 function AmountCell({
   value,
+  comment,
   done,
   accent = false,
   showCheck,
@@ -1458,8 +1471,11 @@ function AmountCell({
   onApplyToFuture,
   onCommit,
   onToggleDone,
+  onCommentChange,
+  onCommentCommit,
 }: {
   value: string
+  comment: string
   done: boolean
   accent?: boolean
   showCheck: boolean
@@ -1467,15 +1483,22 @@ function AmountCell({
   onApplyToFuture: (value: string) => void
   onCommit?: () => void
   onToggleDone: () => void
+  onCommentChange: (comment: string) => void
+  onCommentCommit?: () => void
 }) {
   const [editing, setEditing] = useState(false)
   const [showFutureHint, setShowFutureHint] = useState(false)
+  const [commentOpen, setCommentOpen] = useState(false)
+  const [draftComment, setDraftComment] = useState(comment)
   const startValueRef = useRef(value)
   const rootRef = useRef<HTMLDivElement>(null)
+  const commentBtnRef = useRef<HTMLButtonElement>(null)
+  const commentBoxRef = useRef<HTMLDivElement>(null)
   const hintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const suppressApplyUntilRef = useRef(0)
   const hasAmount = value !== "" && Number(value) !== 0
   const canCheck = hasAmount && (showCheck || done)
+  const hasComment = comment !== ""
 
   useEffect(() => {
     return () => {
@@ -1493,6 +1516,34 @@ function AmountCell({
     document.addEventListener("pointerdown", onPointerDown)
     return () => document.removeEventListener("pointerdown", onPointerDown)
   }, [showFutureHint])
+
+  useEffect(() => {
+    if (!commentOpen) return
+    function onPointerDown(e: PointerEvent) {
+      const target = e.target as Node
+      if (
+        commentBoxRef.current?.contains(target) ||
+        commentBtnRef.current?.contains(target)
+      ) {
+        return
+      }
+      setCommentOpen(false)
+      setDraftComment(comment)
+    }
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        e.stopPropagation()
+        setCommentOpen(false)
+        setDraftComment(comment)
+      }
+    }
+    document.addEventListener("pointerdown", onPointerDown)
+    document.addEventListener("keydown", onKeyDown)
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown)
+      document.removeEventListener("keydown", onKeyDown)
+    }
+  }, [commentOpen, comment])
 
   function clearHintTimer() {
     if (hintTimerRef.current) {
@@ -1512,8 +1563,30 @@ function AmountCell({
     }, 250)
   }
 
+  function openComment(e: ReactMouseEvent) {
+    e.stopPropagation()
+    setDraftComment(comment)
+    setCommentOpen(true)
+    setShowFutureHint(false)
+    clearHintTimer()
+  }
+
+  function cancelComment() {
+    setCommentOpen(false)
+    setDraftComment(comment)
+  }
+
+  function saveComment() {
+    const next = draftComment.trim()
+    if (next !== comment) {
+      onCommentChange(next)
+      window.setTimeout(() => onCommentCommit?.(), 0)
+    }
+    setCommentOpen(false)
+  }
+
   return (
-    <div ref={rootRef} className="group/cell relative flex h-9 items-center gap-1 px-1">
+    <div ref={rootRef} className="group/cell relative flex h-9 items-center gap-0.5 px-1">
       {showFutureHint ? (
         <div className="absolute -top-1 right-0 z-30 flex translate-y-[-100%] items-center rounded-md border border-neutral-400 bg-white shadow-sm dark:border-neutral-500 dark:bg-neutral-900">
           <button
@@ -1562,9 +1635,57 @@ function AmountCell({
         <Check className="size-3" strokeWidth={2.5} />
       </button>
 
+      <button
+        ref={commentBtnRef}
+        type="button"
+        onClick={openComment}
+        title={hasComment ? "Edit comment" : "Add comment"}
+        className={cn(
+          "inline-flex size-5 shrink-0 items-center justify-center rounded-sm border transition-colors",
+          commentOpen
+            ? "border-neutral-300 bg-neutral-50 text-neutral-600"
+            : "border-transparent text-neutral-300 opacity-0 group-hover/cell:opacity-100 group-hover/cell:border-neutral-300 hover:border-neutral-400 hover:bg-neutral-50 hover:text-neutral-600",
+        )}
+      >
+        <MessageSquare className="size-3" strokeWidth={2.5} />
+      </button>
+
+      {commentOpen ? (
+        <div
+          ref={commentBoxRef}
+          className="absolute left-5 top-full z-40 mt-0.5 w-[168px] rounded-md border border-neutral-400 bg-white p-2 shadow-md dark:border-neutral-500 dark:bg-neutral-900"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <textarea
+            autoFocus
+            rows={3}
+            value={draftComment}
+            onChange={(e) => setDraftComment(e.target.value)}
+            placeholder="Add a note…"
+            className="w-full resize-none rounded border border-neutral-200 bg-transparent px-1.5 py-1 text-xs leading-snug outline-none focus:border-neutral-400 dark:border-neutral-700"
+          />
+          <div className="mt-1.5 flex justify-end gap-1">
+            <button
+              type="button"
+              onClick={cancelComment}
+              className="rounded px-1.5 py-0.5 text-[10px] text-neutral-600 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={saveComment}
+              className="rounded bg-neutral-900 px-1.5 py-0.5 text-[10px] text-white hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white"
+            >
+              Save
+            </button>
+          </div>
+        </div>
+      ) : null}
+
       <div
         className={cn(
-          "flex h-7 min-w-0 flex-1 cursor-text items-center justify-end rounded-md border border-transparent px-1",
+          "relative ml-auto flex h-7 w-[3.25rem] shrink-0 cursor-text items-center justify-end rounded-md border border-transparent px-0.5",
           "hover:border-input focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/30",
         )}
         onClick={() => {
@@ -1626,6 +1747,13 @@ function AmountCell({
           >
             ${value}
           </span>
+        ) : null}
+        {hasComment ? (
+          <span
+            aria-hidden
+            title="Has comment"
+            className="pointer-events-none absolute top-1/2 right-0 size-1.5 -translate-y-1/2 translate-x-[calc(100%+2px)] rounded-full bg-neutral-500 dark:bg-neutral-400"
+          />
         ) : null}
       </div>
     </div>

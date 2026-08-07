@@ -403,6 +403,28 @@ export default function App() {
     )
   }
 
+  function onCommentChange(categoryId: string, date: string, comment: string) {
+    recordHistory()
+    const trimmed = comment.trim()
+    patchWorkspace((prev) =>
+      updateActiveYearBudget(prev, (year) => ({
+        ...year,
+        buckets: year.buckets.map((bucket) => ({
+          ...bucket,
+          categories: bucket.categories.map((cat) => {
+            if (cat.id !== categoryId) return cat
+            const comments = { ...(cat.comments ?? {}) }
+            if (trimmed === "") delete comments[date]
+            else comments[date] = trimmed
+            const next: typeof cat = { ...cat, comments }
+            if (Object.keys(comments).length === 0) delete next.comments
+            return next
+          }),
+        })),
+      })),
+    )
+  }
+
   function onAmountApplyToFuture(
     categoryId: string,
     fromDate: string,
@@ -675,6 +697,8 @@ export default function App() {
             onAmountChange={onAmountChange}
             onAmountApplyToFuture={onAmountApplyToFuture}
             onAmountCommit={onAmountCommit}
+            onCommentChange={onCommentChange}
+            onCommentCommit={onAmountCommit}
             onCategoryFieldChange={onCategoryFieldChange}
             onAddBucket={onAddBucket}
             onUpdateBucket={onUpdateBucket}

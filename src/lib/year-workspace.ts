@@ -174,6 +174,8 @@ function cloneCategoryForNewYear(cat: Category, year: number): Category {
   return {
     ...cat,
     allocations: {},
+    // Carry cell notes forward with the category (keyed by paycheck ISO date)
+    ...(cat.comments ? { comments: { ...cat.comments } } : {}),
     ...(cat.recurrence
       ? {
           recurrence: {

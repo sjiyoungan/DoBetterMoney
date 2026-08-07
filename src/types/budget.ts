@@ -66,6 +66,8 @@ export type Category = {
   hidden?: boolean
   /** amount planned per paycheck date (ISO date -> amount) */
   allocations: Record<string, number | "">
+  /** Optional note per paycheck date (ISO date -> comment); same keys as allocations */
+  comments?: Record<string, string>
   /** Totals rows: which groups/categories to include in the per-paycheck sum */
   totalSources?: TotalSource[]
 }

@@ -31,7 +31,14 @@ export function renamePaycheckDate(
         delete allocations[oldDate]
         allocations[newDate] = value
       }
-      return { ...cat, allocations }
+      let comments = cat.comments
+      if (comments && Object.prototype.hasOwnProperty.call(comments, oldDate)) {
+        comments = { ...comments }
+        const note = comments[oldDate]
+        delete comments[oldDate]
+        comments[newDate] = note
+      }
+      return { ...cat, allocations, ...(comments ? { comments } : {}) }
     }),
   }))
 
