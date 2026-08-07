@@ -664,8 +664,8 @@ export default function App() {
         </div>
       ) : null}
 
-      {/* Sole vertical scrollport: page chrome stays put; table header sticks here */}
-      <main className="min-h-0 flex-1 overflow-y-auto px-[60px] py-4">
+      {/* Budget grid fills remaining height; body scrolls inside the card */}
+      <main className="flex min-h-0 flex-1 flex-col overflow-hidden px-[60px] py-4">
         {role === "liz" ? (
           <BudgetGrid
             buckets={yearBudget.buckets}
@@ -683,13 +683,15 @@ export default function App() {
             onPaycheckDateChange={onPaycheckDateChange}
           />
         ) : (
-          <div className="mx-auto max-w-7xl space-y-4">
-            <HolderPanel
-              workspace={yearBudget}
-              selectedPaycheckId={selectedPaycheckId}
-              onSelectedPaycheckChange={setSelectedPaycheckId}
-              onToggleHolderFlag={onToggleHolderFlag}
-            />
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            <div className="mx-auto max-w-7xl space-y-4">
+              <HolderPanel
+                workspace={yearBudget}
+                selectedPaycheckId={selectedPaycheckId}
+                onSelectedPaycheckChange={setSelectedPaycheckId}
+                onToggleHolderFlag={onToggleHolderFlag}
+              />
+            </div>
           </div>
         )}
       </main>
