@@ -24,6 +24,7 @@ import {
   syncYearPrefills,
   updateActiveYearBudget,
 } from "@/lib/year-workspace"
+import { applyAmountToFuture } from "@/lib/apply-to-future"
 import type { Bucket, BudgetWorkspace, UserRole } from "@/types/budget"
 
 export default function App() {
@@ -215,13 +216,15 @@ export default function App() {
           ...bucket,
           categories: bucket.categories.map((cat) => {
             if (cat.id !== categoryId) return cat
-            const allocations = { ...cat.allocations }
-            for (const p of year.paychecks) {
-              if (p.date > fromDate) {
-                allocations[p.date] = nextVal
-              }
+            return {
+              ...cat,
+              allocations: applyAmountToFuture(
+                cat,
+                year.paychecks,
+                fromDate,
+                nextVal,
+              ),
             }
-            return { ...cat, allocations }
           }),
         })),
       })),

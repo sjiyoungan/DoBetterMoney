@@ -653,7 +653,7 @@ function AmountCell({
           </span>
           <button
             type="button"
-            title="Apply this amount to all future cells"
+            title="Apply to matching future pay periods"
             className="inline-flex size-5 items-center justify-center rounded-sm text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-foreground"
             onMouseDown={(e) => e.preventDefault()}
             onClick={(e) => {
