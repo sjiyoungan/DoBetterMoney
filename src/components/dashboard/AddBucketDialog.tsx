@@ -819,13 +819,13 @@ export function AddBucketDialog({
           {/* Header — full-bleed divider like the footer, no fill */}
           <div className="-ml-6 -mr-4 border-b px-6 pr-4 pb-4">
             {!editing ? (
-              <div className="space-y-3">
+              <div className="flex items-center gap-3">
                 <Input
                   autoFocus
                   value={bucketName}
                   onChange={(e) => setBucketName(e.target.value)}
                   placeholder="Group name"
-                  className={cn(fieldH, "text-base md:text-sm")}
+                  className={cn(fieldH, "min-w-0 flex-1 text-base md:text-sm")}
                 />
                 <Select
                   value={bucketType || undefined}
@@ -835,12 +835,15 @@ export function AddBucketDialog({
                     setBucketType(value as BucketDraftType)
                   }
                 >
-                  <SelectTrigger size="default" className={selectH}>
+                  <SelectTrigger
+                    size="default"
+                    className={cn(selectH, "w-auto shrink-0")}
+                  >
                     <SelectValue placeholder="Select type" />
                   </SelectTrigger>
                   <SelectContent
                     position="popper"
-                    align="start"
+                    align="end"
                     className="w-max min-w-[var(--radix-select-trigger-width)]"
                   >
                     <SelectItem value="expenses">Expenses</SelectItem>
@@ -849,12 +852,12 @@ export function AddBucketDialog({
                 </Select>
               </div>
             ) : (
-              <div className="flex items-start justify-between gap-4">
-                <div className="group flex min-h-10 min-w-0 flex-1 items-center gap-1.5">
+              <div className="flex items-center gap-3">
+                <div className="group flex min-h-10 min-w-0 items-center gap-1.5">
                   {editingName ? (
                     <input
                       autoFocus
-                      className="min-w-0 flex-1 bg-transparent text-2xl font-semibold tracking-tight text-foreground outline-none"
+                      className="min-w-0 bg-transparent text-2xl font-semibold tracking-tight text-foreground outline-none"
                       value={bucketName}
                       onChange={(e) => setBucketName(e.target.value)}
                       onBlur={() => setEditingName(false)}
@@ -863,6 +866,7 @@ export function AddBucketDialog({
                           (e.target as HTMLInputElement).blur()
                       }}
                       placeholder="Group name"
+                      size={Math.max(bucketName.length, 8)}
                     />
                   ) : (
                     <>
@@ -896,7 +900,7 @@ export function AddBucketDialog({
                   <SelectTrigger
                     size="default"
                     className={cn(
-                      "mt-1 h-auto w-auto shrink-0 justify-end gap-1.5 border-0 bg-transparent px-0 py-0 text-sm font-normal text-muted-foreground shadow-none",
+                      "h-auto w-auto shrink-0 justify-start gap-1.5 border-0 bg-transparent px-0 py-0 text-sm font-normal text-muted-foreground shadow-none",
                       "hover:bg-transparent hover:text-foreground",
                       "focus-visible:ring-0 focus-visible:outline-none",
                       "data-[size=default]:h-auto [&_svg]:size-3.5 [&_svg]:opacity-0 hover:[&_svg]:opacity-100 data-[state=open]:[&_svg]:opacity-100",
@@ -908,7 +912,7 @@ export function AddBucketDialog({
                   </SelectTrigger>
                   <SelectContent
                     position="popper"
-                    align="end"
+                    align="start"
                     className="w-max min-w-[var(--radix-select-trigger-width)]"
                   >
                     <SelectItem value="expenses">Expenses</SelectItem>
