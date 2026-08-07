@@ -51,8 +51,6 @@ export default function App() {
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">(
     "idle",
   )
-  const [undoDepth, setUndoDepth] = useState(0)
-  const [redoDepth, setRedoDepth] = useState(0)
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const dirtyRef = useRef(false)
   const saveReadyRef = useRef(false)
@@ -81,8 +79,6 @@ export default function App() {
     undoStackRef.current = []
     redoStackRef.current = []
     coalesceKeyRef.current = null
-    setUndoDepth(0)
-    setRedoDepth(0)
   }
 
   function recordHistory(coalesceKey?: string) {
@@ -98,8 +94,6 @@ export default function App() {
       cloneUndoSnapshot(workspaceRef.current, doneKeysRef.current),
     )
     redoStackRef.current = []
-    setUndoDepth(undoStackRef.current.length)
-    setRedoDepth(0)
   }
 
   function applySnapshot(snapshot: UndoSnapshot) {
@@ -209,8 +203,6 @@ export default function App() {
     )
     coalesceKeyRef.current = null
     applySnapshot(previous)
-    setUndoDepth(undoStackRef.current.length)
-    setRedoDepth(redoStackRef.current.length)
   }
 
   function redo() {
@@ -224,8 +216,6 @@ export default function App() {
     )
     coalesceKeyRef.current = null
     applySnapshot(next)
-    setUndoDepth(undoStackRef.current.length)
-    setRedoDepth(redoStackRef.current.length)
   }
 
   useEffect(() => {
@@ -698,6 +688,10 @@ export default function App() {
             onReorderBuckets={onReorderBuckets}
             onSetupIncome={onSetupIncome}
             onPaycheckDateChange={onPaycheckDateChange}
+            canUndo={undoDepth > 0}
+            canRedo={redoDepth > 0}
+            onUndo={undo}
+            onRedo={redo}
             saveStatus={saveStatus}
           />
         ) : (
