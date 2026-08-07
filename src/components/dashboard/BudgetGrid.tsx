@@ -1040,6 +1040,11 @@ export function BudgetGrid({
                               row.showBucketDivider ||
                                 (row.isFirstInBucket && bucketIndex === 0),
                             )
+                            // Same thin row stroke as body categories; omit on
+                            // last-in-group (next group top / card edge handles it).
+                            const bottomBorder = groupDividerBottomClass(
+                              row.isLastInBucket,
+                            )
                             return (
                               <tr
                                 key={category.id}
@@ -1080,6 +1085,7 @@ export function BudgetGrid({
                                     "relative border-r border-r-border/60 p-0",
                                     totalsBg,
                                     topBorder,
+                                    bottomBorder,
                                   )}
                                 >
                                   <button
@@ -1101,6 +1107,7 @@ export function BudgetGrid({
                                     "relative border-r border-r-border/60",
                                     totalsBg,
                                     topBorder,
+                                    bottomBorder,
                                   )}
                                 />
                                 <td
@@ -1109,6 +1116,7 @@ export function BudgetGrid({
                                     totalsBg,
                                     balanceEdge,
                                     topBorder,
+                                    bottomBorder,
                                   )}
                                 />
                               </tr>
@@ -1144,6 +1152,9 @@ export function BudgetGrid({
                             const topBorder = totalsDividerTopClass(
                               row.showBucketDivider ||
                                 (row.isFirstInBucket && bucketIndex === 0),
+                            )
+                            const bottomBorder = groupDividerBottomClass(
+                              row.isLastInBucket,
                             )
                             const isLastFooterRow =
                               bucketIndex === totalsBuckets.length - 1 &&
@@ -1204,6 +1215,7 @@ export function BudgetGrid({
                                               ),
                                             ),
                                         topBorder,
+                                        bottomBorder,
                                       )}
                                       style={{
                                         width: W.pay,
