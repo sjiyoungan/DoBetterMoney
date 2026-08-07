@@ -44,18 +44,22 @@ export default function App() {
   const [doneKeys, setDoneKeys] = useState<Set<string>>(new Set())
   const [loadingWorkspace, setLoadingWorkspace] = useState(!freshPreview)
   const [saveError, setSaveError] = useState<string | null>(null)
+  const [saveReady, setSaveReady] = useState(false)
   const [undoDepth, setUndoDepth] = useState(0)
   const [redoDepth, setRedoDepth] = useState(0)
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const readyToSave = useRef(false)
   const workspaceRef = useRef(workspace)
   const doneKeysRef = useRef(doneKeys)
+  const workspaceIdRef = useRef(workspaceId)
+  const userIdRef = useRef(user?.id)
   const undoStackRef = useRef<UndoSnapshot[]>([])
   const redoStackRef = useRef<UndoSnapshot[]>([])
   const coalesceKeyRef = useRef<string | null>(null)
 
   workspaceRef.current = workspace
   doneKeysRef.current = doneKeys
+  workspaceIdRef.current = workspaceId
+  userIdRef.current = user?.id
 
   const yearBudget = useMemo(() => getActiveYearBudget(workspace), [workspace])
   const years = useMemo(() => listYears(workspace), [workspace])
@@ -163,14 +167,14 @@ export default function App() {
       setDoneKeys(new Set())
       setSelectedPaycheckId("")
       setLoadingWorkspace(false)
-      readyToSave.current = false
+      setSaveReady(false)
       clearHistory()
       return
     }
     if (!user?.id) return
     let cancelled = false
     setLoadingWorkspace(true)
-    readyToSave.current = false
+    setSaveReady(false)
 
     loadOrCreateWorkspace(user.id)
       .then((state) => {
@@ -186,9 +190,7 @@ export default function App() {
         )
         clearHistory()
         setLoadingWorkspace(false)
-        queueMicrotask(() => {
-          readyToSave.current = true
-        })
+        setSaveReady(true)
       })
       .catch((err: Error) => {
         if (cancelled) return
@@ -203,7 +205,7 @@ export default function App() {
         setWorkspace(createEmptyWorkspace())
         setWorkspaceId(null)
         clearHistory()
-        readyToSave.current = false
+        setSaveReady(false)
         setLoadingWorkspace(false)
       })
 
@@ -214,19 +216,50 @@ export default function App() {
 
   useEffect(() => {
     if (freshPreview) return
-    if (!user?.id || !workspaceId || !readyToSave.current) return
+    if (!saveReady || !user?.id || !workspaceId) return
     if (saveTimer.current) clearTimeout(saveTimer.current)
 
     saveTimer.current = setTimeout(() => {
       saveWorkspace(workspaceId, workspace, [...doneKeys], user.id)
         .then(() => setSaveError(null))
         .catch((err: Error) => setSaveError(err.message))
-    }, 600)
+    }, 400)
 
     return () => {
       if (saveTimer.current) clearTimeout(saveTimer.current)
     }
-  }, [workspace, doneKeys, workspaceId, user?.id, freshPreview])
+  }, [workspace, doneKeys, workspaceId, user?.id, freshPreview, saveReady])
+
+  // Flush pending edits if the tab is closing/hiding before debounce fires
+  useEffect(() => {
+    function flushSave() {
+      if (freshPreview) return
+      const id = workspaceIdRef.current
+      const uid = userIdRef.current
+      if (!id || !uid || !saveReady) return
+      if (saveTimer.current) {
+        clearTimeout(saveTimer.current)
+        saveTimer.current = null
+      }
+      void saveWorkspace(
+        id,
+        workspaceRef.current,
+        [...doneKeysRef.current],
+        uid,
+      ).catch(() => {
+        // best-effort flush
+      })
+    }
+    function onVisibilityChange() {
+      if (document.visibilityState === "hidden") flushSave()
+    }
+    window.addEventListener("pagehide", flushSave)
+    document.addEventListener("visibilitychange", onVisibilityChange)
+    return () => {
+      window.removeEventListener("pagehide", flushSave)
+      document.removeEventListener("visibilitychange", onVisibilityChange)
+    }
+  }, [freshPreview, saveReady])
 
   async function onUserChange(next: UserRole) {
     setRole(next)
@@ -287,6 +320,12 @@ export default function App() {
 
   function onAmountChange(categoryId: string, date: string, value: string) {
     recordHistory(`amount:${categoryId}:${date}`)
+    const trimmed = value.trim()
+    const num = Number(trimmed.replace(/,/g, ""))
+    const parsed =
+      trimmed === "" || !Number.isFinite(num) || num === 0
+        ? ("" as const)
+        : num
     setWorkspace((prev) =>
       updateActiveYearBudget(prev, (year) => ({
         ...year,
@@ -294,15 +333,11 @@ export default function App() {
           ...bucket,
           categories: bucket.categories.map((cat) => {
             if (cat.id !== categoryId) return cat
-            const parsed =
-              value.trim() === ""
-                ? ("" as const)
-                : Number(value.replace(/,/g, ""))
             return {
               ...cat,
               allocations: {
                 ...cat.allocations,
-                [date]: Number.isFinite(parsed as number) ? parsed : "",
+                [date]: parsed,
               },
             }
           }),
@@ -316,9 +351,12 @@ export default function App() {
     fromDate: string,
     value: string,
   ) {
-    const parsed =
-      value.trim() === "" ? ("" as const) : Number(value.replace(/,/g, ""))
-    const nextVal = Number.isFinite(parsed as number) ? parsed : ("" as const)
+    const trimmed = value.trim()
+    const num = Number(trimmed.replace(/,/g, ""))
+    const nextVal =
+      trimmed === "" || !Number.isFinite(num) || num === 0
+        ? ("" as const)
+        : num
 
     recordHistory()
     setWorkspace((prev) =>

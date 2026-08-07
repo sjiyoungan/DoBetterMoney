@@ -104,6 +104,13 @@ function isFilledAmount(v: number | "" | undefined): v is number {
   return v !== undefined && v !== "" && Number(v) !== 0
 }
 
+function hasOwnAllocation(
+  existing: Record<string, number | ""> | undefined,
+  date: string,
+) {
+  return !!existing && Object.prototype.hasOwnProperty.call(existing, date)
+}
+
 function hasScheduledSlots(prefill: Record<string, number | "">) {
   return Object.values(prefill).some((v) => v !== undefined && v !== "")
 }
@@ -112,8 +119,10 @@ function hasScheduledSlots(prefill: Record<string, number | "">) {
  * Map allocations onto the current paycheck columns using a frequency schedule.
  *
  * When `prefill` has scheduled amounts (from frequency rules):
- * - scheduled columns keep an existing amount if present, otherwise use prefill
- * - unscheduled columns are cleared (so monthly expenses don't land on every paycheck)
+ * - scheduled columns keep an existing amount if present
+ * - explicit empty/0 stays empty (do not re-prefill cleared cells)
+ * - missing keys get the schedule prefill
+ * - unscheduled columns are cleared
  *
  * When `prefill` is empty (no frequency schedule), keep exact-date existing values only.
  */
@@ -126,7 +135,8 @@ export function mergeAllocationsOntoPaychecks(
 
   if (!hasScheduledSlots(prefill)) {
     for (const p of paychecks) {
-      out[p.date] = existing?.[p.date] ?? ""
+      const prev = existing?.[p.date]
+      out[p.date] = isFilledAmount(prev) ? prev : ""
     }
     return out
   }
@@ -134,8 +144,12 @@ export function mergeAllocationsOntoPaychecks(
   for (const p of paychecks) {
     const scheduled = prefill[p.date]
     if (scheduled !== undefined && scheduled !== "") {
-      const prev = existing?.[p.date]
-      out[p.date] = isFilledAmount(prev) ? prev : scheduled
+      if (hasOwnAllocation(existing, p.date)) {
+        const prev = existing![p.date]
+        out[p.date] = isFilledAmount(prev) ? prev : ""
+      } else {
+        out[p.date] = scheduled
+      }
     } else {
       out[p.date] = ""
     }

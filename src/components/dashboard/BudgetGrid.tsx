@@ -476,7 +476,9 @@ export function BudgetGrid({
                               >
                                 <AmountCell
                                   value={
-                                    raw === "" || raw === undefined
+                                    raw === "" ||
+                                    raw === undefined ||
+                                    Number(raw) === 0
                                       ? ""
                                       : String(raw)
                                   }
@@ -630,7 +632,7 @@ function AmountCell({
   const [showFutureHint, setShowFutureHint] = useState(false)
   const startValueRef = useRef(value)
   const rootRef = useRef<HTMLDivElement>(null)
-  const hasAmount = value !== ""
+  const hasAmount = value !== "" && Number(value) !== 0
   const canCheck = hasAmount && (showCheck || done)
 
   useEffect(() => {
@@ -717,8 +719,13 @@ function AmountCell({
             value={value}
             onChange={(e) => onChange(e.target.value)}
             onBlur={() => {
+              if (value.trim() === "" || Number(value) === 0) {
+                if (value !== "") onChange("")
+              }
               setEditing(false)
-              if (value !== startValueRef.current) {
+              const next =
+                value.trim() === "" || Number(value) === 0 ? "" : value
+              if (next !== startValueRef.current) {
                 setShowFutureHint(true)
               }
             }}
@@ -732,7 +739,7 @@ function AmountCell({
             }}
             inputMode="numeric"
           />
-        ) : value !== "" ? (
+        ) : hasAmount ? (
           <span
             className={cn(
               "text-sm tabular-nums",

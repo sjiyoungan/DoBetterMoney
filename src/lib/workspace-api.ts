@@ -15,7 +15,7 @@ export async function loadOrCreateWorkspace(
   const { data: existing, error: selectError } = await supabase
     .from("budget_workspace")
     .select("id, data, done_keys")
-    .order("updated_at", { ascending: true })
+    .order("updated_at", { ascending: false })
     .limit(1)
     .maybeSingle()
 
