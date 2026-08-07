@@ -66,6 +66,7 @@ export function BudgetGrid({
   const rightRowRefs = useRef(new Map<string, HTMLTableRowElement>())
 
   const [scrolled, setScrolled] = useState(false)
+  const [scrollLeft, setScrollLeft] = useState(0)
   const [bucketDialog, setBucketDialog] = useState<
     { mode: "create" } | { mode: "edit"; bucket: Bucket } | null
   >(null)
@@ -118,13 +119,17 @@ export function BudgetGrid({
     if (!el || upcomingIndex < 0) return
     el.scrollLeft = Math.max(0, upcomingIndex - 1) * W.pay
     setScrolled(el.scrollLeft > 1)
+    setScrollLeft(el.scrollLeft)
   }, [upcomingIndex])
 
   // Track horizontal scroll + map vertical wheel to horizontal in the right pane
   useEffect(() => {
     const el = scrollRef.current
     if (!el) return
-    const onScroll = () => setScrolled(el.scrollLeft > 1)
+    const onScroll = () => {
+      setScrolled(el.scrollLeft > 1)
+      setScrollLeft(el.scrollLeft)
+    }
     const onWheel = (e: WheelEvent) => {
       if (Math.abs(e.deltaY) < Math.abs(e.deltaX)) return
       e.preventDefault()
@@ -198,8 +203,9 @@ export function BudgetGrid({
 
   return (
     <div>
-      <div className="overflow-hidden rounded-[8px] border border-neutral-500">
-        <div className="flex">
+      <div className="relative">
+        <div className="overflow-hidden rounded-[8px] border border-neutral-500">
+          <div className="flex">
           {/* Left pane: labels stay put; owns the continuous scroll shadow */}
           <div
             className={cn("relative z-10 shrink-0", paneBg)}
@@ -383,19 +389,6 @@ export function BudgetGrid({
             className="min-w-0 flex-1 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           >
             <div className="relative w-max min-w-full">
-              {upcomingIndex >= 0 ? (
-                <div
-                  aria-hidden
-                  className="pointer-events-none absolute z-[5] border-2 border-[#C9A8AE]"
-                  style={{
-                    left: upcomingIndex * W.pay - 2,
-                    top: -2,
-                    bottom: -2,
-                    width: W.pay + 4,
-                  }}
-                />
-              ) : null}
-
               <table
                 ref={rightTableRef}
                 className="border-separate border-spacing-0 text-sm"
@@ -506,6 +499,25 @@ export function BudgetGrid({
             </div>
           </div>
         </div>
+        </div>
+
+        {upcomingIndex >= 0 ? (
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 z-20 overflow-hidden rounded-[8px]"
+            style={{ clipPath: `inset(0px 0px 0px ${LEFT_WIDTH}px)` }}
+          >
+            <div
+              className="absolute border-2 border-[#C9A8AE]"
+              style={{
+                left: LEFT_WIDTH + upcomingIndex * W.pay - scrollLeft - 2,
+                width: W.pay + 4,
+                top: 0,
+                bottom: 0,
+              }}
+            />
+          </div>
+        ) : null}
       </div>
 
       <AddBucketDialog
