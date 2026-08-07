@@ -319,8 +319,10 @@ function HideToggle({
       variant="ghost"
       size="icon-sm"
       className={cn(
-        "text-muted-foreground",
-        hidden && "text-neutral-400 hover:text-neutral-500",
+        "text-muted-foreground hover:bg-transparent",
+        hidden
+          ? "text-neutral-400 hover:text-neutral-400"
+          : "hover:text-foreground",
       )}
       onClick={onToggle}
       title={hidden ? "Show category" : "Hide category"}
@@ -335,11 +337,19 @@ function HideToggle({
 }
 
 function draftRowClass(hidden: boolean, cols: string) {
-  return cn(
-    "grid items-center gap-2 rounded-md px-1 -mx-1 py-1",
-    cols,
-    hidden && "bg-neutral-100 text-neutral-400",
-  )
+  return cn("grid items-center gap-2", cols, hidden && "text-neutral-400")
+}
+
+function dimField(hidden: boolean) {
+  return hidden
+    ? "border-neutral-300 text-neutral-400 hover:border-neutral-300 focus-within:border-neutral-300 focus-within:ring-0"
+    : undefined
+}
+
+function dimTrigger(hidden: boolean) {
+  return hidden
+    ? "border-neutral-300 text-neutral-400 hover:bg-transparent hover:text-neutral-400"
+    : undefined
 }
 
 function draftHasData(d: CategoryDraft) {
@@ -356,21 +366,37 @@ function MoneyInput({
   value,
   onChange,
   placeholder = "0",
+  dimmed = false,
 }: {
   value: string
   onChange: (value: string) => void
   placeholder?: string
+  dimmed?: boolean
 }) {
   return (
     <div
       className={cn(
-        "flex h-10 items-center rounded-md border border-input px-1.5",
-        "hover:border-neutral-400 focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/30",
+        "flex h-10 items-center rounded-md border px-1.5",
+        dimmed
+          ? "border-neutral-300"
+          : "border-input hover:border-neutral-400 focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/30",
       )}
     >
-      <span className="pr-1 text-sm text-neutral-500">$</span>
+      <span
+        className={cn(
+          "pr-1 text-sm",
+          dimmed ? "text-neutral-400" : "text-neutral-500",
+        )}
+      >
+        $
+      </span>
       <input
-        className="h-full w-full bg-transparent text-right text-sm tabular-nums text-foreground outline-none placeholder:text-muted-foreground/50"
+        className={cn(
+          "h-full w-full bg-transparent text-right text-sm tabular-nums outline-none",
+          dimmed
+            ? "text-neutral-400 placeholder:text-neutral-300"
+            : "text-foreground placeholder:text-muted-foreground/50",
+        )}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={(e) => {
@@ -389,11 +415,13 @@ function DueDayInput({
   onChange,
   onCommit,
   invalid = false,
+  dimmed = false,
 }: {
   value: string
   onChange: (value: string) => void
   onCommit?: (value: string) => void
   invalid?: boolean
+  dimmed?: boolean
 }) {
   const day = parseNum(value)
   const valid = day !== undefined && day >= 1 && day <= 31
@@ -405,11 +433,16 @@ function DueDayInput({
         "flex h-10 items-center justify-end rounded-md border px-1.5",
         invalid
           ? "border-destructive hover:border-destructive focus-within:border-destructive focus-within:ring-2 focus-within:ring-destructive/25"
-          : "border-input hover:border-neutral-400 focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/30",
+          : dimmed
+            ? "border-neutral-300"
+            : "border-input hover:border-neutral-400 focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/30",
       )}
     >
       <input
-        className="h-full w-full min-w-0 bg-transparent text-right text-sm tabular-nums text-foreground outline-none"
+        className={cn(
+          "h-full w-full min-w-0 bg-transparent text-right text-sm tabular-nums outline-none",
+          dimmed ? "text-neutral-400" : "text-foreground",
+        )}
         value={value}
         onChange={(e) => onChange(e.target.value.replace(/\D/g, ""))}
         onBlur={(e) => onCommit?.(e.target.value)}
@@ -419,7 +452,12 @@ function DueDayInput({
         inputMode="numeric"
       />
       {n !== null ? (
-        <span className="shrink-0 text-[10px] leading-none text-muted-foreground">
+        <span
+          className={cn(
+            "shrink-0 text-[10px] leading-none",
+            dimmed ? "text-neutral-400" : "text-muted-foreground",
+          )}
+        >
           {ordinalSuffix(n)}
         </span>
       ) : null}
@@ -786,7 +824,7 @@ export function AddBucketDialog({
                       }
                     />
                     <Input
-                      className={fieldH}
+                      className={cn(fieldH, dimField(draft.hidden))}
                       value={draft.name}
                       onChange={(e) =>
                         updateDraft(draft.id, { name: e.target.value })
@@ -796,10 +834,12 @@ export function AddBucketDialog({
                     <MoneyInput
                       value={draft.amount}
                       onChange={(v) => updateDraft(draft.id, { amount: v })}
+                      dimmed={draft.hidden}
                     />
                     <MoneyInput
                       value={draft.goal}
                       onChange={(v) => updateDraft(draft.id, { goal: v })}
+                      dimmed={draft.hidden}
                     />
                     <Select
                       value={draft.frequency || undefined}
@@ -809,7 +849,10 @@ export function AddBucketDialog({
                         })
                       }
                     >
-                      <SelectTrigger size="default" className={selectFreqH}>
+                      <SelectTrigger
+                        size="default"
+                        className={cn(selectFreqH, dimTrigger(draft.hidden))}
+                      >
                         <SelectValue placeholder="Select frequency" />
                       </SelectTrigger>
                       <SelectContent
@@ -828,7 +871,12 @@ export function AddBucketDialog({
                       type="button"
                       variant="ghost"
                       size="icon-sm"
-                      className="ml-1 text-muted-foreground"
+                      className={cn(
+                        "ml-1 hover:bg-transparent",
+                        draft.hidden
+                          ? "text-neutral-400 hover:text-neutral-400"
+                          : "text-muted-foreground",
+                      )}
                       disabled={drafts.length === 1}
                       onClick={() => requestRemove(draft.id)}
                       title="Remove category"
@@ -852,7 +900,7 @@ export function AddBucketDialog({
                       }
                     />
                     <Input
-                      className={fieldH}
+                      className={cn(fieldH, dimField(draft.hidden))}
                       value={draft.name}
                       onChange={(e) =>
                         updateDraft(draft.id, { name: e.target.value })
@@ -862,6 +910,7 @@ export function AddBucketDialog({
                     <MoneyInput
                       value={draft.amount}
                       onChange={(v) => updateDraft(draft.id, { amount: v })}
+                      dimmed={draft.hidden}
                     />
                     <Button
                       type="button"
@@ -870,6 +919,7 @@ export function AddBucketDialog({
                         fieldH,
                         "w-full justify-start truncate px-3 font-normal",
                         !draft.recurrence && "text-muted-foreground",
+                        dimTrigger(draft.hidden),
                       )}
                       onClick={() => setFrequencyDraftId(draft.id)}
                     >
@@ -881,7 +931,12 @@ export function AddBucketDialog({
                       type="button"
                       variant="ghost"
                       size="icon-sm"
-                      className="ml-1 text-muted-foreground"
+                      className={cn(
+                        "ml-1 hover:bg-transparent",
+                        draft.hidden
+                          ? "text-neutral-400 hover:text-neutral-400"
+                          : "text-muted-foreground",
+                      )}
                       disabled={drafts.length === 1}
                       onClick={() => requestRemove(draft.id)}
                       title="Remove category"
@@ -904,7 +959,7 @@ export function AddBucketDialog({
                     }
                   />
                   <Input
-                    className={fieldH}
+                    className={cn(fieldH, dimField(draft.hidden))}
                     value={draft.name}
                     onChange={(e) =>
                       updateDraft(draft.id, { name: e.target.value })
@@ -914,10 +969,12 @@ export function AddBucketDialog({
                   <MoneyInput
                     value={draft.amount}
                     onChange={(v) => updateDraft(draft.id, { amount: v })}
+                    dimmed={draft.hidden}
                   />
                   <DueDayInput
                     value={draft.dueDay}
                     invalid={dueDayError && isDueDayInvalid(draft.dueDay)}
+                    dimmed={draft.hidden}
                     onChange={(v) => {
                       updateDraft(draft.id, { dueDay: v })
                       if (dueDayError) {
@@ -946,7 +1003,10 @@ export function AddBucketDialog({
                       })
                     }
                   >
-                    <SelectTrigger size="default" className={selectFreqH}>
+                    <SelectTrigger
+                      size="default"
+                      className={cn(selectFreqH, dimTrigger(draft.hidden))}
+                    >
                       <SelectValue placeholder="Select frequency" />
                     </SelectTrigger>
                     <SelectContent
@@ -969,7 +1029,10 @@ export function AddBucketDialog({
                       })
                     }
                   >
-                    <SelectTrigger size="default" className={selectTypeH}>
+                    <SelectTrigger
+                      size="default"
+                      className={cn(selectTypeH, dimTrigger(draft.hidden))}
+                    >
                       <SelectValue placeholder="Select type" />
                     </SelectTrigger>
                     <SelectContent
@@ -985,7 +1048,12 @@ export function AddBucketDialog({
                     type="button"
                     variant="ghost"
                     size="icon-sm"
-                    className="ml-1 text-muted-foreground"
+                    className={cn(
+                      "ml-1 hover:bg-transparent",
+                      draft.hidden
+                        ? "text-neutral-400 hover:text-neutral-400"
+                        : "text-muted-foreground",
+                    )}
                     disabled={drafts.length === 1}
                     onClick={() => requestRemove(draft.id)}
                     title="Remove category"
