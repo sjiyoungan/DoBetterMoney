@@ -79,9 +79,6 @@ const COL_INC =
 const COL_SAV =
   "grid-cols-[24px_minmax(0,1fr)_68px_68px_28px_24px]" as const
 
-const headerStroke =
-  "border-b border-neutral-300 pb-2" as const
-
 const TYPE_LABEL: Record<BucketDraftType, string> = {
   expenses: "Expenses",
   savings: "Savings",
@@ -820,8 +817,8 @@ export function AddBucketDialog({
             />
           ) : (
             <>
-          {/* Header */}
-          <div>
+          {/* Header — full-bleed divider like the footer, no fill */}
+          <div className="-ml-6 -mr-4 border-b px-6 pr-4 pb-4">
             {!editing ? (
               <div className="space-y-3">
                 <Input
@@ -926,12 +923,11 @@ export function AddBucketDialog({
             )}
           </div>
 
-          <div className="mt-6 space-y-2">
+          <div className="mt-5 space-y-2">
             {bucketType === "savings" ? (
               <div
                 className={cn(
                   "grid gap-2 text-xs font-medium text-muted-foreground",
-                  headerStroke,
                   COL_SAV,
                 )}
               >
@@ -946,7 +942,6 @@ export function AddBucketDialog({
               <div
                 className={cn(
                   "grid gap-2 text-xs font-medium text-muted-foreground",
-                  headerStroke,
                   COL_INC,
                 )}
               >
@@ -961,7 +956,6 @@ export function AddBucketDialog({
               <div
                 className={cn(
                   "grid gap-2 text-xs font-medium text-muted-foreground",
-                  headerStroke,
                   COL_EXP,
                 )}
               >
