@@ -361,7 +361,10 @@ export function BudgetGrid({
     }
   }, [draggingId, displayBucketIds, onReorderBuckets])
 
-  const balanceEdge = scrolled ? "" : "border-r-2 border-r-neutral-900"
+  // Always reserve 2px so the Balance column width does not jump on scroll
+  const balanceEdge = scrolled
+    ? "border-r-2 border-r-transparent"
+    : "border-r-2 border-r-neutral-900"
 
   function setLeftRowRef(key: string, el: HTMLTableRowElement | null) {
     if (el) leftRowRefs.current.set(key, el)
