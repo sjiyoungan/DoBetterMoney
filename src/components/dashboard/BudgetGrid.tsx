@@ -1,11 +1,12 @@
-import { useEffect, useMemo, useRef, useState } from "react"
-import { Check, Redo2, Undo2 } from "lucide-react"
+import { useEffect, useMemo, useRef, useState, type PointerEvent } from "react"
+import { Check, Menu, Redo2, Undo2 } from "lucide-react"
 import { AddBucketDialog } from "@/components/dashboard/AddBucketDialog"
 import { CategoryDrawer } from "@/components/dashboard/CategoryDrawer"
 import { OnboardingFlow } from "@/components/dashboard/OnboardingFlow"
 import { Button } from "@/components/ui/button"
 import { allocationKey, formatPayDate } from "@/lib/format"
 import type { IncomeSourceInput } from "@/lib/income-schedule"
+import { isReorderNoOp } from "@/lib/reorder"
 import { cn } from "@/lib/utils"
 import type { Bucket, Category, Paycheck } from "@/types/budget"
 
@@ -28,6 +29,7 @@ type Props = {
   ) => void
   onAddBucket: (bucket: Bucket) => void
   onUpdateBucket: (bucket: Bucket) => void
+  onReorderBuckets: (fromId: string, beforeId: string | null) => void
   onSetupIncome: (sources: IncomeSourceInput[]) => void
   onPaycheckDateChange?: (paycheckId: string, date: string) => void
   canUndo?: boolean
@@ -59,12 +61,41 @@ function payColumnBorderClass(paychecks: Paycheck[], index: number) {
     : "border-r border-r-border/60"
 }
 
+/** Group divider: default 2px. Drop target uses an overlay so layout does not jump. */
+function groupDividerTopClass(showDivider: boolean) {
+  return showDivider ? "border-t-2 border-t-neutral-900" : undefined
+}
+
+function groupDividerBottomClass(isLastInBucket: boolean) {
+  return !isLastInBucket ? "border-b border-b-border/60" : undefined
+}
+
+function DropLine({
+  show,
+  edge,
+}: {
+  show: boolean
+  edge: "top" | "bottom"
+}) {
+  if (!show) return null
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        "pointer-events-none absolute inset-x-0 z-20 h-1 bg-neutral-900",
+        edge === "top" ? "top-0 -translate-y-1/2" : "bottom-0 translate-y-1/2",
+      )}
+    />
+  )
+}
+
 type GridRow = {
   key: string
   rowCount: number
   isFirstInBucket: boolean
   isLastInBucket: boolean
   showBucketDivider: boolean
+  bucketId: string
 }
 
 /**
@@ -88,6 +119,7 @@ export function BudgetGrid({
   onCategoryFieldChange,
   onAddBucket,
   onUpdateBucket,
+  onReorderBuckets,
   onSetupIncome,
   onPaycheckDateChange,
   canUndo = false,
@@ -103,6 +135,7 @@ export function BudgetGrid({
   const rightHeaderRef = useRef<HTMLTableRowElement>(null)
   const leftRowRefs = useRef(new Map<string, HTMLTableRowElement>())
   const rightRowRefs = useRef(new Map<string, HTMLTableRowElement>())
+  const bucketBodyRefs = useRef(new Map<string, HTMLTableSectionElement>())
 
   const [scrolled, setScrolled] = useState(false)
   const [scrollLeft, setScrollLeft] = useState(0)
@@ -113,25 +146,27 @@ export function BudgetGrid({
     category: Category
     bucket: Bucket
   } | null>(null)
-
-  const orderedBuckets = useMemo(
-    () => [
-      ...buckets.filter((b) => b.kind !== "savings"),
-      ...buckets.filter((b) => b.kind === "savings"),
-    ],
-    [buckets],
+  const [draggingId, setDraggingId] = useState<string | null>(null)
+  const [dropBeforeId, setDropBeforeId] = useState<string | null | undefined>(
+    undefined,
   )
+  const dragMovedRef = useRef(false)
 
   /** Visible rows only — hidden categories stay in stored data / edit modal. */
   const displayBuckets = useMemo(
     () =>
-      orderedBuckets
+      buckets
         .map((bucket) => ({
           ...bucket,
           categories: bucket.categories.filter((c) => !c.hidden),
         }))
         .filter((bucket) => bucket.categories.length > 0),
-    [orderedBuckets],
+    [buckets],
+  )
+
+  const displayBucketIds = useMemo(
+    () => displayBuckets.map((b) => b.id),
+    [displayBuckets],
   )
 
   const rows = useMemo(() => {
@@ -140,6 +175,7 @@ export function BudgetGrid({
       bucket.categories.forEach((category, rowIndex) => {
         result.push({
           key: category.id,
+          bucketId: bucket.id,
           rowCount: bucket.categories.length,
           isFirstInBucket: rowIndex === 0,
           isLastInBucket: rowIndex === bucket.categories.length - 1,
@@ -149,6 +185,11 @@ export function BudgetGrid({
     })
     return result
   }, [displayBuckets])
+
+  const dropIndicatorActive =
+    draggingId !== null &&
+    dropBeforeId !== undefined &&
+    !isReorderNoOp(displayBucketIds, draggingId, dropBeforeId)
 
   const today = useMemo(() => new Date().toISOString().slice(0, 10), [])
 
@@ -229,6 +270,60 @@ export function BudgetGrid({
     return () => ro.disconnect()
   }, [rows, paychecks])
 
+  // Group rearrange: track drop line while pointer is down on the grip
+  useEffect(() => {
+    if (!draggingId) return
+
+    const resolveDropBefore = (clientY: number) => {
+      for (let i = 0; i < displayBucketIds.length; i++) {
+        const id = displayBucketIds[i]!
+        const body = bucketBodyRefs.current.get(id)
+        if (!body) continue
+        const rect = body.getBoundingClientRect()
+        if (clientY < rect.top) return id
+        if (clientY <= rect.bottom) {
+          const mid = rect.top + rect.height / 2
+          if (clientY < mid) return id
+          return displayBucketIds[i + 1] ?? null
+        }
+      }
+      return null
+    }
+
+    const onMove = (e: PointerEvent) => {
+      dragMovedRef.current = true
+      setDropBeforeId(resolveDropBefore(e.clientY))
+    }
+
+    const onUp = (e: PointerEvent) => {
+      const before = resolveDropBefore(e.clientY)
+      const from = draggingId
+      setDraggingId(null)
+      setDropBeforeId(undefined)
+      document.body.style.removeProperty("cursor")
+      document.body.style.removeProperty("user-select")
+      if (
+        dragMovedRef.current &&
+        !isReorderNoOp(displayBucketIds, from, before)
+      ) {
+        onReorderBuckets(from, before)
+      }
+    }
+
+    document.body.style.cursor = "grabbing"
+    document.body.style.userSelect = "none"
+    window.addEventListener("pointermove", onMove)
+    window.addEventListener("pointerup", onUp)
+    window.addEventListener("pointercancel", onUp)
+    return () => {
+      window.removeEventListener("pointermove", onMove)
+      window.removeEventListener("pointerup", onUp)
+      window.removeEventListener("pointercancel", onUp)
+      document.body.style.removeProperty("cursor")
+      document.body.style.removeProperty("user-select")
+    }
+  }, [draggingId, displayBucketIds, onReorderBuckets])
+
   const balanceEdge = scrolled ? "" : "border-r border-r-neutral-900"
 
   function setLeftRowRef(key: string, el: HTMLTableRowElement | null) {
@@ -239,6 +334,36 @@ export function BudgetGrid({
   function setRightRowRef(key: string, el: HTMLTableRowElement | null) {
     if (el) rightRowRefs.current.set(key, el)
     else rightRowRefs.current.delete(key)
+  }
+
+  function setBucketBodyRef(id: string, el: HTMLTableSectionElement | null) {
+    if (el) bucketBodyRefs.current.set(id, el)
+    else bucketBodyRefs.current.delete(id)
+  }
+
+  function startBucketDrag(bucketId: string, e: PointerEvent<HTMLButtonElement>) {
+    e.preventDefault()
+    e.stopPropagation()
+    dragMovedRef.current = false
+    setDraggingId(bucketId)
+    setDropBeforeId(bucketId)
+  }
+
+  function isDropBeforeBucket(bucketId: string) {
+    return (
+      dropIndicatorActive &&
+      dropBeforeId !== undefined &&
+      dropBeforeId === bucketId
+    )
+  }
+
+  function isDropAfterLast(bucketId: string) {
+    const lastId = displayBucketIds[displayBucketIds.length - 1]
+    return (
+      dropIndicatorActive &&
+      dropBeforeId === null &&
+      bucketId === lastId
+    )
   }
 
   if (buckets.every((b) => b.kind === "income")) {
@@ -317,12 +442,28 @@ export function BudgetGrid({
               </thead>
 
               {displayBuckets.map((bucket) => (
-                <tbody key={bucket.id}>
+                <tbody
+                  key={bucket.id}
+                  ref={(el) => setBucketBodyRef(bucket.id, el)}
+                  data-bucket-id={bucket.id}
+                  className={cn(draggingId === bucket.id && "opacity-50")}
+                >
                   {bucket.categories.map((category) => {
                     const row = rows.find((r) => r.key === category.id)!
                     const isSavings = bucket.kind === "savings"
                     const fullBucket =
                       buckets.find((b) => b.id === bucket.id) ?? bucket
+                    const dropBefore = isDropBeforeBucket(bucket.id)
+                    const dropAfterLast =
+                      row.isLastInBucket && isDropAfterLast(bucket.id)
+                    const topBorder = groupDividerTopClass(
+                      row.showBucketDivider,
+                    )
+                    const bottomBorder = groupDividerBottomClass(
+                      row.isLastInBucket,
+                    )
+                    const showTopLine = dropBefore && row.isFirstInBucket
+                    const showBottomLine = dropAfterLast
 
                     return (
                       <tr
@@ -333,12 +474,16 @@ export function BudgetGrid({
                           <td
                             rowSpan={row.rowCount}
                             className={cn(
-                              "relative border-r border-r-neutral-900 p-0 text-center align-middle text-[11px] font-semibold uppercase tracking-wide text-muted-foreground",
+                              "group/bucket relative border-r border-r-neutral-900 p-0 text-center align-middle text-[11px] font-semibold uppercase tracking-wide text-muted-foreground",
                               paneBg,
-                              row.showBucketDivider &&
-                                "border-t-2 border-t-neutral-900",
+                              topBorder,
                             )}
                           >
+                            <DropLine show={showTopLine} edge="top" />
+                            <DropLine
+                              show={isDropAfterLast(bucket.id)}
+                              edge="bottom"
+                            />
                             <button
                               type="button"
                               title={`Edit ${bucket.name}`}
@@ -352,18 +497,34 @@ export function BudgetGrid({
                             >
                               {bucket.name}
                             </button>
+                            <button
+                              type="button"
+                              title="Rearrange group"
+                              aria-label={`Rearrange ${bucket.name}`}
+                              onPointerDown={(e) =>
+                                startBucketDrag(bucket.id, e)
+                              }
+                              className={cn(
+                                "absolute top-1/2 left-0.5 z-10 flex size-4 -translate-y-1/2 cursor-grab items-center justify-center text-neutral-400 opacity-0 transition-opacity active:cursor-grabbing",
+                                "group-hover/bucket:opacity-100",
+                                draggingId === bucket.id && "opacity-100",
+                              )}
+                            >
+                              <Menu className="size-3.5" strokeWidth={2} />
+                            </button>
                           </td>
                         ) : null}
 
                         <td
                           className={cn(
-                            "border-r border-r-border/60 p-0",
+                            "relative border-r border-r-border/60 p-0",
                             paneBg,
-                            row.showBucketDivider &&
-                              "border-t-2 border-t-neutral-900",
-                            !row.isLastInBucket && "border-b border-b-border/60",
+                            topBorder,
+                            bottomBorder,
                           )}
                         >
+                          <DropLine show={showTopLine} edge="top" />
+                          <DropLine show={showBottomLine} edge="bottom" />
                           <button
                             type="button"
                             onClick={() => setSelected({ category, bucket })}
@@ -375,13 +536,14 @@ export function BudgetGrid({
 
                         <td
                           className={cn(
-                            "border-r border-r-border/60 px-1",
+                            "relative border-r border-r-border/60 px-1",
                             paneBg,
-                            row.showBucketDivider &&
-                              "border-t-2 border-t-neutral-900",
-                            !row.isLastInBucket && "border-b border-b-border/60",
+                            topBorder,
+                            bottomBorder,
                           )}
                         >
+                          <DropLine show={showTopLine} edge="top" />
+                          <DropLine show={showBottomLine} edge="bottom" />
                           {isSavings ? (
                             <MoneyField
                               value={
@@ -398,14 +560,15 @@ export function BudgetGrid({
 
                         <td
                           className={cn(
-                            "px-1 text-right tabular-nums text-muted-foreground",
+                            "relative px-1 text-right tabular-nums text-muted-foreground",
                             paneBg,
                             balanceEdge,
-                            row.showBucketDivider &&
-                              "border-t-2 border-t-neutral-900",
-                            !row.isLastInBucket && "border-b border-b-border/60",
+                            topBorder,
+                            bottomBorder,
                           )}
                         >
+                          <DropLine show={showTopLine} edge="top" />
+                          <DropLine show={showBottomLine} edge="bottom" />
                           {isSavings ? (
                             <MoneyField
                               value={
@@ -478,9 +641,23 @@ export function BudgetGrid({
                 </thead>
 
                 {displayBuckets.map((bucket) => (
-                  <tbody key={bucket.id}>
+                  <tbody
+                    key={bucket.id}
+                    className={cn(draggingId === bucket.id && "opacity-50")}
+                  >
                     {bucket.categories.map((category) => {
                       const row = rows.find((r) => r.key === category.id)!
+                      const dropBefore = isDropBeforeBucket(bucket.id)
+                      const dropAfterLast =
+                        row.isLastInBucket && isDropAfterLast(bucket.id)
+                      const topBorder = groupDividerTopClass(
+                        row.showBucketDivider,
+                      )
+                      const bottomBorder = groupDividerBottomClass(
+                        row.isLastInBucket,
+                      )
+                      const showTopLine = dropBefore && row.isFirstInBucket
+                      const showBottomLine = dropAfterLast
 
                       return (
                         <tr
@@ -507,20 +684,20 @@ export function BudgetGrid({
                               <td
                                 key={p.id}
                                 className={cn(
-                                  "px-1",
+                                  "relative px-1",
                                   cellGray
                                     ? "bg-neutral-100 text-[#969696] dark:bg-neutral-900"
                                     : isUpcoming
                                       ? "bg-[#FDF9FA] text-[#3A121C] dark:bg-rose-950/10 dark:text-rose-100"
                                       : "bg-white dark:bg-background",
                                   payColumnBorderClass(paychecks, i),
-                                  row.showBucketDivider &&
-                                    "border-t-2 border-t-neutral-900",
-                                  !row.isLastInBucket &&
-                                    "border-b border-b-border/60",
+                                  topBorder,
+                                  bottomBorder,
                                 )}
                                 style={{ width: W.pay, minWidth: W.pay }}
                               >
+                                <DropLine show={showTopLine} edge="top" />
+                                <DropLine show={showBottomLine} edge="bottom" />
                                 <AmountCell
                                   value={
                                     raw === "" ||

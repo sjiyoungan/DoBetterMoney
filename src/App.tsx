@@ -6,6 +6,7 @@ import { AppHeader } from "@/components/layout/AppHeader"
 import { createEmptyWorkspace, emptyWorkspace } from "@/data/empty"
 import { applyAmountToFuture } from "@/lib/apply-to-future"
 import { renamePaycheckDate } from "@/lib/paycheck-date"
+import { reorderById } from "@/lib/reorder"
 import {
   applyIncomeAllocations,
   buildIncomeBucket,
@@ -554,6 +555,16 @@ export default function App() {
     )
   }
 
+  function onReorderBuckets(fromId: string, beforeId: string | null) {
+    recordHistory()
+    patchWorkspace((prev) =>
+      updateActiveYearBudget(prev, (year) => ({
+        ...year,
+        buckets: reorderById(year.buckets, fromId, beforeId),
+      })),
+    )
+  }
+
   function onSetupIncome(sources: IncomeSourceInput[]) {
     recordHistory()
     patchWorkspace((prev) => {
@@ -670,6 +681,7 @@ export default function App() {
             onCategoryFieldChange={onCategoryFieldChange}
             onAddBucket={onAddBucket}
             onUpdateBucket={onUpdateBucket}
+            onReorderBuckets={onReorderBuckets}
             onSetupIncome={onSetupIncome}
             onPaycheckDateChange={onPaycheckDateChange}
             canUndo={undoDepth > 0}
