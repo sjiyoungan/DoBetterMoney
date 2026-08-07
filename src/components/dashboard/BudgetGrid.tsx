@@ -233,7 +233,7 @@ export function BudgetGrid({
                 <tr ref={leftHeaderRef}>
                   <th
                     className={cn(
-                      "border-b-2 border-b-neutral-900 border-r border-r-neutral-900 px-3 py-3 text-left font-medium",
+                      "border-b-2 border-b-neutral-900 border-r border-r-neutral-900 px-3 py-3 text-center font-medium",
                       paneBg,
                     )}
                   >
