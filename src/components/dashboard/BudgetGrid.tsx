@@ -56,8 +56,8 @@ const LEFT_WIDTH = W.bucket + W.category + W.goal + W.balance
 const paneBg = "bg-white dark:bg-background"
 /** Totals footer rows — light grey so they read as summary, not editable cells */
 const totalsBg = "bg-neutral-100 dark:bg-neutral-900"
-/** Top edge of Totals footer — darker than border/60 so it reads on the grey fill */
-const totalsDividerTop = "border-t-2 border-t-neutral-400"
+/** Top edge of Totals footer — black so it reads clearly on the grey fill */
+const totalsDividerTop = "border-t-2 border-t-black"
 /** Upcoming paycheck column tint (a step darker than the prior blush fill) */
 const upcomingFill =
   "bg-[#F3E4E8] text-[#3A121C] dark:bg-rose-950/20 dark:text-rose-100"
@@ -997,7 +997,7 @@ export function BudgetGrid({
                 )}
                 style={{
                   boxShadow: totalsStuck
-                    ? "0 -6px 10px rgba(0, 0, 0, 0.16)"
+                    ? "0 -6px 10px rgba(0, 0, 0, 0.24)"
                     : "none",
                 }}
               >
