@@ -203,11 +203,11 @@ export function BudgetGrid({
 
   return (
     <div>
-      <div className="overflow-hidden rounded-[8px] border border-neutral-500">
-        <div className="flex">
+      <div className="rounded-[8px] border border-neutral-500">
+        <div className="flex overflow-hidden rounded-[7px]">
           {/* Left pane: labels stay put; owns the continuous scroll shadow */}
           <div
-            className={cn("relative z-10 shrink-0", paneBg)}
+            className={cn("relative z-10 shrink-0 py-[2px]", paneBg)}
             style={{
               width: LEFT_WIDTH,
               boxShadow: scrolled
@@ -387,17 +387,18 @@ export function BudgetGrid({
             ref={scrollRef}
             className="min-w-0 flex-1 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           >
-            <div className="relative w-max min-w-full">
+            <div className="relative w-max min-w-full p-[2px]">
               {upcomingIndex >= 0 ? (
                 <div
                   aria-hidden
-                  className="pointer-events-none absolute z-20 box-border border-2"
+                  className="pointer-events-none absolute z-20"
                   style={{
-                    left: upcomingIndex * W.pay - 2,
-                    top: 0,
-                    bottom: 0,
-                    width: W.pay + 4,
-                    borderColor: UPCOMING_STROKE,
+                    // Align to column; 2px pad + outside box-shadow = stroke sits outside
+                    left: 2 + upcomingIndex * W.pay,
+                    top: 2,
+                    bottom: 2,
+                    width: W.pay,
+                    boxShadow: `0 0 0 2px ${UPCOMING_STROKE}`,
                   }}
                 />
               ) : null}
@@ -421,15 +422,13 @@ export function BudgetGrid({
                         <th
                           key={p.id}
                           className={cn(
-                            "px-1 py-3 text-center font-medium",
+                            "border-b-2 border-b-neutral-900 px-1 py-3 text-center font-medium",
                             !isLast && "border-r border-r-border/60",
                             isUpcoming
-                              ? "border-b-2"
-                              : "border-b-2 border-b-neutral-900",
-                            !isUpcoming &&
-                              (p.completed
+                              ? undefined
+                              : p.completed
                                 ? "bg-neutral-100 text-muted-foreground"
-                                : cn(paneBg, "text-muted-foreground")),
+                                : cn(paneBg, "text-muted-foreground"),
                           )}
                           style={{
                             width: W.pay,
@@ -438,7 +437,6 @@ export function BudgetGrid({
                               ? {
                                   backgroundColor: UPCOMING_FILL,
                                   color: UPCOMING_TEXT,
-                                  borderBottomColor: UPCOMING_STROKE,
                                 }
                               : null),
                           }}
@@ -494,9 +492,6 @@ export function BudgetGrid({
                                     "border-t-2 border-t-neutral-900",
                                   !row.isLastInBucket &&
                                     "border-b border-b-border/60",
-                                  isUpcoming &&
-                                    row.isLastInBucket &&
-                                    "border-b-2",
                                 )}
                                 style={{
                                   width: W.pay,
@@ -506,9 +501,6 @@ export function BudgetGrid({
                                         backgroundColor: UPCOMING_FILL,
                                         color: UPCOMING_TEXT,
                                       }
-                                    : null),
-                                  ...(isUpcoming && row.isLastInBucket
-                                    ? { borderBottomColor: UPCOMING_STROKE }
                                     : null),
                                 }}
                               >
