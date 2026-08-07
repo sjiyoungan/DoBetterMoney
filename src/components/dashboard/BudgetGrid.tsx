@@ -409,7 +409,7 @@ export function BudgetGrid({
                             isUpcoming
                               ? "bg-[#FDF9FA] text-[#5C2430]"
                               : isPast
-                                ? "bg-neutral-100 text-muted-foreground"
+                                ? "bg-neutral-100 text-[#969696]"
                                 : cn(paneBg, "text-muted-foreground"),
                           )}
                           style={{ width: W.pay, minWidth: W.pay }}
@@ -454,7 +454,7 @@ export function BudgetGrid({
                                 className={cn(
                                   "px-1",
                                   cellGray
-                                    ? "bg-neutral-100 text-muted-foreground dark:bg-neutral-900"
+                                    ? "bg-neutral-100 text-[#969696] dark:bg-neutral-900"
                                     : isUpcoming
                                       ? "bg-[#FDF9FA] text-[#5C2430] dark:bg-rose-950/10 dark:text-rose-200"
                                       : "bg-white dark:bg-background",
@@ -622,6 +622,11 @@ function AmountCell({
           !canCheck && "pointer-events-none opacity-0",
           canCheck &&
             done &&
+            accent &&
+            "border-[#E5D4D7] bg-[#F3EBED] text-[#B09096] hover:border-[#D9C4C8] hover:bg-[#EDE3E6] hover:text-[#A08288]",
+          canCheck &&
+            done &&
+            !accent &&
             "border-neutral-200 bg-neutral-100 text-neutral-400 hover:border-neutral-300 hover:bg-neutral-200 hover:text-neutral-500",
           canCheck &&
             !done &&
@@ -643,7 +648,8 @@ function AmountCell({
             autoFocus
             className={cn(
               "h-full w-full bg-transparent text-right text-sm tabular-nums outline-none",
-              accent && "text-[#5C2430]",
+              accent && !done && "text-[#5C2430]",
+              accent && done && "text-[#9A8086]",
             )}
             value={value}
             onChange={(e) => onChange(e.target.value)}
@@ -657,7 +663,8 @@ function AmountCell({
           <span
             className={cn(
               "text-sm tabular-nums",
-              done && "text-muted-foreground",
+              done && accent && "text-[#9A8086]",
+              done && !accent && "text-[#969696]",
               !done && accent && "text-[#5C2430]",
             )}
           >
