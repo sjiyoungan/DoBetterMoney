@@ -15,6 +15,11 @@ type Props = {
   doneKeys: Set<string>
   onToggleDone: (key: string) => void
   onAmountChange: (categoryId: string, date: string, value: string) => void
+  onAmountApplyToFuture: (
+    categoryId: string,
+    fromDate: string,
+    value: string,
+  ) => void
   onCategoryFieldChange: (
     categoryId: string,
     field: "goal" | "balance",
@@ -54,6 +59,7 @@ export function BudgetGrid({
   doneKeys,
   onToggleDone,
   onAmountChange,
+  onAmountApplyToFuture,
   onCategoryFieldChange,
   onAddBucket,
   onUpdateBucket,
@@ -480,6 +486,13 @@ export function BudgetGrid({
                                   onChange={(value) =>
                                     onAmountChange(category.id, p.date, value)
                                   }
+                                  onApplyToFuture={(value) =>
+                                    onAmountApplyToFuture(
+                                      category.id,
+                                      p.date,
+                                      value,
+                                    )
+                                  }
                                   onToggleDone={() => onToggleDone(key)}
                                 />
                               </td>
@@ -602,6 +615,7 @@ function AmountCell({
   accent = false,
   showCheck,
   onChange,
+  onApplyToFuture,
   onToggleDone,
 }: {
   value: string
@@ -609,14 +623,50 @@ function AmountCell({
   accent?: boolean
   showCheck: boolean
   onChange: (value: string) => void
+  onApplyToFuture: (value: string) => void
   onToggleDone: () => void
 }) {
   const [editing, setEditing] = useState(false)
+  const [showFutureHint, setShowFutureHint] = useState(false)
+  const startValueRef = useRef(value)
+  const rootRef = useRef<HTMLDivElement>(null)
   const hasAmount = value !== ""
   const canCheck = hasAmount && (showCheck || done)
 
+  useEffect(() => {
+    if (!showFutureHint) return
+    function onPointerDown(e: PointerEvent) {
+      if (!rootRef.current?.contains(e.target as Node)) {
+        setShowFutureHint(false)
+      }
+    }
+    document.addEventListener("pointerdown", onPointerDown)
+    return () => document.removeEventListener("pointerdown", onPointerDown)
+  }, [showFutureHint])
+
   return (
-    <div className="group/cell flex h-9 items-center gap-1 px-1">
+    <div ref={rootRef} className="group/cell relative flex h-9 items-center gap-1 px-1">
+      {showFutureHint ? (
+        <div className="absolute -top-1 right-0 z-30 flex translate-y-[-100%] items-center gap-0.5 rounded-md border border-neutral-200 bg-white px-1 py-0.5 shadow-sm dark:border-neutral-700 dark:bg-neutral-900">
+          <span className="px-1 text-[10px] leading-none text-muted-foreground whitespace-nowrap">
+            Apply to future
+          </span>
+          <button
+            type="button"
+            title="Apply this amount to all future cells"
+            className="inline-flex size-5 items-center justify-center rounded-sm text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-foreground"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={(e) => {
+              e.stopPropagation()
+              onApplyToFuture(value)
+              setShowFutureHint(false)
+            }}
+          >
+            <Check className="size-3" strokeWidth={2.5} />
+          </button>
+        </div>
+      ) : null}
+
       <button
         type="button"
         onClick={(e) => {
@@ -650,7 +700,11 @@ function AmountCell({
           "flex h-7 min-w-0 flex-1 cursor-text items-center justify-end rounded-md border border-transparent px-1",
           "hover:border-input focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/30",
         )}
-        onClick={() => setEditing(true)}
+        onClick={() => {
+          startValueRef.current = value
+          setEditing(true)
+          setShowFutureHint(false)
+        }}
       >
         {editing ? (
           <input
@@ -662,9 +716,19 @@ function AmountCell({
             )}
             value={value}
             onChange={(e) => onChange(e.target.value)}
-            onBlur={() => setEditing(false)}
+            onBlur={() => {
+              setEditing(false)
+              if (value !== startValueRef.current) {
+                setShowFutureHint(true)
+              }
+            }}
             onKeyDown={(e) => {
               if (e.key === "Enter") (e.target as HTMLInputElement).blur()
+              if (e.key === "Escape") {
+                onChange(startValueRef.current)
+                setEditing(false)
+                setShowFutureHint(false)
+              }
             }}
             inputMode="numeric"
           />

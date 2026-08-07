@@ -145,6 +145,33 @@ export default function App() {
     }))
   }
 
+  function onAmountApplyToFuture(
+    categoryId: string,
+    fromDate: string,
+    value: string,
+  ) {
+    const parsed =
+      value.trim() === "" ? ("" as const) : Number(value.replace(/,/g, ""))
+    const nextVal = Number.isFinite(parsed as number) ? parsed : ("" as const)
+
+    setWorkspace((prev) => ({
+      ...prev,
+      buckets: prev.buckets.map((bucket) => ({
+        ...bucket,
+        categories: bucket.categories.map((cat) => {
+          if (cat.id !== categoryId) return cat
+          const allocations = { ...cat.allocations }
+          for (const p of prev.paychecks) {
+            if (p.date > fromDate) {
+              allocations[p.date] = nextVal
+            }
+          }
+          return { ...cat, allocations }
+        }),
+      })),
+    }))
+  }
+
   function onCategoryFieldChange(
     categoryId: string,
     field: "goal" | "balance",
@@ -179,16 +206,35 @@ export default function App() {
 
   function onUpdateBucket(bucket: Bucket) {
     if (bucket.kind === "income") {
+      const today = new Date().toISOString().slice(0, 10)
       setWorkspace((prev) => {
         const generated = generatePaychecksFromIncomeBucket(bucket)
         const prevByDate = new Map(prev.paychecks.map((p) => [p.date, p]))
-        const paychecks = generated.map((p) => {
-          const old = prevByDate.get(p.date)
-          return old
-            ? { ...p, id: old.id, completed: old.completed }
-            : p
+        // Keep any past paycheck columns that still have history
+        const generatedDates = new Set(generated.map((p) => p.date))
+        const retainedPast = prev.paychecks.filter(
+          (p) => p.date < today && !generatedDates.has(p.date),
+        )
+        const merged = [...retainedPast, ...generated]
+          .sort((a, b) => a.date.localeCompare(b.date))
+          .map((p) => {
+            const old = prevByDate.get(p.date)
+            return old
+              ? { ...p, id: old.id, completed: old.completed || p.date < today }
+              : { ...p, completed: p.date < today }
+          })
+        // Dedupe by date (prefer generated)
+        const byDate = new Map<string, (typeof merged)[number]>()
+        for (const p of merged) byDate.set(p.date, p)
+        const paychecks = [...byDate.values()].sort((a, b) =>
+          a.date.localeCompare(b.date),
+        )
+
+        const prevIncome = prev.buckets.find((b) => b.id === bucket.id) ?? null
+        const next = applyIncomeAllocations(bucket, paychecks, {
+          prev: prevIncome,
+          fromDate: today,
         })
-        const next = applyIncomeAllocations(bucket, paychecks)
         return {
           ...prev,
           buckets: prev.buckets.map((b) => (b.id === next.id ? next : b)),
@@ -272,6 +318,7 @@ export default function App() {
             doneKeys={doneKeys}
             onToggleDone={toggleDone}
             onAmountChange={onAmountChange}
+            onAmountApplyToFuture={onAmountApplyToFuture}
             onCategoryFieldChange={onCategoryFieldChange}
             onAddBucket={onAddBucket}
             onUpdateBucket={onUpdateBucket}

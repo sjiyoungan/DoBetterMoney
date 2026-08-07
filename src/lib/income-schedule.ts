@@ -80,27 +80,63 @@ export function generatePaychecksFromIncomeBucket(bucket: Bucket): Paycheck[] {
   return generatePaychecksFromIncome(sources)
 }
 
-/** Prefill each income category onto the shared paycheck dates. */
+/** Prefill each income category onto the shared paycheck dates.
+ *  When `prev` + `fromDate` are set, past cells are preserved and only
+ *  dates on/after `fromDate` get the new amount.
+ */
 export function applyIncomeAllocations(
   bucket: Bucket,
   paychecks: Paycheck[],
+  opts?: { prev?: Bucket | null; fromDate?: string },
 ): Bucket {
   const allDates = paychecks.map((p) => p.date)
+  const fromDate = opts?.fromDate
+  const prevBucket = opts?.prev
+
   return {
     ...bucket,
     categories: bucket.categories.map((cat) => {
       const recurrence = categoryRecurrence(cat)
-      if (!recurrence || cat.amount === undefined) {
-        return {
-          ...cat,
-          allocations: emptyAllocations(allDates),
+      const prevCat = prevBucket?.categories.find((c) => c.id === cat.id)
+      const ownDates = recurrence
+        ? new Set(generateRecurrenceDates(recurrence))
+        : new Set<string>()
+
+      const allocations = emptyAllocations(allDates)
+
+      for (const d of allDates) {
+        const prevVal = prevCat?.allocations[d]
+        const isNewCat = !prevCat
+        const isFutureOrToday = !fromDate || d >= fromDate
+
+        if (!recurrence || cat.amount === undefined) {
+          allocations[d] =
+            !isNewCat && !isFutureOrToday && prevVal !== undefined
+              ? prevVal
+              : ""
+          continue
+        }
+
+        if (!ownDates.has(d)) {
+          // Keep historical amounts on dates that no longer match the schedule
+          if (
+            !isNewCat &&
+            !isFutureOrToday &&
+            prevVal !== undefined &&
+            prevVal !== ""
+          ) {
+            allocations[d] = prevVal
+          }
+          continue
+        }
+
+        if (!isNewCat && !isFutureOrToday) {
+          allocations[d] = prevVal !== undefined ? prevVal : ""
+        } else {
+          allocations[d] = cat.amount
         }
       }
-      const ownDates = new Set(generateRecurrenceDates(recurrence))
-      const allocations = emptyAllocations(allDates)
-      for (const d of allDates) {
-        if (ownDates.has(d)) allocations[d] = cat.amount
-      }
+
       return { ...cat, allocations }
     }),
   }

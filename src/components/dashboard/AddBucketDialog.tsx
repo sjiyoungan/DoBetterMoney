@@ -923,7 +923,7 @@ export function AddBucketDialog({
               onClick={() => setDrafts((prev) => [...prev, newDraft()])}
             >
               <Plus className="size-3.5" />
-              Add category
+              {bucketType === "income" ? "Add another income" : "Add category"}
             </Button>
             {dueDayError ? (
               <p className="text-xs text-destructive">
