@@ -63,8 +63,8 @@ const upcomingFill =
   "bg-[#FDF9FA] text-[#3A121C] dark:bg-rose-950/10 dark:text-rose-100"
 const upcomingStrokeSide = "border-l-2 border-l-[#C9A8AE] border-r-2 border-r-[#C9A8AE]"
 /** Soft feather under sticky header / above sticky Totals (not a hard band) */
-const stickyEdgeShadowUp = "0 -8px 16px rgba(0, 0, 0, 0.12)"
-const stickyEdgeShadowDown = "0 8px 16px rgba(0, 0, 0, 0.12)"
+const stickyEdgeShadowUp = "0 -10px 24px rgba(0, 0, 0, 0.18)"
+const stickyEdgeShadowDown = "0 10px 24px rgba(0, 0, 0, 0.18)"
 /** Card outer stroke — owned by sticky header / body / footer so it stays while stuck */
 const cardStroke = "border-neutral-500"
 
@@ -1024,16 +1024,23 @@ export function BudgetGrid({
                 aria-hidden
                 className="h-0 w-full"
               />
+              {/* Outer sticky: no overflow-hidden so upward box-shadow is not clipped */}
               <div
                 className={cn(
-                  "sticky bottom-0 z-30 flex overflow-hidden rounded-b-[8px] border border-t-0",
+                  "sticky bottom-0 z-30 rounded-b-[8px] border border-t-0",
                   cardStroke,
-                  totalsBg,
                 )}
                 style={{
                   boxShadow: totalsStuck ? stickyEdgeShadowUp : "none",
                 }}
               >
+                {/* Inner: clip grey fill to rounded bottom corners */}
+                <div
+                  className={cn(
+                    "flex overflow-hidden rounded-b-[8px]",
+                    totalsBg,
+                  )}
+                >
                 {/* Left totals labels — same LEFT_WIDTH / col widths as body */}
                 <div
                   className={cn(
@@ -1272,6 +1279,7 @@ export function BudgetGrid({
                       ))}
                     </table>
                   </div>
+                </div>
                 </div>
               </div>
             </>
