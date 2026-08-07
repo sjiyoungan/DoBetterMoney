@@ -21,6 +21,7 @@ import {
   listYears,
   nextYearToCreate,
   setActiveYear,
+  syncYearPrefills,
   updateActiveYearBudget,
 } from "@/lib/year-workspace"
 import type { Bucket, BudgetWorkspace, UserRole } from "@/types/budget"
@@ -305,11 +306,12 @@ export default function App() {
             fromDate: today,
             year: yearNum,
           })
-          return {
+          const withIncome = {
             ...year,
             buckets: year.buckets.map((b) => (b.id === next.id ? next : b)),
             paychecks,
           }
+          return syncYearPrefills(withIncome, yearNum)
         }),
       )
       return
@@ -339,14 +341,19 @@ export default function App() {
       setSelectedPaycheckId(
         paychecks.find((p) => !p.completed)?.id ?? paychecks[0]?.id ?? "",
       )
-      return updateActiveYearBudget(prev, (year) => ({
-        ...year,
-        buckets: [
-          incomeBucket,
-          ...year.buckets.filter((b) => b.kind !== "income"),
-        ],
-        paychecks,
-      }))
+      return updateActiveYearBudget(prev, (year) =>
+        syncYearPrefills(
+          {
+            ...year,
+            buckets: [
+              incomeBucket,
+              ...year.buckets.filter((b) => b.kind !== "income"),
+            ],
+            paychecks,
+          },
+          yearNum,
+        ),
+      )
     })
   }
 

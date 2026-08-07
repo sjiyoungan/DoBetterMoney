@@ -19,7 +19,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
-import { prefillAllocations } from "@/lib/allocations"
+import { prefillAllocations, mergeAllocationsOntoPaychecks } from "@/lib/allocations"
 import {
   formatRecurrenceSummary,
   isRecurrenceComplete,
@@ -178,7 +178,15 @@ function resolveAllocations(opts: {
     )
 
   // Keep manual/edited cells when inputs match; still fill if calendar was empty
-  if (unchanged && hasFilledCell) return prev.allocations
+  if (unchanged && hasFilledCell) {
+    const filled = prefillAllocations({
+      paychecks,
+      frequency,
+      amount,
+      dueDay,
+    })
+    return mergeAllocationsOntoPaychecks(paychecks, prev.allocations, filled)
+  }
 
   return prefillAllocations({
     paychecks,

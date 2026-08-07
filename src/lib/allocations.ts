@@ -99,3 +99,43 @@ export function prefillAllocations(opts: {
 
   return result
 }
+
+function isFilledAmount(v: number | "" | undefined): v is number {
+  return v !== undefined && v !== "" && Number(v) !== 0
+}
+
+/**
+ * Map allocations onto the current paycheck columns.
+ * Keeps existing non-empty values (exact date, then positional remap when
+ * paycheck dates shifted); fills remaining gaps from `prefill`.
+ */
+export function mergeAllocationsOntoPaychecks(
+  paychecks: Paycheck[],
+  existing: Record<string, number | ""> | undefined,
+  prefill: Record<string, number | "">,
+): Record<string, number | ""> {
+  const out: Record<string, number | ""> = {}
+  const paycheckSet = new Set(paychecks.map((p) => p.date))
+  const orphanValues: number[] = []
+  for (const key of Object.keys(existing ?? {}).sort()) {
+    if (paycheckSet.has(key)) continue
+    const v = existing?.[key]
+    if (isFilledAmount(v)) orphanValues.push(Number(v))
+  }
+  let orphanIdx = 0
+
+  for (const p of paychecks) {
+    const prev = existing?.[p.date]
+    if (isFilledAmount(prev)) {
+      out[p.date] = prev
+    } else if (orphanIdx < orphanValues.length) {
+      out[p.date] = orphanValues[orphanIdx++]
+    } else if (prefill[p.date] !== undefined && prefill[p.date] !== "") {
+      out[p.date] = prefill[p.date]
+    } else {
+      out[p.date] = prev ?? ""
+    }
+  }
+  return out
+}
+

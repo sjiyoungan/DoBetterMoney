@@ -1,10 +1,11 @@
 import { emptyYearBudget } from "@/data/empty"
-import { prefillAllocations } from "@/lib/allocations"
+import { mergeAllocationsOntoPaychecks, prefillAllocations } from "@/lib/allocations"
 import {
   applyIncomeAllocations,
   categoryRecurrence,
   generatePaychecksFromIncomeBucket,
 } from "@/lib/income-schedule"
+import { generateRecurrenceDates } from "@/lib/recurrence"
 import type {
   Bucket,
   BudgetWorkspace,
@@ -73,7 +74,7 @@ export function normalizeWorkspace(
         doneKeys: doneKeysFromColumn,
       }
     }
-    return { startYear, activeYear, years }
+    return { startYear, activeYear, years: syncAllYearPrefills(years) }
   }
 
   if (isLegacyWorkspace(data)) {
@@ -89,7 +90,7 @@ export function normalizeWorkspace(
     return {
       startYear: year,
       activeYear: year,
-      years: { [String(year)]: slice },
+      years: syncAllYearPrefills({ [String(year)]: slice }),
     }
   }
 
@@ -111,6 +112,17 @@ export function listYears(workspace: BudgetWorkspace): number[] {
     .map(Number)
     .filter((n) => Number.isFinite(n))
     .sort((a, b) => a - b)
+}
+
+function syncAllYearPrefills(
+  years: Record<string, YearBudget>,
+): Record<string, YearBudget> {
+  const next: Record<string, YearBudget> = {}
+  for (const [key, slice] of Object.entries(years)) {
+    const year = Number(key)
+    next[key] = Number.isFinite(year) ? syncYearPrefills(slice, year) : slice
+  }
+  return next
 }
 
 export function getActiveYearBudget(workspace: BudgetWorkspace): YearBudget {
@@ -190,17 +202,82 @@ function prefillExpenseCategory(
 ): Category {
   if (cat.frequency && (cat.amount !== undefined || cat.recurringAmount !== undefined)) {
     const amount = cat.amount ?? cat.recurringAmount ?? 0
+    const filled = prefillAllocations({
+      paychecks,
+      frequency: cat.frequency,
+      amount,
+      dueDay: cat.dueDay,
+    })
     return {
       ...cat,
-      allocations: prefillAllocations({
+      allocations: mergeAllocationsOntoPaychecks(
         paychecks,
-        frequency: cat.frequency,
-        amount,
-        dueDay: cat.dueDay,
-      }),
+        cat.allocations,
+        filled,
+      ),
     }
   }
-  return cat
+  return {
+    ...cat,
+    allocations: mergeAllocationsOntoPaychecks(paychecks, cat.allocations, {}),
+  }
+}
+
+/**
+ * Re-attach prefills to the current paycheck columns for a year slice.
+ * Keeps non-empty cell values; fills empty schedule dates from frequency/income rules.
+ */
+export function syncYearPrefills(slice: YearBudget, year: number): YearBudget {
+  let paychecks = slice.paychecks.filter((p) =>
+    p.date.startsWith(String(year)),
+  )
+  const incomeBucket = slice.buckets.find((b) => b.kind === "income")
+  if (paychecks.length === 0 && incomeBucket) {
+    paychecks = generatePaychecksFromIncomeBucket(incomeBucket, year)
+  }
+  if (paychecks.length === 0) return { ...slice, paychecks }
+
+  const buckets = slice.buckets.map((bucket) => {
+    if (bucket.kind === "income") {
+      return {
+        ...bucket,
+        categories: bucket.categories.map((cat) => {
+          const recurrence = categoryRecurrence(cat)
+          if (!recurrence || cat.amount === undefined) {
+            return {
+              ...cat,
+              allocations: mergeAllocationsOntoPaychecks(
+                paychecks,
+                cat.allocations,
+                {},
+              ),
+            }
+          }
+          const ownDates = new Set(generateRecurrenceDates(recurrence, { year }))
+          const prefill: Record<string, number | ""> = {}
+          for (const p of paychecks) {
+            prefill[p.date] = ownDates.has(p.date) ? cat.amount : ""
+          }
+          return {
+            ...cat,
+            allocations: mergeAllocationsOntoPaychecks(
+              paychecks,
+              cat.allocations,
+              prefill,
+            ),
+          }
+        }),
+      }
+    }
+    return {
+      ...bucket,
+      categories: bucket.categories.map((cat) =>
+        prefillExpenseCategory(cat, paychecks),
+      ),
+    }
+  })
+
+  return { ...slice, paychecks, buckets }
 }
 
 /**
