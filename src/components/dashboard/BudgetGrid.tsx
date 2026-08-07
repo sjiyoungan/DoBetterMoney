@@ -448,7 +448,6 @@ export function BudgetGrid({
                               raw !== "" &&
                               raw !== undefined &&
                               Number(raw) !== 0
-                            const empty = !hasAmount
                             const isUpcoming = p.id === currentPaycheckId
                             const manuallyDone = doneKeys.has(key)
                             const isLastCol = i === paychecks.length - 1
