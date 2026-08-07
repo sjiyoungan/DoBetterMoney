@@ -849,8 +849,8 @@ export function AddBucketDialog({
                 </Select>
               </div>
             ) : (
-              <>
-                <div className="group flex min-h-10 items-center gap-1.5">
+              <div className="flex items-start justify-between gap-4">
+                <div className="group flex min-h-10 min-w-0 flex-1 items-center gap-1.5">
                   {editingName ? (
                     <input
                       autoFocus
@@ -896,7 +896,7 @@ export function AddBucketDialog({
                   <SelectTrigger
                     size="default"
                     className={cn(
-                      "mt-0 h-auto min-w-[5.75rem] justify-between gap-3 border-0 bg-transparent px-0 py-0 text-sm font-normal text-foreground shadow-none",
+                      "mt-1 h-auto w-auto shrink-0 justify-end gap-1.5 border-0 bg-transparent px-0 py-0 text-sm font-normal text-muted-foreground shadow-none",
                       "hover:bg-transparent hover:text-foreground",
                       "focus-visible:ring-0 focus-visible:outline-none",
                       "data-[size=default]:h-auto [&_svg]:size-3.5 [&_svg]:opacity-0 hover:[&_svg]:opacity-100 data-[state=open]:[&_svg]:opacity-100",
@@ -908,7 +908,7 @@ export function AddBucketDialog({
                   </SelectTrigger>
                   <SelectContent
                     position="popper"
-                    align="start"
+                    align="end"
                     className="w-max min-w-[var(--radix-select-trigger-width)]"
                   >
                     <SelectItem value="expenses">Expenses</SelectItem>
@@ -918,7 +918,7 @@ export function AddBucketDialog({
                     ) : null}
                   </SelectContent>
                 </Select>
-              </>
+              </div>
             )}
           </div>
 
