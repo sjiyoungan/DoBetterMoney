@@ -698,10 +698,6 @@ export default function App() {
             onReorderBuckets={onReorderBuckets}
             onSetupIncome={onSetupIncome}
             onPaycheckDateChange={onPaycheckDateChange}
-            canUndo={undoDepth > 0}
-            canRedo={redoDepth > 0}
-            onUndo={undo}
-            onRedo={redo}
             saveStatus={saveStatus}
           />
         ) : (

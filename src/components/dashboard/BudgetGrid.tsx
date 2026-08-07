@@ -5,11 +5,10 @@ import {
   useState,
   type PointerEvent as ReactPointerEvent,
 } from "react"
-import { Check, Menu, Redo2, Undo2 } from "lucide-react"
+import { Check, CirclePlus, Menu } from "lucide-react"
 import { AddBucketDialog } from "@/components/dashboard/AddBucketDialog"
 import { CategoryDrawer } from "@/components/dashboard/CategoryDrawer"
 import { OnboardingFlow } from "@/components/dashboard/OnboardingFlow"
-import { Button } from "@/components/ui/button"
 import { allocationKey, formatPayDate, savingsBalanceLeft } from "@/lib/format"
 import type { IncomeSourceInput } from "@/lib/income-schedule"
 import { isReorderNoOp } from "@/lib/reorder"
@@ -38,14 +37,10 @@ type Props = {
   onReorderBuckets: (fromId: string, beforeId: string | null) => void
   onSetupIncome: (sources: IncomeSourceInput[]) => void
   onPaycheckDateChange?: (paycheckId: string, date: string) => void
-  canUndo?: boolean
-  canRedo?: boolean
-  onUndo?: () => void
-  onRedo?: () => void
   saveStatus?: "idle" | "saving" | "saved" | "error"
 }
 
-const W = { bucket: 92, category: 168, goal: 110, balance: 96, pay: 128 } as const
+const W = { bucket: 118, category: 168, goal: 110, balance: 96, pay: 128 } as const
 const LEFT_WIDTH = W.bucket + W.category + W.goal + W.balance
 
 const paneBg = "bg-white dark:bg-background"
@@ -128,10 +123,6 @@ export function BudgetGrid({
   onReorderBuckets,
   onSetupIncome,
   onPaycheckDateChange,
-  canUndo = false,
-  canRedo = false,
-  onUndo,
-  onRedo,
   saveStatus = "idle",
 }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -476,11 +467,22 @@ export function BudgetGrid({
                 <tr ref={leftHeaderRef}>
                   <th
                     className={cn(
-                      "border-b-2 border-b-neutral-900 border-r border-r-neutral-900 px-3 py-3 text-center font-medium",
+                      "border-b-2 border-b-neutral-900 border-r border-r-neutral-900 px-2 py-3 text-center font-medium",
                       paneBg,
                     )}
                   >
-                    Group
+                    <div className="flex items-center justify-center gap-1.5">
+                      <span>Group</span>
+                      <button
+                        type="button"
+                        title="Add group"
+                        aria-label="Add group"
+                        onClick={() => setBucketDialog({ mode: "create" })}
+                        className="inline-flex text-muted-foreground transition-colors hover:text-foreground"
+                      >
+                        <CirclePlus className="size-4" strokeWidth={1.75} />
+                      </button>
+                    </div>
                   </th>
                   <th
                     className={cn(
@@ -826,56 +828,24 @@ export function BudgetGrid({
         ) : null}
       </div>
 
-      <div className="mt-4 flex items-center">
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => setBucketDialog({ mode: "create" })}
+      {saveStatus !== "idle" ? (
+        <div
+          className={cn(
+            "mt-3 text-xs",
+            saveStatus === "error"
+              ? "text-destructive"
+              : "text-muted-foreground",
+          )}
         >
-          Add group
-        </Button>
-        <div className="ml-6 flex items-center gap-0.5">
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="size-8 text-muted-foreground"
-            disabled={!canUndo}
-            title={
-              typeof navigator !== "undefined" &&
-              /Mac|iPhone|iPad/.test(navigator.platform)
-                ? "Undo (⌘Z)"
-                : "Undo (Ctrl+Z)"
-            }
-            onClick={() => onUndo?.()}
-          >
-            <Undo2 className="size-4" />
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="size-8 text-muted-foreground"
-            disabled={!canRedo}
-            title={
-              typeof navigator !== "undefined" &&
-              /Mac|iPhone|iPad/.test(navigator.platform)
-                ? "Redo (⌘Shift+Z)"
-                : "Redo (Ctrl+Shift+Z)"
-            }
-            onClick={() => onRedo?.()}
-          >
-            <Redo2 className="size-4" />
-          </Button>
-          {saveStatus === "saving" ? (
-            <span className="ml-1 text-xs text-muted-foreground">Saving…</span>
-          ) : saveStatus === "saved" ? (
-            <span className="ml-1 text-xs text-muted-foreground">Saved</span>
-          ) : saveStatus === "error" ? (
-            <span className="ml-1 text-xs text-destructive">Save failed</span>
-          ) : null}
+          {saveStatus === "saving"
+            ? "Saving…"
+            : saveStatus === "saved"
+              ? "Saved"
+              : saveStatus === "error"
+                ? "Save failed"
+                : null}
         </div>
-      </div>
+      ) : null}
 
       <AddBucketDialog
         key={
