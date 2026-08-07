@@ -361,7 +361,7 @@ export function BudgetGrid({
     }
   }, [draggingId, displayBucketIds, onReorderBuckets])
 
-  const balanceEdge = scrolled ? "" : "border-r border-r-neutral-900"
+  const balanceEdge = scrolled ? "" : "border-r-2 border-r-neutral-900"
 
   function setLeftRowRef(key: string, el: HTMLTableRowElement | null) {
     if (el) leftRowRefs.current.set(key, el)
