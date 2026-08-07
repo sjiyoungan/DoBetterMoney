@@ -680,11 +680,11 @@ function AmountCell({
   return (
     <div ref={rootRef} className="group/cell relative flex h-9 items-center gap-1 px-1">
       {showFutureHint ? (
-        <div className="absolute -top-1 right-0 z-30 flex translate-y-[-100%] items-center rounded-md border border-neutral-200 bg-white shadow-sm dark:border-neutral-700 dark:bg-neutral-900">
+        <div className="absolute -top-1 right-0 z-30 flex translate-y-[-100%] items-center rounded-md border border-neutral-400 bg-white shadow-sm dark:border-neutral-500 dark:bg-neutral-900">
           <button
             type="button"
             title="Apply this amount to matching future pay periods"
-            className="flex items-center px-1.5 py-[10px] text-[10px] leading-none text-muted-foreground transition-colors hover:bg-neutral-100 hover:text-foreground whitespace-nowrap"
+            className="flex items-center px-1.5 py-[10px] text-[10px] leading-none text-neutral-700 transition-colors hover:bg-neutral-100 hover:text-neutral-900 whitespace-nowrap dark:text-neutral-200 dark:hover:text-white"
             onMouseDown={(e) => e.preventDefault()}
             onClick={(e) => {
               e.stopPropagation()
