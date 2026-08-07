@@ -837,7 +837,7 @@ export function AddBucketDialog({
                 >
                   <SelectTrigger
                     size="default"
-                    className={cn(selectH, "w-auto shrink-0")}
+                    className={cn(selectH, "w-auto shrink-0 text-foreground")}
                   >
                     <SelectValue placeholder="Select type" />
                   </SelectTrigger>
@@ -900,7 +900,7 @@ export function AddBucketDialog({
                   <SelectTrigger
                     size="default"
                     className={cn(
-                      "h-auto w-auto shrink-0 justify-start gap-1.5 border-0 bg-transparent px-0 py-0 text-sm font-normal text-muted-foreground shadow-none",
+                      "h-auto w-auto shrink-0 justify-start gap-1.5 border-0 bg-transparent px-0 py-0 text-sm font-normal text-foreground shadow-none",
                       "hover:bg-transparent hover:text-foreground",
                       "focus-visible:ring-0 focus-visible:outline-none",
                       "data-[size=default]:h-auto [&_svg]:size-3.5 [&_svg]:opacity-0 hover:[&_svg]:opacity-100 data-[state=open]:[&_svg]:opacity-100",
