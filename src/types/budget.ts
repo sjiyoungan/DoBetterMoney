@@ -1,6 +1,12 @@
 export type UserRole = "liz" | "ji"
 
-export type BucketKind = "spending" | "savings" | "holder" | "income" | "totals"
+export type BucketKind =
+  | "spending"
+  | "savings"
+  | "holder"
+  | "income"
+  | "totals"
+  | "budget_calc"
 
 export type PayFrequency = "weekly" | "biweekly" | "monthly"
 export type CategoryVariability = "fixed" | "variable"
@@ -33,8 +39,6 @@ export type IncomeRecurrence = {
 export type TotalSource = {
   bucketId: string
   categoryIds: "all" | string[]
-  /** Default "add". Use "subtract" for remaining-style rows. */
-  op?: "add" | "subtract"
 }
 
 export type Category = {

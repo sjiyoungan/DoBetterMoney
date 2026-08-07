@@ -18,7 +18,15 @@ export function resolveSourceCategoryIds(
   return visible.filter((c) => allowed.has(c.id)).map((c) => c.id)
 }
 
-/** Sum (with optional subtract) of configured sources for one paycheck date. */
+function isSummableSourceBucket(bucket: Bucket): boolean {
+  return (
+    bucket.kind !== "totals" &&
+    bucket.kind !== "budget_calc" &&
+    bucket.kind !== "holder"
+  )
+}
+
+/** Sum of configured sources for one paycheck date (add only). */
 export function computeTotalForDate(
   buckets: Bucket[],
   sources: TotalSource[] | undefined,
@@ -29,16 +37,46 @@ export function computeTotalForDate(
   let total = 0
   for (const source of sources) {
     const bucket = byId.get(source.bucketId)
-    if (!bucket || bucket.kind === "totals") continue
+    if (!bucket || !isSummableSourceBucket(bucket)) continue
     const ids = new Set(resolveSourceCategoryIds(bucket, source))
-    let part = 0
     for (const cat of bucket.categories) {
       if (!ids.has(cat.id)) continue
-      part += allocationAt(cat, date)
+      total += allocationAt(cat, date)
     }
-    total += source.op === "subtract" ? -part : part
   }
   return total
+}
+
+/**
+ * Leftover to allocate for one paycheck:
+ * income − expenses − savings (visible categories only; skips totals / budget_calc / holder).
+ */
+export function computeBudgetCalcForDate(
+  buckets: Bucket[],
+  date: string,
+): number {
+  let income = 0
+  let expenses = 0
+  let savings = 0
+  for (const bucket of buckets) {
+    if (bucket.kind === "income") {
+      for (const cat of bucket.categories) {
+        if (cat.hidden) continue
+        income += allocationAt(cat, date)
+      }
+    } else if (bucket.kind === "spending") {
+      for (const cat of bucket.categories) {
+        if (cat.hidden) continue
+        expenses += allocationAt(cat, date)
+      }
+    } else if (bucket.kind === "savings") {
+      for (const cat of bucket.categories) {
+        if (cat.hidden) continue
+        savings += allocationAt(cat, date)
+      }
+    }
+  }
+  return income - expenses - savings
 }
 
 export function computeTotalsRow(
@@ -61,14 +99,11 @@ export function formatSourcesSummary(
   for (const s of sources) {
     const bucket = byId.get(s.bucketId)
     if (!bucket) continue
-    const sign = s.op === "subtract" ? "−" : ""
     if (s.categoryIds === "all") {
-      parts.push(`${sign}${bucket.name}`)
+      parts.push(bucket.name)
     } else {
       const n = s.categoryIds.length
-      parts.push(
-        `${sign}${bucket.name} (${n} categor${n === 1 ? "y" : "ies"})`,
-      )
+      parts.push(`${bucket.name} (${n} categor${n === 1 ? "y" : "ies"})`)
     }
   }
   return parts.length > 0 ? parts.join(", ") : "Select sources"

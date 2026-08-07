@@ -48,9 +48,6 @@ export default function App() {
   const [saveError, setSaveError] = useState<string | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [saveReady, setSaveReady] = useState(false)
-  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">(
-    "idle",
-  )
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const dirtyRef = useRef(false)
   const saveReadyRef = useRef(false)
@@ -123,7 +120,6 @@ export default function App() {
   function markDirty() {
     dirtyRef.current = true
     saveGenerationRef.current += 1
-    setSaveStatus("idle")
     queueSave()
   }
 
@@ -144,7 +140,6 @@ export default function App() {
     const keys = [...doneKeysRef.current]
     dirtyRef.current = false
     savingRef.current = true
-    setSaveStatus("saving")
 
     try {
       await saveWorkspace(id, ws, keys, uid)
@@ -155,13 +150,11 @@ export default function App() {
         return
       }
       setSaveError(null)
-      setSaveStatus("saved")
     } catch (err) {
       savingRef.current = false
       dirtyRef.current = true
       const msg = err instanceof Error ? err.message : String(err)
       setSaveError(msg)
-      setSaveStatus("error")
     }
   }
 
@@ -283,7 +276,6 @@ export default function App() {
         setLoadError(null)
         setSaveError(null)
         setLoadingWorkspace(false)
-        setSaveStatus("idle")
         setSaveReady(true)
       })
       .catch((err: Error) => {
@@ -688,7 +680,6 @@ export default function App() {
             onReorderBuckets={onReorderBuckets}
             onSetupIncome={onSetupIncome}
             onPaycheckDateChange={onPaycheckDateChange}
-            saveStatus={saveStatus}
           />
         ) : (
           <div className="mx-auto max-w-7xl space-y-4">

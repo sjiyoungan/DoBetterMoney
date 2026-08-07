@@ -16,7 +16,6 @@ type DraftSource = {
   bucketId: string
   mode: "all" | "selected"
   categoryIds: string[]
-  op: "add" | "subtract"
 }
 
 type Props = {
@@ -35,7 +34,6 @@ function toDraft(sources: TotalSource[] | undefined): DraftSource[] {
         bucketId: "",
         mode: "all",
         categoryIds: [],
-        op: "add",
       },
     ]
   }
@@ -44,7 +42,6 @@ function toDraft(sources: TotalSource[] | undefined): DraftSource[] {
     bucketId: s.bucketId,
     mode: s.categoryIds === "all" ? "all" : "selected",
     categoryIds: s.categoryIds === "all" ? [] : [...s.categoryIds],
-    op: s.op === "subtract" ? "subtract" : "add",
   }))
 }
 
@@ -82,7 +79,6 @@ export function TotalsSourcesEditor({
       .map((d) => ({
         bucketId: d.bucketId,
         categoryIds: d.mode === "all" ? "all" : d.categoryIds,
-        ...(d.op === "subtract" ? { op: "subtract" as const } : {}),
       }))
     onSave(next)
   }
@@ -92,8 +88,7 @@ export function TotalsSourcesEditor({
       <div>
         <h2 className="text-lg font-semibold tracking-tight">Sources</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Pick groups (and optional categories) to add or subtract for each
-          paycheck.
+          Pick groups (and optional categories) to sum for each paycheck.
         </p>
       </div>
 
@@ -105,23 +100,8 @@ export function TotalsSourcesEditor({
           return (
             <div
               key={draft.key}
-              className="grid grid-cols-[5.5rem_minmax(0,1fr)_9rem_minmax(0,1fr)_28px] items-start gap-2"
+              className="grid grid-cols-[minmax(0,1fr)_9rem_minmax(0,1fr)_28px] items-start gap-2"
             >
-              <Select
-                value={draft.op}
-                onValueChange={(v) =>
-                  update(draft.key, { op: v as "add" | "subtract" })
-                }
-              >
-                <SelectTrigger className="h-10 w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="add">Add</SelectItem>
-                  <SelectItem value="subtract">Subtract</SelectItem>
-                </SelectContent>
-              </Select>
-
               <Select
                 value={draft.bucketId || undefined}
                 onValueChange={(id) =>
@@ -205,7 +185,6 @@ export function TotalsSourcesEditor({
                 bucketId: "",
                 mode: "all",
                 categoryIds: [],
-                op: "add",
               },
             ])
           }

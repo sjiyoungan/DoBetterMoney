@@ -45,7 +45,12 @@ import type {
   TotalSource,
 } from "@/types/budget"
 
-export type BucketDraftType = "expenses" | "savings" | "income" | "totals"
+export type BucketDraftType =
+  | "expenses"
+  | "savings"
+  | "income"
+  | "totals"
+  | "budget_calc"
 
 type CategoryDraft = {
   id: string
@@ -86,13 +91,17 @@ const COL_SAV =
   "grid-cols-[24px_minmax(0,1fr)_68px_68px_28px_24px]" as const
 const COL_TOT =
   "grid-cols-[24px_minmax(0,200px)_minmax(11rem,1fr)_28px_24px]" as const
+const COL_CALC = "grid-cols-[minmax(0,1fr)]" as const
 
 const TYPE_LABEL: Record<BucketDraftType, string> = {
   expenses: "Expenses",
   savings: "Savings",
   income: "Income",
   totals: "Totals",
+  budget_calc: "Budget calculation",
 }
+
+const DEFAULT_BUDGET_CALC_NAME = "Left to allocate"
 
 const FREQUENCY_OPTIONS: { value: PayFrequency; label: string }[] = [
   { value: "weekly", label: "Weekly" },
@@ -119,6 +128,7 @@ function mapType(type: BucketDraftType): BucketKind {
   if (type === "savings") return "savings"
   if (type === "income") return "income"
   if (type === "totals") return "totals"
+  if (type === "budget_calc") return "budget_calc"
   return "spending"
 }
 
@@ -126,7 +136,23 @@ function kindToDraftType(kind: BucketKind): BucketDraftType {
   if (kind === "savings") return "savings"
   if (kind === "income") return "income"
   if (kind === "totals") return "totals"
+  if (kind === "budget_calc") return "budget_calc"
   return "expenses"
+}
+
+function newBudgetCalcDraft(prev?: CategoryDraft): CategoryDraft {
+  return {
+    ...(prev ?? newDraft()),
+    name: prev?.name?.trim() ? prev.name : DEFAULT_BUDGET_CALC_NAME,
+    amount: "",
+    goal: "",
+    dueDay: "",
+    frequency: "",
+    recurrence: null,
+    variability: "",
+    hidden: false,
+    totalSources: [],
+  }
 }
 
 function parseNum(value: string): number | undefined {
@@ -298,6 +324,14 @@ function draftsToBucket(
         allocations: {},
         totalSources: d.totalSources,
         ...(d.hidden ? { hidden: true } : {}),
+      }
+    }
+
+    if (bucketKind === "budget_calc") {
+      return {
+        id: prev?.id ?? crypto.randomUUID(),
+        name: d.name.trim() || DEFAULT_BUDGET_CALC_NAME,
+        allocations: {},
       }
     }
 
@@ -703,12 +737,20 @@ export function AddBucketDialog({
       allBuckets.filter(
         (b) =>
           b.kind !== "totals" &&
+          b.kind !== "budget_calc" &&
           b.kind !== "holder" &&
           (bucket ? b.id !== bucket.id : true) &&
           b.categories.some((c) => !c.hidden),
       ),
     [allBuckets, bucket],
   )
+
+  function handleTypeChange(value: BucketDraftType) {
+    setBucketType(value)
+    if (value === "budget_calc") {
+      setDrafts((prev) => [newBudgetCalcDraft(prev[0])])
+    }
+  }
 
   function closeClean() {
     setConfirmOpen(false)
@@ -890,7 +932,7 @@ export function AddBucketDialog({
                   open={typeOpen}
                   onOpenChange={setTypeOpen}
                   onValueChange={(value) =>
-                    setBucketType(value as BucketDraftType)
+                    handleTypeChange(value as BucketDraftType)
                   }
                 >
                   <SelectTrigger
@@ -910,6 +952,9 @@ export function AddBucketDialog({
                     <SelectItem value="expenses">Expenses</SelectItem>
                     <SelectItem value="savings">Savings</SelectItem>
                     <SelectItem value="totals">Totals</SelectItem>
+                    <SelectItem value="budget_calc">
+                      Budget calculation
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -998,6 +1043,15 @@ export function AddBucketDialog({
                 <span>Sources</span>
                 <span />
                 <span />
+              </div>
+            ) : bucketType === "budget_calc" ? (
+              <div
+                className={cn(
+                  "grid gap-2 text-xs font-medium text-muted-foreground",
+                  COL_CALC,
+                )}
+              >
+                <span>Name</span>
               </div>
             ) : (
               <div
@@ -1217,6 +1271,25 @@ export function AddBucketDialog({
                 )
               }
 
+              if (bucketType === "budget_calc") {
+                return (
+                  <div
+                    key={draft.id}
+                    ref={(el) => setRowRef(draft.id, el)}
+                    className={draftRowClass(false, COL_CALC)}
+                  >
+                    <Input
+                      className={fieldH}
+                      value={draft.name}
+                      onChange={(e) =>
+                        updateDraft(draft.id, { name: e.target.value })
+                      }
+                      placeholder={DEFAULT_BUDGET_CALC_NAME}
+                    />
+                  </div>
+                )
+              }
+
               return (
                 <div
                   key={draft.id}
@@ -1341,19 +1414,26 @@ export function AddBucketDialog({
               )
             })}
 
-            <Button
-              type="button"
-              variant="outline"
-              className="ml-[calc(24px+0.5rem)] gap-1"
-              onClick={() => setDrafts((prev) => [...prev, newDraft()])}
-            >
-              <Plus className="size-3.5" />
-              {bucketType === "income"
-                ? "Add another income"
-                : bucketType === "totals"
-                  ? "Add total"
-                  : "Add category"}
-            </Button>
+            {bucketType !== "budget_calc" ? (
+              <Button
+                type="button"
+                variant="outline"
+                className="ml-[calc(24px+0.5rem)] gap-1"
+                onClick={() => setDrafts((prev) => [...prev, newDraft()])}
+              >
+                <Plus className="size-3.5" />
+                {bucketType === "income"
+                  ? "Add another income"
+                  : bucketType === "totals"
+                    ? "Add total"
+                    : "Add category"}
+              </Button>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                Shows leftover to allocate each paycheck: income − expenses −
+                savings.
+              </p>
+            )}
             {dueDayError ? (
               <p className="text-xs text-destructive">
                 Due day can&apos;t be more than the days in a month.

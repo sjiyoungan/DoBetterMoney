@@ -17,7 +17,10 @@ import {
 } from "@/lib/format"
 import type { IncomeSourceInput } from "@/lib/income-schedule"
 import { isReorderNoOp } from "@/lib/reorder"
-import { computeTotalForDate } from "@/lib/totals"
+import {
+  computeBudgetCalcForDate,
+  computeTotalForDate,
+} from "@/lib/totals"
 import { cn } from "@/lib/utils"
 import type { Bucket, Category, Paycheck } from "@/types/budget"
 
@@ -43,7 +46,6 @@ type Props = {
   onReorderBuckets: (fromId: string, beforeId: string | null) => void
   onSetupIncome: (sources: IncomeSourceInput[]) => void
   onPaycheckDateChange?: (paycheckId: string, date: string) => void
-  saveStatus?: "idle" | "saving" | "saved" | "error"
 }
 
 const W = { bucket: 118, category: 168, goal: 110, balance: 96, pay: 128 } as const
@@ -132,7 +134,6 @@ export function BudgetGrid({
   onReorderBuckets,
   onSetupIncome,
   onPaycheckDateChange,
-  saveStatus = "idle",
 }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const leftTableRef = useRef<HTMLTableElement>(null)
@@ -164,11 +165,14 @@ export function BudgetGrid({
   >({})
   const dragMovedRef = useRef(false)
 
-  /** Visible body rows — hidden categories stay in data; Totals render in the footer. */
+  /** Visible body rows — hidden categories stay in data; footer kinds render below. */
   const displayBuckets = useMemo(
     () =>
       buckets
-        .filter((bucket) => bucket.kind !== "totals")
+        .filter(
+          (bucket) =>
+            bucket.kind !== "totals" && bucket.kind !== "budget_calc",
+        )
         .map((bucket) => ({
           ...bucket,
           categories: bucket.categories.filter((c) => !c.hidden),
@@ -177,17 +181,18 @@ export function BudgetGrid({
     [buckets],
   )
 
-  const totalsBuckets = useMemo(
-    () =>
+  /** Sticky footer: Budget calculation first (zero check), then Totals. */
+  const totalsBuckets = useMemo(() => {
+    const visibleOf = (kind: "budget_calc" | "totals") =>
       buckets
-        .filter((bucket) => bucket.kind === "totals")
+        .filter((bucket) => bucket.kind === kind)
         .map((bucket) => ({
           ...bucket,
           categories: bucket.categories.filter((c) => !c.hidden),
         }))
-        .filter((bucket) => bucket.categories.length > 0),
-    [buckets],
-  )
+        .filter((bucket) => bucket.categories.length > 0)
+    return [...visibleOf("budget_calc"), ...visibleOf("totals")]
+  }, [buckets])
 
   const displayBucketIds = useMemo(
     () => displayBuckets.map((b) => b.id),
@@ -467,7 +472,9 @@ export function BudgetGrid({
     )
   }
 
-  const bodyBuckets = buckets.filter((b) => b.kind !== "totals")
+  const bodyBuckets = buckets.filter(
+    (b) => b.kind !== "totals" && b.kind !== "budget_calc",
+  )
   if (
     bodyBuckets.length > 0 &&
     bodyBuckets.every((b) => b.kind === "income")
@@ -537,13 +544,13 @@ export function BudgetGrid({
           >
             <table
               ref={leftTableRef}
-              className="w-full border-separate border-spacing-0 text-sm"
+              className="w-full table-fixed border-separate border-spacing-0 text-sm"
             >
               <colgroup>
-                <col style={{ width: W.bucket }} />
-                <col style={{ width: W.category }} />
-                <col style={{ width: W.goal }} />
-                <col style={{ width: W.balance }} />
+                <col style={{ width: W.bucket, minWidth: W.bucket }} />
+                <col style={{ width: W.category, minWidth: W.category }} />
+                <col style={{ width: W.goal, minWidth: W.goal }} />
+                <col style={{ width: W.balance, minWidth: W.balance }} />
               </colgroup>
 
               <thead>
@@ -900,29 +907,41 @@ export function BudgetGrid({
                 className="h-0 w-full"
               />
               <div
-                className="sticky bottom-0 z-30 flex rounded-b-[8px]"
+                className={cn(
+                  "sticky bottom-0 z-30 flex overflow-hidden rounded-b-[8px]",
+                  totalsBg,
+                )}
                 style={{
                   boxShadow: totalsStuck
                     ? "0 -6px 10px rgba(0, 0, 0, 0.16)"
                     : "none",
                 }}
               >
-                {/* Left totals labels */}
+                {/* Left totals labels — same LEFT_WIDTH / col widths as body */}
                 <div
-                  className={cn("relative z-10 shrink-0", totalsBg)}
+                  className={cn(
+                    "relative z-10 shrink-0 overflow-hidden rounded-bl-[8px]",
+                    totalsBg,
+                  )}
                   style={{
                     width: LEFT_WIDTH,
+                    minWidth: LEFT_WIDTH,
+                    maxWidth: LEFT_WIDTH,
                     boxShadow: scrolled
                       ? "6px 0 10px rgba(0, 0, 0, 0.16)"
                       : "none",
                   }}
                 >
-                  <table className="w-full border-separate border-spacing-0 text-sm">
+                  <table className="w-full table-fixed border-separate border-spacing-0 text-sm">
                     <colgroup>
-                      <col style={{ width: W.bucket }} />
-                      <col style={{ width: W.category }} />
-                      <col style={{ width: W.goal }} />
-                      <col style={{ width: W.balance }} />
+                      <col style={{ width: W.bucket, minWidth: W.bucket }} />
+                      <col
+                        style={{ width: W.category, minWidth: W.category }}
+                      />
+                      <col style={{ width: W.goal, minWidth: W.goal }} />
+                      <col
+                        style={{ width: W.balance, minWidth: W.balance }}
+                      />
                     </colgroup>
                     {totalsBuckets.map((bucket) => {
                       const fullBucket =
@@ -947,10 +966,14 @@ export function BudgetGrid({
                                   <td
                                     rowSpan={row.rowCount}
                                     className={cn(
-                                      "relative border-r border-r-neutral-900 p-0 text-center align-middle text-[11px] font-semibold uppercase tracking-wide text-muted-foreground",
+                                      "relative overflow-hidden border-r border-r-neutral-900 p-0 text-center align-middle text-[11px] font-semibold uppercase tracking-wide text-muted-foreground",
                                       totalsBg,
                                       topBorder,
                                     )}
+                                    style={{
+                                      width: W.bucket,
+                                      maxWidth: W.bucket,
+                                    }}
                                   >
                                     <button
                                       type="button"
@@ -961,9 +984,11 @@ export function BudgetGrid({
                                           bucket: fullBucket,
                                         })
                                       }
-                                      className="absolute inset-0 flex items-center justify-center px-2 transition-colors hover:bg-neutral-200/80 hover:text-foreground"
+                                      className="absolute inset-0 flex items-center justify-center px-1 transition-colors hover:bg-neutral-200/80 hover:text-foreground"
                                     >
-                                      {bucket.name}
+                                      <span className="line-clamp-3 break-words">
+                                        {bucket.name}
+                                      </span>
                                     </button>
                                   </td>
                                 ) : null}
@@ -1041,11 +1066,18 @@ export function BudgetGrid({
                                 ref={(el) => setRightRowRef(category.id, el)}
                               >
                                 {paychecks.map((p, i) => {
-                                  const value = computeTotalForDate(
-                                    buckets,
-                                    category.totalSources,
-                                    p.date,
-                                  )
+                                  const isBudgetCalc =
+                                    bucket.kind === "budget_calc"
+                                  const value = isBudgetCalc
+                                    ? computeBudgetCalcForDate(
+                                        buckets,
+                                        p.date,
+                                      )
+                                    : computeTotalForDate(
+                                        buckets,
+                                        category.totalSources,
+                                        p.date,
+                                      )
                                   const isUpcoming =
                                     p.id === currentPaycheckId
                                   const isPast =
@@ -1070,9 +1102,11 @@ export function BudgetGrid({
                                     >
                                       <div className="flex h-9 items-center justify-end px-2">
                                         <span className="text-sm tabular-nums">
-                                          {value === 0
-                                            ? ""
-                                            : formatMoney(value)}
+                                          {isBudgetCalc
+                                            ? formatMoney(value)
+                                            : value === 0
+                                              ? ""
+                                              : formatMoney(value)}
                                         </span>
                                       </div>
                                     </td>
@@ -1109,25 +1143,6 @@ export function BudgetGrid({
           </div>
         ) : null}
       </div>
-
-      {saveStatus !== "idle" ? (
-        <div
-          className={cn(
-            "mt-3 text-xs",
-            saveStatus === "error"
-              ? "text-destructive"
-              : "text-muted-foreground",
-          )}
-        >
-          {saveStatus === "saving"
-            ? "Saving…"
-            : saveStatus === "saved"
-              ? "Saved"
-              : saveStatus === "error"
-                ? "Save failed"
-                : null}
-        </div>
-      ) : null}
 
       <AddBucketDialog
         key={

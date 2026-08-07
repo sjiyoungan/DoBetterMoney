@@ -276,7 +276,7 @@ export function syncYearPrefills(slice: YearBudget, year: number): YearBudget {
         }),
       }
     }
-    // Totals are computed live from sources — keep empty allocations
+    // Totals / budget calc are computed live — keep empty allocations
     if (bucket.kind === "totals") {
       return {
         ...bucket,
@@ -284,6 +284,15 @@ export function syncYearPrefills(slice: YearBudget, year: number): YearBudget {
           ...cat,
           allocations: {},
           totalSources: cat.totalSources ? [...cat.totalSources] : [],
+        })),
+      }
+    }
+    if (bucket.kind === "budget_calc") {
+      return {
+        ...bucket,
+        categories: bucket.categories.map((cat) => ({
+          ...cat,
+          allocations: {},
         })),
       }
     }
@@ -347,7 +356,13 @@ export function createNextYear(workspace: BudgetWorkspace): BudgetWorkspace {
   }
 
   buckets = buckets.map((bucket) => {
-    if (bucket.kind === "income" || bucket.kind === "totals") return bucket
+    if (
+      bucket.kind === "income" ||
+      bucket.kind === "totals" ||
+      bucket.kind === "budget_calc"
+    ) {
+      return bucket
+    }
     return {
       ...bucket,
       categories: bucket.categories.map((cat) =>
