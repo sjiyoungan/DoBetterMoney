@@ -43,7 +43,9 @@ type GridRow = {
  *
  * Left pane (Group → Balance) does not scroll horizontally.
  * Right pane (paycheck columns) scrolls independently.
- * Outer frame owns 8px radius + clip. Left pane owns the scroll shadow.
+ * Outer frame owns 8px radius + clip. Upcoming stroke overlays the card
+ * border (sibling, not clipped) so top/bottom sit on the frame edge.
+ * Left pane owns the scroll shadow.
  * Sticky offsets are intentionally not used — that keeps cosmetics independent.
  */
 export function BudgetGrid({
@@ -403,6 +405,10 @@ export function BudgetGrid({
                   <tr ref={rightHeaderRef}>
                     {paychecks.map((p, i) => {
                       const isUpcoming = p.id === currentPaycheckId
+                      const isPast =
+                        !isUpcoming &&
+                        (p.completed ||
+                          (upcomingIndex >= 0 && i < upcomingIndex))
                       const isLast = i === paychecks.length - 1
                       return (
                         <th
@@ -412,7 +418,7 @@ export function BudgetGrid({
                             !isLast && "border-r border-r-border/60",
                             isUpcoming
                               ? "bg-[#FDF9FA] text-[#5C2430]"
-                              : p.completed
+                              : isPast
                                 ? "bg-neutral-100 text-muted-foreground"
                                 : cn(paneBg, "text-muted-foreground"),
                           )}
@@ -449,9 +455,7 @@ export function BudgetGrid({
                             const isPast =
                               p.completed ||
                               (upcomingIndex >= 0 && i < upcomingIndex)
-                            const cellGray =
-                              isPast &&
-                              (empty || manuallyDone || p.completed)
+                            const cellGray = isPast
                             const canMarkDone =
                               hasAmount && (p.date <= today || isUpcoming)
 
@@ -461,7 +465,7 @@ export function BudgetGrid({
                                 className={cn(
                                   "px-1",
                                   cellGray
-                                    ? "bg-neutral-100 dark:bg-neutral-900"
+                                    ? "bg-neutral-100 text-muted-foreground dark:bg-neutral-900"
                                     : isUpcoming
                                       ? "bg-[#FDF9FA] text-[#5C2430] dark:bg-rose-950/10 dark:text-rose-200"
                                       : "bg-white dark:bg-background",
