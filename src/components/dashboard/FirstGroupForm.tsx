@@ -44,7 +44,7 @@ const selectFreqH = "h-10 w-full data-[size=default]:h-10"
 const COL_EXP =
   "grid-cols-[minmax(0,200px)_68px_64px_9.75rem_7.5rem_40px]" as const
 const COL_SAV =
-  "grid-cols-[minmax(0,200px)_68px_68px_9.75rem_40px]" as const
+  "grid-cols-[minmax(0,1fr)_68px_68px_40px]" as const
 
 const FREQUENCY_OPTIONS: { value: PayFrequency; label: string }[] = [
   { value: "weekly", label: "Weekly" },
@@ -223,12 +223,11 @@ function toBucket(
     }
     if (kind === "savings") {
       return {
-        ...base,
+        id: crypto.randomUUID(),
+        name: d.name.trim(),
+        allocations: {},
         goal: goal ?? 0,
-        balance: 0,
-        ...(amount !== undefined
-          ? { amount, recurringAmount: amount, isRecurring: true }
-          : {}),
+        balance: amount ?? 0,
       }
     }
     return {
@@ -312,9 +311,8 @@ export function FirstGroupForm({ paychecks, onCreate }: Props) {
             )}
           >
             <span>Category</span>
-            <span>Amount</span>
             <span>Goal</span>
-            <span>Frequency</span>
+            <span>Carry over</span>
             <span />
           </div>
         ) : (
@@ -343,16 +341,12 @@ export function FirstGroupForm({ paychecks, onCreate }: Props) {
                 placeholder="Category name"
               />
               <MoneyInput
-                value={draft.amount}
-                onChange={(v) => updateDraft(draft.id, { amount: v })}
-              />
-              <MoneyInput
                 value={draft.goal}
                 onChange={(v) => updateDraft(draft.id, { goal: v })}
               />
-              <FrequencySelect
-                value={draft.frequency}
-                onChange={(v) => updateDraft(draft.id, { frequency: v })}
+              <MoneyInput
+                value={draft.amount}
+                onChange={(v) => updateDraft(draft.id, { amount: v })}
               />
               <Button
                 type="button"

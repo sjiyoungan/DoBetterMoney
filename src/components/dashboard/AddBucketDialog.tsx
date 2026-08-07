@@ -69,7 +69,7 @@ const COL_EXP =
 const COL_INC =
   "grid-cols-[24px_minmax(0,238px)_68px_minmax(11rem,1fr)_28px]" as const
 const COL_SAV =
-  "grid-cols-[24px_minmax(0,200px)_68px_68px_9.75rem_28px]" as const
+  "grid-cols-[24px_minmax(0,1fr)_68px_68px_28px]" as const
 
 const TYPE_LABEL: Record<BucketDraftType, string> = {
   expenses: "Expenses",
@@ -131,13 +131,17 @@ function bucketToDrafts(bucket: Bucket): CategoryDraft[] {
     id: cat.id,
     name: cat.name,
     amount:
-      cat.amount !== undefined
-        ? String(cat.amount)
-        : cat.recurringAmount !== undefined
-          ? String(cat.recurringAmount)
-          : cat.minPayment !== undefined
-            ? String(cat.minPayment)
-            : "",
+      bucket.kind === "savings"
+        ? cat.balance === undefined
+          ? ""
+          : String(cat.balance)
+        : cat.amount !== undefined
+          ? String(cat.amount)
+          : cat.recurringAmount !== undefined
+            ? String(cat.recurringAmount)
+            : cat.minPayment !== undefined
+              ? String(cat.minPayment)
+              : "",
     goal: cat.goal === undefined ? "" : String(cat.goal),
     dueDay:
       cat.dueDay !== undefined
@@ -234,13 +238,14 @@ function draftsToBucket(
     }
 
     if (bucketKind === "savings") {
+      const carryOver = amount
       return {
-        ...base,
+        id: prev?.id ?? crypto.randomUUID(),
+        name: d.name.trim(),
+        allocations: prev?.allocations ?? {},
         goal: goal ?? prev?.goal ?? 0,
-        balance: prev?.balance ?? 0,
-        ...(amount !== undefined
-          ? { amount, recurringAmount: amount, isRecurring: true }
-          : {}),
+        balance: carryOver ?? prev?.balance ?? 0,
+        ...(d.hidden ? { hidden: true } : {}),
       }
     }
 
@@ -767,9 +772,8 @@ export function AddBucketDialog({
               >
                 <span />
                 <span>Category</span>
-                <span>Amount</span>
                 <span>Goal</span>
-                <span>Frequency</span>
+                <span>Carry over</span>
                 <span />
               </div>
             ) : bucketType === "income" ? (
@@ -824,41 +828,15 @@ export function AddBucketDialog({
                       placeholder="Category name"
                     />
                     <MoneyInput
-                      value={draft.amount}
-                      onChange={(v) => updateDraft(draft.id, { amount: v })}
-                      dimmed={draft.hidden}
-                    />
-                    <MoneyInput
                       value={draft.goal}
                       onChange={(v) => updateDraft(draft.id, { goal: v })}
                       dimmed={draft.hidden}
                     />
-                    <Select
-                      value={draft.frequency || undefined}
-                      onValueChange={(value) =>
-                        updateDraft(draft.id, {
-                          frequency: value as PayFrequency,
-                        })
-                      }
-                    >
-                      <SelectTrigger
-                        size="default"
-                        className={cn(selectFreqH, dimTrigger(draft.hidden))}
-                      >
-                        <SelectValue placeholder="Select frequency" />
-                      </SelectTrigger>
-                      <SelectContent
-                        position="popper"
-                        align="start"
-                        className="min-w-0 w-[var(--radix-select-trigger-width)]"
-                      >
-                        {FREQUENCY_OPTIONS.map((opt) => (
-                          <SelectItem key={opt.value} value={opt.value}>
-                            {opt.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <MoneyInput
+                      value={draft.amount}
+                      onChange={(v) => updateDraft(draft.id, { amount: v })}
+                      dimmed={draft.hidden}
+                    />
                     <Button
                       type="button"
                       variant="ghost"
