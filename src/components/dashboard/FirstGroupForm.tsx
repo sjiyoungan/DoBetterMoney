@@ -448,7 +448,7 @@ export function FirstGroupForm({ paychecks, onCreate }: Props) {
         <Button
           type="button"
           variant="outline"
-          className="h-10 gap-1"
+          className="gap-1"
           onClick={() => setDrafts((prev) => [...prev, newDraft()])}
         >
           <Plus className="size-3.5" />
@@ -466,7 +466,6 @@ export function FirstGroupForm({ paychecks, onCreate }: Props) {
           type="button"
           disabled={!canSubmit}
           onClick={handleCreate}
-          className="h-10"
         >
           Create
         </Button>

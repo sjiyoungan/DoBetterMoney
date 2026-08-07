@@ -226,14 +226,13 @@ export function FrequencyEditor({ value, onCancel, onSave }: Props) {
         <Button
           type="button"
           variant="ghost"
-          className="h-10 text-muted-foreground hover:bg-transparent hover:text-foreground"
+          className="text-muted-foreground hover:bg-transparent hover:text-foreground"
           onClick={onCancel}
         >
           Cancel
         </Button>
         <Button
           type="button"
-          className="h-10"
           disabled={!canSave}
           onClick={handleSave}
         >

@@ -199,7 +199,7 @@ export function OnboardingFlow({
         <Button
           type="button"
           variant="outline"
-          className="h-10 gap-1"
+          className="gap-1"
           onClick={() => setDrafts((prev) => [...prev, newIncomeDraft()])}
         >
           <Plus className="size-3.5" />
@@ -207,7 +207,7 @@ export function OnboardingFlow({
         </Button>
         <Button
           type="button"
-          className="h-10 px-5"
+          className="px-5"
           disabled={!canContinue}
           onClick={handleContinue}
         >

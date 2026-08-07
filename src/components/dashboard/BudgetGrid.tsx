@@ -759,7 +759,6 @@ export function BudgetGrid({
         <Button
           type="button"
           variant="outline"
-          size="sm"
           onClick={() => setBucketDialog({ mode: "create" })}
         >
           Add group

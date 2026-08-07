@@ -1067,7 +1067,7 @@ export function AddBucketDialog({
             <Button
               type="button"
               variant="outline"
-              className="ml-[calc(24px+0.5rem)] h-10 gap-1"
+              className="ml-[calc(24px+0.5rem)] gap-1"
               onClick={() => setDrafts((prev) => [...prev, newDraft()])}
             >
               <Plus className="size-3.5" />
@@ -1084,7 +1084,7 @@ export function AddBucketDialog({
             <Button
               type="button"
               variant="ghost"
-              className="h-10 text-muted-foreground hover:bg-transparent hover:text-foreground"
+              className="text-muted-foreground hover:bg-transparent hover:text-foreground"
               onClick={requestClose}
             >
               Cancel
@@ -1093,7 +1093,7 @@ export function AddBucketDialog({
               type="button"
               disabled={!canSubmit}
               onClick={handleSubmit}
-              className="h-10 disabled:border-neutral-300 disabled:text-muted-foreground/70"
+              className="disabled:border-neutral-300 disabled:text-muted-foreground/70"
             >
               {editing ? "Save" : "Create"}
             </Button>
