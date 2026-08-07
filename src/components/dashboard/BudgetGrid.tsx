@@ -527,6 +527,13 @@ export function BudgetGrid({
       </div>
 
       <AddBucketDialog
+        key={
+          bucketDialog
+            ? bucketDialog.mode === "edit"
+              ? bucketDialog.bucket.id
+              : "create"
+            : "closed"
+        }
         open={!!bucketDialog}
         bucket={bucketDialog?.mode === "edit" ? bucketDialog.bucket : null}
         paychecks={paychecks}

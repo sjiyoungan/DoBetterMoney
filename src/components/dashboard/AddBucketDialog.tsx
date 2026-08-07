@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react"
+import { useLayoutEffect, useMemo, useState } from "react"
 import { Pencil, Plus, Trash2 } from "lucide-react"
 import { FrequencyEditor } from "@/components/dashboard/FrequencyEditor"
 import { Button } from "@/components/ui/button"
@@ -403,7 +403,7 @@ export function AddBucketDialog({
   const [dueDayError, setDueDayError] = useState(false)
   const [frequencyDraftId, setFrequencyDraftId] = useState<string | null>(null)
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!open) return
     if (bucket) {
       const nextDrafts = bucketToDrafts(bucket)
@@ -945,7 +945,7 @@ export function AddBucketDialog({
               type="button"
               disabled={!canSubmit}
               onClick={handleSubmit}
-              className="h-10"
+              className="h-10 disabled:border-neutral-300 disabled:text-muted-foreground/70"
             >
               {editing ? "Update" : "Create"}
             </Button>
