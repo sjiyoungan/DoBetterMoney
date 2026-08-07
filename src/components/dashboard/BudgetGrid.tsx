@@ -142,6 +142,7 @@ export function BudgetGrid({
   const leftRowRefs = useRef(new Map<string, HTMLTableRowElement>())
   const rightRowRefs = useRef(new Map<string, HTMLTableRowElement>())
   const bucketBodyRefs = useRef(new Map<string, HTMLTableSectionElement>())
+  const gridFrameRef = useRef<HTMLDivElement>(null)
 
   const [scrolled, setScrolled] = useState(false)
   const [scrollLeft, setScrollLeft] = useState(0)
@@ -156,6 +157,10 @@ export function BudgetGrid({
   const [dropBeforeId, setDropBeforeId] = useState<string | null | undefined>(
     undefined,
   )
+  const [hoveredBucketId, setHoveredBucketId] = useState<string | null>(null)
+  const [gripRects, setGripRects] = useState<
+    Record<string, { top: number; height: number }>
+  >({})
   const dragMovedRef = useRef(false)
 
   /** Visible rows only — hidden categories stay in stored data / edit modal. */
@@ -241,7 +246,7 @@ export function BudgetGrid({
     }
   }, [])
 
-  // Keep left/right row heights matched
+  // Keep left/right row heights matched + sync external grip positions
   useEffect(() => {
     const sync = () => {
       const pairs: Array<[HTMLTableRowElement | null, HTMLTableRowElement | null]> = [
@@ -267,6 +272,32 @@ export function BudgetGrid({
         left.style.height = `${height}px`
         right.style.height = `${height}px`
       }
+
+      const frame = gridFrameRef.current
+      if (!frame) return
+      const frameTop = frame.getBoundingClientRect().top
+      const next: Record<string, { top: number; height: number }> = {}
+      for (const id of displayBucketIds) {
+        const body = bucketBodyRefs.current.get(id)
+        if (!body) continue
+        const r = body.getBoundingClientRect()
+        next[id] = { top: r.top - frameTop, height: r.height }
+      }
+      setGripRects((prev) => {
+        const prevKeys = Object.keys(prev)
+        const nextKeys = Object.keys(next)
+        if (
+          prevKeys.length === nextKeys.length &&
+          nextKeys.every(
+            (id) =>
+              prev[id]?.top === next[id]?.top &&
+              prev[id]?.height === next[id]?.height,
+          )
+        ) {
+          return prev
+        }
+        return next
+      })
     }
 
     sync()
@@ -274,7 +305,7 @@ export function BudgetGrid({
     if (leftTableRef.current) ro.observe(leftTableRef.current)
     if (rightTableRef.current) ro.observe(rightTableRef.current)
     return () => ro.disconnect()
-  }, [rows, paychecks])
+  }, [rows, paychecks, displayBucketIds])
 
   // Group rearrange: track drop line while pointer is down on the grip
   useEffect(() => {
@@ -388,7 +419,40 @@ export function BudgetGrid({
 
   return (
     <div>
-      <div className="relative">
+      <div ref={gridFrameRef} className="relative">
+        {/* Rearrange grips sit outside the table so group labels stay clean */}
+        <div
+          aria-hidden={false}
+          className="pointer-events-none absolute top-0 bottom-0 -left-5 z-30 w-5"
+        >
+          {displayBuckets.map((bucket) => {
+            const rect = gripRects[bucket.id]
+            if (!rect) return null
+            const visible =
+              hoveredBucketId === bucket.id || draggingId === bucket.id
+            return (
+              <button
+                key={bucket.id}
+                type="button"
+                title="Rearrange group"
+                aria-label={`Rearrange ${bucket.name}`}
+                onPointerDown={(e) => startBucketDrag(bucket.id, e)}
+                onMouseEnter={() => setHoveredBucketId(bucket.id)}
+                onMouseLeave={() =>
+                  setHoveredBucketId((id) => (id === bucket.id ? null : id))
+                }
+                style={{ top: rect.top, height: rect.height }}
+                className={cn(
+                  "pointer-events-auto absolute left-0 flex w-full cursor-grab items-center justify-center text-neutral-400 opacity-0 transition-opacity hover:opacity-100 active:cursor-grabbing",
+                  visible && "opacity-100",
+                )}
+              >
+                <Menu className="size-3.5" strokeWidth={2} />
+              </button>
+            )
+          })}
+        </div>
+
         <div className="overflow-hidden rounded-[8px] border border-neutral-500">
           <div className="flex">
           {/* Left pane: labels stay put; owns the continuous scroll shadow */}
@@ -456,6 +520,20 @@ export function BudgetGrid({
                   ref={(el) => setBucketBodyRef(bucket.id, el)}
                   data-bucket-id={bucket.id}
                   className={cn(draggingId === bucket.id && "opacity-50")}
+                  onMouseEnter={() => setHoveredBucketId(bucket.id)}
+                  onMouseLeave={(e) => {
+                    // Keep grip visible when moving left into the external rail
+                    const frame = gridFrameRef.current
+                    if (
+                      frame &&
+                      e.clientX < frame.getBoundingClientRect().left
+                    ) {
+                      return
+                    }
+                    setHoveredBucketId((id) =>
+                      id === bucket.id ? null : id,
+                    )
+                  }}
                 >
                   {bucket.categories.map((category) => {
                     const row = rows.find((r) => r.key === category.id)!
@@ -483,7 +561,7 @@ export function BudgetGrid({
                           <td
                             rowSpan={row.rowCount}
                             className={cn(
-                              "group/bucket relative border-r border-r-neutral-900 p-0 text-center align-middle text-[11px] font-semibold uppercase tracking-wide text-muted-foreground",
+                              "relative border-r border-r-neutral-900 p-0 text-center align-middle text-[11px] font-semibold uppercase tracking-wide text-muted-foreground",
                               paneBg,
                               topBorder,
                             )}
@@ -505,21 +583,6 @@ export function BudgetGrid({
                               className="absolute inset-0 flex items-center justify-center px-2 transition-colors hover:bg-neutral-100 hover:text-foreground"
                             >
                               {bucket.name}
-                            </button>
-                            <button
-                              type="button"
-                              title="Rearrange group"
-                              aria-label={`Rearrange ${bucket.name}`}
-                              onPointerDown={(e) =>
-                                startBucketDrag(bucket.id, e)
-                              }
-                              className={cn(
-                                "absolute top-1/2 left-0.5 z-10 flex size-4 -translate-y-1/2 cursor-grab items-center justify-center text-neutral-400 opacity-0 transition-opacity active:cursor-grabbing",
-                                "group-hover/bucket:opacity-100",
-                                draggingId === bucket.id && "opacity-100",
-                              )}
-                            >
-                              <Menu className="size-3.5" strokeWidth={2} />
                             </button>
                           </td>
                         ) : null}
