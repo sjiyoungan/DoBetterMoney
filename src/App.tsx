@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useAuth } from "@/auth/AuthProvider"
 import { BudgetGrid } from "@/components/dashboard/BudgetGrid"
 import { HolderPanel } from "@/components/holder/HolderPanel"
 import { AppHeader } from "@/components/layout/AppHeader"
-import { emptyWorkspace } from "@/data/empty"
+import { createEmptyWorkspace, emptyWorkspace } from "@/data/empty"
 import {
   applyIncomeAllocations,
   buildIncomeBucket,
@@ -15,6 +15,14 @@ import {
   loadOrCreateWorkspace,
   saveWorkspace,
 } from "@/lib/workspace-api"
+import {
+  createNextYear,
+  getActiveYearBudget,
+  listYears,
+  nextYearToCreate,
+  setActiveYear,
+  updateActiveYearBudget,
+} from "@/lib/year-workspace"
 import type { Bucket, BudgetWorkspace, UserRole } from "@/types/budget"
 
 export default function App() {
@@ -32,13 +40,18 @@ export default function App() {
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const readyToSave = useRef(false)
 
+  const yearBudget = useMemo(() => getActiveYearBudget(workspace), [workspace])
+  const years = useMemo(() => listYears(workspace), [workspace])
+  const nextYearLabel = nextYearToCreate(workspace)
+  const canCreateYear = !workspace.years[String(nextYearLabel)]
+
   useEffect(() => {
     if (profile?.preferred_role) setRole(profile.preferred_role)
   }, [profile?.preferred_role])
 
   useEffect(() => {
     if (freshPreview) {
-      setWorkspace(emptyWorkspace)
+      setWorkspace(createEmptyWorkspace())
       setWorkspaceId(null)
       setDoneKeys(new Set())
       setSelectedPaycheckId("")
@@ -57,13 +70,13 @@ export default function App() {
         setWorkspaceId(state.id)
         setWorkspace(state.workspace)
         setDoneKeys(new Set(state.doneKeys))
+        const active = getActiveYearBudget(state.workspace)
         setSelectedPaycheckId(
-          state.workspace.paychecks.find((p) => !p.completed)?.id ??
-            state.workspace.paychecks[0]?.id ??
+          active.paychecks.find((p) => !p.completed)?.id ??
+            active.paychecks[0]?.id ??
             "",
         )
         setLoadingWorkspace(false)
-        // Avoid saving the initial hydrate
         queueMicrotask(() => {
           readyToSave.current = true
         })
@@ -78,8 +91,7 @@ export default function App() {
             ? "Database tables aren’t set up yet. In Supabase → SQL Editor, paste and Run supabase/schema.sql, then refresh this page."
             : msg,
         )
-        // Keep empty workspace visible; don't attempt cloud saves until setup is done
-        setWorkspace(emptyWorkspace)
+        setWorkspace(createEmptyWorkspace())
         setWorkspaceId(null)
         readyToSave.current = false
         setLoadingWorkspace(false)
@@ -115,6 +127,43 @@ export default function App() {
     }
   }
 
+  function switchYear(year: number) {
+    setWorkspace((prev) => {
+      // Persist current doneKeys into the year we're leaving
+      const leaving = updateActiveYearBudget(prev, (y) => ({
+        ...y,
+        doneKeys: [...doneKeys],
+      }))
+      const next = setActiveYear(leaving, year)
+      const slice = getActiveYearBudget(next)
+      setDoneKeys(new Set(slice.doneKeys))
+      setSelectedPaycheckId(
+        slice.paychecks.find((p) => !p.completed)?.id ??
+          slice.paychecks[0]?.id ??
+          "",
+      )
+      return next
+    })
+  }
+
+  function onCreateYear() {
+    setWorkspace((prev) => {
+      const withDone = updateActiveYearBudget(prev, (y) => ({
+        ...y,
+        doneKeys: [...doneKeys],
+      }))
+      const next = createNextYear(withDone)
+      const slice = getActiveYearBudget(next)
+      setDoneKeys(new Set(slice.doneKeys))
+      setSelectedPaycheckId(
+        slice.paychecks.find((p) => !p.completed)?.id ??
+          slice.paychecks[0]?.id ??
+          "",
+      )
+      return next
+    })
+  }
+
   function toggleDone(key: string) {
     setDoneKeys((prev) => {
       const next = new Set(prev)
@@ -125,24 +174,28 @@ export default function App() {
   }
 
   function onAmountChange(categoryId: string, date: string, value: string) {
-    setWorkspace((prev) => ({
-      ...prev,
-      buckets: prev.buckets.map((bucket) => ({
-        ...bucket,
-        categories: bucket.categories.map((cat) => {
-          if (cat.id !== categoryId) return cat
-          const parsed =
-            value.trim() === "" ? ("" as const) : Number(value.replace(/,/g, ""))
-          return {
-            ...cat,
-            allocations: {
-              ...cat.allocations,
-              [date]: Number.isFinite(parsed as number) ? parsed : "",
-            },
-          }
-        }),
+    setWorkspace((prev) =>
+      updateActiveYearBudget(prev, (year) => ({
+        ...year,
+        buckets: year.buckets.map((bucket) => ({
+          ...bucket,
+          categories: bucket.categories.map((cat) => {
+            if (cat.id !== categoryId) return cat
+            const parsed =
+              value.trim() === ""
+                ? ("" as const)
+                : Number(value.replace(/,/g, ""))
+            return {
+              ...cat,
+              allocations: {
+                ...cat.allocations,
+                [date]: Number.isFinite(parsed as number) ? parsed : "",
+              },
+            }
+          }),
+        })),
       })),
-    }))
+    )
   }
 
   function onAmountApplyToFuture(
@@ -154,22 +207,24 @@ export default function App() {
       value.trim() === "" ? ("" as const) : Number(value.replace(/,/g, ""))
     const nextVal = Number.isFinite(parsed as number) ? parsed : ("" as const)
 
-    setWorkspace((prev) => ({
-      ...prev,
-      buckets: prev.buckets.map((bucket) => ({
-        ...bucket,
-        categories: bucket.categories.map((cat) => {
-          if (cat.id !== categoryId) return cat
-          const allocations = { ...cat.allocations }
-          for (const p of prev.paychecks) {
-            if (p.date > fromDate) {
-              allocations[p.date] = nextVal
+    setWorkspace((prev) =>
+      updateActiveYearBudget(prev, (year) => ({
+        ...year,
+        buckets: year.buckets.map((bucket) => ({
+          ...bucket,
+          categories: bucket.categories.map((cat) => {
+            if (cat.id !== categoryId) return cat
+            const allocations = { ...cat.allocations }
+            for (const p of year.paychecks) {
+              if (p.date > fromDate) {
+                allocations[p.date] = nextVal
+              }
             }
-          }
-          return { ...cat, allocations }
-        }),
+            return { ...cat, allocations }
+          }),
+        })),
       })),
-    }))
+    )
   }
 
   function onCategoryFieldChange(
@@ -177,89 +232,102 @@ export default function App() {
     field: "goal" | "balance",
     value: string,
   ) {
-    setWorkspace((prev) => ({
-      ...prev,
-      buckets: prev.buckets.map((bucket) => ({
-        ...bucket,
-        categories: bucket.categories.map((cat) => {
-          if (cat.id !== categoryId) return cat
-          const trimmed = value.trim()
-          if (trimmed === "") {
-            return { ...cat, [field]: undefined }
-          }
-          const parsed = Number(trimmed.replace(/,/g, ""))
-          return {
-            ...cat,
-            [field]: Number.isFinite(parsed) ? parsed : cat[field],
-          }
-        }),
+    setWorkspace((prev) =>
+      updateActiveYearBudget(prev, (year) => ({
+        ...year,
+        buckets: year.buckets.map((bucket) => ({
+          ...bucket,
+          categories: bucket.categories.map((cat) => {
+            if (cat.id !== categoryId) return cat
+            const trimmed = value.trim()
+            if (trimmed === "") {
+              return { ...cat, [field]: undefined }
+            }
+            const parsed = Number(trimmed.replace(/,/g, ""))
+            return {
+              ...cat,
+              [field]: Number.isFinite(parsed) ? parsed : cat[field],
+            }
+          }),
+        })),
       })),
-    }))
+    )
   }
 
   function onAddBucket(bucket: Bucket) {
-    setWorkspace((prev) => ({
-      ...prev,
-      buckets: [...prev.buckets, bucket],
-    }))
+    setWorkspace((prev) =>
+      updateActiveYearBudget(prev, (year) => ({
+        ...year,
+        buckets: [...year.buckets, bucket],
+      })),
+    )
   }
 
   function onUpdateBucket(bucket: Bucket) {
     if (bucket.kind === "income") {
       const today = new Date().toISOString().slice(0, 10)
-      setWorkspace((prev) => {
-        const generated = generatePaychecksFromIncomeBucket(bucket)
-        const prevByDate = new Map(prev.paychecks.map((p) => [p.date, p]))
-        // Keep any past paycheck columns that still have history
-        const generatedDates = new Set(generated.map((p) => p.date))
-        const retainedPast = prev.paychecks.filter(
-          (p) => p.date < today && !generatedDates.has(p.date),
-        )
-        const merged = [...retainedPast, ...generated]
-          .sort((a, b) => a.date.localeCompare(b.date))
-          .map((p) => {
-            const old = prevByDate.get(p.date)
-            return old
-              ? { ...p, id: old.id, completed: old.completed || p.date < today }
-              : { ...p, completed: p.date < today }
-          })
-        // Dedupe by date (prefer generated)
-        const byDate = new Map<string, (typeof merged)[number]>()
-        for (const p of merged) byDate.set(p.date, p)
-        const paychecks = [...byDate.values()].sort((a, b) =>
-          a.date.localeCompare(b.date),
-        )
+      setWorkspace((prev) =>
+        updateActiveYearBudget(prev, (year) => {
+          const generated = generatePaychecksFromIncomeBucket(bucket)
+          const prevByDate = new Map(year.paychecks.map((p) => [p.date, p]))
+          const generatedDates = new Set(generated.map((p) => p.date))
+          const retainedPast = year.paychecks.filter(
+            (p) => p.date < today && !generatedDates.has(p.date),
+          )
+          const merged = [...retainedPast, ...generated]
+            .sort((a, b) => a.date.localeCompare(b.date))
+            .map((p) => {
+              const old = prevByDate.get(p.date)
+              return old
+                ? {
+                    ...p,
+                    id: old.id,
+                    completed: old.completed || p.date < today,
+                  }
+                : { ...p, completed: p.date < today }
+            })
+          const byDate = new Map<string, (typeof merged)[number]>()
+          for (const p of merged) byDate.set(p.date, p)
+          const paychecks = [...byDate.values()].sort((a, b) =>
+            a.date.localeCompare(b.date),
+          )
 
-        const prevIncome = prev.buckets.find((b) => b.id === bucket.id) ?? null
-        const next = applyIncomeAllocations(bucket, paychecks, {
-          prev: prevIncome,
-          fromDate: today,
-        })
-        return {
-          ...prev,
-          buckets: prev.buckets.map((b) => (b.id === next.id ? next : b)),
-          paychecks,
-        }
-      })
+          const prevIncome =
+            year.buckets.find((b) => b.id === bucket.id) ?? null
+          const next = applyIncomeAllocations(bucket, paychecks, {
+            prev: prevIncome,
+            fromDate: today,
+          })
+          return {
+            ...year,
+            buckets: year.buckets.map((b) => (b.id === next.id ? next : b)),
+            paychecks,
+          }
+        }),
+      )
       return
     }
-    setWorkspace((prev) => ({
-      ...prev,
-      buckets: prev.buckets.map((b) => (b.id === bucket.id ? bucket : b)),
-    }))
+    setWorkspace((prev) =>
+      updateActiveYearBudget(prev, (year) => ({
+        ...year,
+        buckets: year.buckets.map((b) => (b.id === bucket.id ? bucket : b)),
+      })),
+    )
   }
 
   function onSetupIncome(sources: IncomeSourceInput[]) {
     const paychecks = generatePaychecksFromIncome(sources)
     const incomeBucket = buildIncomeBucket(sources, paychecks)
-    setWorkspace((prev) => ({
-      ...prev,
-      buckets: [
-        incomeBucket,
-        ...prev.buckets.filter((b) => b.kind !== "income"),
-      ],
-      paychecks,
-    }))
+    setWorkspace((prev) =>
+      updateActiveYearBudget(prev, (year) => ({
+        ...year,
+        buckets: [
+          incomeBucket,
+          ...year.buckets.filter((b) => b.kind !== "income"),
+        ],
+        paychecks,
+      })),
+    )
     setSelectedPaycheckId(
       paychecks.find((p) => !p.completed)?.id ?? paychecks[0]?.id ?? "",
     )
@@ -269,14 +337,16 @@ export default function App() {
     paycheckId: string,
     field: "received" | "boaMoved" | "sofiMoved",
   ) {
-    setWorkspace((prev) => ({
-      ...prev,
-      holderSplits: prev.holderSplits.map((split) =>
-        split.paycheckId === paycheckId
-          ? { ...split, [field]: !split[field] }
-          : split,
-      ),
-    }))
+    setWorkspace((prev) =>
+      updateActiveYearBudget(prev, (year) => ({
+        ...year,
+        holderSplits: year.holderSplits.map((split) =>
+          split.paycheckId === paycheckId
+            ? { ...split, [field]: !split[field] }
+            : split,
+        ),
+      })),
+    )
   }
 
   if (loadingWorkspace) {
@@ -294,6 +364,12 @@ export default function App() {
         onUserChange={onUserChange}
         onSignOut={signOut}
         username={profile?.username}
+        activeYear={workspace.activeYear}
+        years={years}
+        nextYearLabel={nextYearLabel}
+        onYearChange={switchYear}
+        onCreateYear={onCreateYear}
+        canCreateYear={canCreateYear}
       />
 
       {freshPreview ? (
@@ -313,8 +389,8 @@ export default function App() {
       <main className="px-[60px] py-4">
         {role === "liz" ? (
           <BudgetGrid
-            buckets={workspace.buckets}
-            paychecks={workspace.paychecks}
+            buckets={yearBudget.buckets}
+            paychecks={yearBudget.paychecks}
             doneKeys={doneKeys}
             onToggleDone={toggleDone}
             onAmountChange={onAmountChange}
@@ -327,7 +403,7 @@ export default function App() {
         ) : (
           <div className="mx-auto max-w-7xl space-y-4">
             <HolderPanel
-              workspace={workspace}
+              workspace={yearBudget}
               selectedPaycheckId={selectedPaycheckId}
               onSelectedPaycheckChange={setSelectedPaycheckId}
               onToggleHolderFlag={onToggleHolderFlag}

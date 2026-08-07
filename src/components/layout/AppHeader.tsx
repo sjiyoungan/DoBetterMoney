@@ -1,4 +1,4 @@
-import { Check, ChevronDown, LogOut } from "lucide-react"
+import { Check, ChevronDown, LogOut, Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -14,16 +14,67 @@ type Props = {
   onUserChange: (user: UserRole) => void
   onSignOut?: () => void
   username?: string | null
+  activeYear: number
+  years: number[]
+  nextYearLabel: number
+  onYearChange: (year: number) => void
+  onCreateYear: () => void
+  canCreateYear: boolean
 }
 
-export function AppHeader({ user, onUserChange, onSignOut, username }: Props) {
+export function AppHeader({
+  user,
+  onUserChange,
+  onSignOut,
+  username,
+  activeYear,
+  years,
+  nextYearLabel,
+  onYearChange,
+  onCreateYear,
+  canCreateYear,
+}: Props) {
   const label = username?.trim() ? username : "Profile"
   const initial = (username?.trim()?.[0] ?? "P").toUpperCase()
 
   return (
     <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur">
       <div className="flex items-center justify-between gap-3 px-[60px] py-3">
-        <p className="text-lg font-semibold tracking-tight">DoBetterMoney</p>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-lg font-semibold tracking-tight text-foreground transition-colors hover:bg-muted"
+            >
+              {activeYear}
+              <ChevronDown className="size-4 text-muted-foreground" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="min-w-40">
+            {years.map((year) => (
+              <DropdownMenuItem
+                key={year}
+                className="justify-between gap-3"
+                onSelect={() => onYearChange(year)}
+              >
+                {year}
+                {year === activeYear ? <Check className="size-3.5" /> : null}
+              </DropdownMenuItem>
+            ))}
+            {canCreateYear ? (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  className="gap-2"
+                  onSelect={() => onCreateYear()}
+                >
+                  <Plus className="size-3.5" />
+                  Create {nextYearLabel}
+                </DropdownMenuItem>
+              </>
+            ) : null}
+          </DropdownMenuContent>
+        </DropdownMenu>
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

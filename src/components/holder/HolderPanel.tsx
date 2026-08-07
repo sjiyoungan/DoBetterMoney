@@ -17,10 +17,10 @@ import {
 } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
 import { formatMoney, formatPayDate } from "@/lib/format"
-import type { BudgetWorkspace, Paycheck } from "@/types/budget"
+import type { Paycheck, YearBudget } from "@/types/budget"
 
 type Props = {
-  workspace: BudgetWorkspace
+  workspace: YearBudget
   selectedPaycheckId: string
   onSelectedPaycheckChange: (id: string) => void
   onToggleHolderFlag: (

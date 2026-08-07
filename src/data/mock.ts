@@ -1,7 +1,8 @@
+import { normalizeWorkspace } from "@/lib/year-workspace"
 import type { BudgetWorkspace } from "@/types/budget"
 
 /** Rough skeleton data shaped like the Excel Budget sheet (not a full import). */
-export const mockWorkspace: BudgetWorkspace = {
+const legacyMock = {
   paychecks: [
     { id: "p01", date: "2026-01-15", income: 1665, completed: true },
     { id: "p02", date: "2026-01-31", income: 1665, completed: true },
@@ -380,3 +381,5 @@ export const mockWorkspace: BudgetWorkspace = {
     travel: 0,
   },
 }
+
+export const mockWorkspace: BudgetWorkspace = normalizeWorkspace(legacyMock)

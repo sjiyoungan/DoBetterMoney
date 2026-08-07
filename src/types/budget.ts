@@ -84,11 +84,25 @@ export type Withdrawal = {
   note?: string
 }
 
-export type BudgetWorkspace = {
+/** One calendar year's budget grid data */
+export type YearBudget = {
   paychecks: Paycheck[]
   buckets: Bucket[]
   holderSplits: HolderSplit[]
   withdrawals: Withdrawal[]
   /** categoryId -> cash still held for Liz */
   holderBalances: Record<string, number>
+  doneKeys: string[]
+}
+
+/**
+ * Multi-year workspace. Each year is its own page/slice.
+ * Legacy flat workspaces are normalized on load.
+ */
+export type BudgetWorkspace = {
+  /** Year the account/workspace started */
+  startYear: number
+  /** Year currently shown */
+  activeYear: number
+  years: Record<string, YearBudget>
 }
