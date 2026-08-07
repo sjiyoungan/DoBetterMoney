@@ -364,7 +364,7 @@ function ReorderGrip({
       aria-label="Rearrange category"
       onPointerDown={onPointerDown}
       className={cn(
-        "flex size-6 cursor-grab items-center justify-center justify-self-center text-neutral-400 opacity-0 transition-opacity hover:opacity-100 active:cursor-grabbing",
+        "flex h-10 w-full cursor-grab items-center justify-center justify-self-stretch text-neutral-400 opacity-0 transition-opacity hover:opacity-100 active:cursor-grabbing",
         dimmed && "text-neutral-400",
         active && "opacity-100",
       )}

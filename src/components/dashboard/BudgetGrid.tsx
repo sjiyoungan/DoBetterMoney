@@ -437,11 +437,9 @@ export function BudgetGrid({
                 title="Rearrange group"
                 aria-label={`Rearrange ${bucket.name}`}
                 onPointerDown={(e) => startBucketDrag(bucket.id, e)}
-                style={{
-                  top: rect.top + rect.height / 2,
-                }}
+                style={{ top: rect.top, height: rect.height }}
                 className={cn(
-                  "pointer-events-auto absolute left-0 flex size-5 -translate-y-1/2 cursor-grab items-center justify-center text-neutral-400 opacity-0 transition-opacity hover:opacity-100 active:cursor-grabbing",
+                  "pointer-events-auto absolute left-0 flex w-full cursor-grab items-center justify-center text-neutral-400 opacity-0 transition-opacity hover:opacity-100 active:cursor-grabbing",
                   draggingId === bucket.id && "opacity-100",
                 )}
               >
