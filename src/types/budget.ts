@@ -5,6 +5,26 @@ export type BucketKind = "spending" | "savings" | "holder" | "income"
 export type PayFrequency = "weekly" | "biweekly" | "monthly"
 export type CategoryVariability = "fixed" | "variable"
 
+export type RecurrenceUnit = "day" | "week" | "month" | "year"
+
+export type RecurrenceEnds =
+  | { kind: "never" }
+  | { kind: "on"; date: string }
+  | { kind: "after"; count: number }
+
+/** Google-style custom recurrence for income pay schedules. */
+export type IncomeRecurrence = {
+  interval: number
+  unit: RecurrenceUnit
+  /** Sunday=0 … Saturday=6; used when unit is week */
+  weekdays: number[]
+  /** 1–31, or -1 for last day of month; used when unit is month */
+  monthDays: number[]
+  /** ISO date — series starts on/after this day */
+  startDate: string
+  ends: RecurrenceEnds
+}
+
 export type Category = {
   id: string
   name: string
@@ -23,6 +43,8 @@ export type Category = {
   recurringAmount?: number
   isRecurring?: boolean
   frequency?: PayFrequency
+  /** Income pay schedule (drives calendar columns) */
+  recurrence?: IncomeRecurrence
   variability?: CategoryVariability
   /** amount planned per paycheck date (ISO date -> amount) */
   allocations: Record<string, number | "">

@@ -5,8 +5,10 @@ import { HolderPanel } from "@/components/holder/HolderPanel"
 import { AppHeader } from "@/components/layout/AppHeader"
 import { emptyWorkspace } from "@/data/empty"
 import {
+  applyIncomeAllocations,
   buildIncomeBucket,
   generatePaychecksFromIncome,
+  generatePaychecksFromIncomeBucket,
   type IncomeSourceInput,
 } from "@/lib/income-schedule"
 import {
@@ -163,6 +165,25 @@ export default function App() {
   }
 
   function onUpdateBucket(bucket: Bucket) {
+    if (bucket.kind === "income") {
+      setWorkspace((prev) => {
+        const generated = generatePaychecksFromIncomeBucket(bucket)
+        const prevByDate = new Map(prev.paychecks.map((p) => [p.date, p]))
+        const paychecks = generated.map((p) => {
+          const old = prevByDate.get(p.date)
+          return old
+            ? { ...p, id: old.id, completed: old.completed }
+            : p
+        })
+        const next = applyIncomeAllocations(bucket, paychecks)
+        return {
+          ...prev,
+          buckets: prev.buckets.map((b) => (b.id === next.id ? next : b)),
+          paychecks,
+        }
+      })
+      return
+    }
     setWorkspace((prev) => ({
       ...prev,
       buckets: prev.buckets.map((b) => (b.id === bucket.id ? bucket : b)),

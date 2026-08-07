@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react"
 import { Pencil, Plus, Trash2 } from "lucide-react"
+import { FrequencyEditor } from "@/components/dashboard/FrequencyEditor"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -19,11 +20,17 @@ import {
 } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
 import { prefillAllocations } from "@/lib/allocations"
+import {
+  formatRecurrenceSummary,
+  isRecurrenceComplete,
+  legacyFrequencyToRecurrence,
+} from "@/lib/recurrence"
 import type {
   Bucket,
   BucketKind,
   Category,
   CategoryVariability,
+  IncomeRecurrence,
   PayFrequency,
   Paycheck,
 } from "@/types/budget"
@@ -37,6 +44,7 @@ type CategoryDraft = {
   goal: string
   dueDay: string
   frequency: PayFrequency | ""
+  recurrence: IncomeRecurrence | null
   variability: CategoryVariability | ""
 }
 
@@ -59,7 +67,7 @@ const selectFreqH = "h-10 w-full data-[size=default]:h-10"
 const COL_EXP =
   "grid-cols-[minmax(0,200px)_68px_64px_9.75rem_7.5rem_40px]" as const
 const COL_INC =
-  "grid-cols-[minmax(0,238px)_68px_9.75rem_max-content_40px]" as const
+  "grid-cols-[minmax(0,238px)_68px_minmax(11rem,1fr)_40px]" as const
 const COL_SAV =
   "grid-cols-[minmax(0,200px)_68px_68px_9.75rem_40px]" as const
 
@@ -83,6 +91,7 @@ function newDraft(): CategoryDraft {
     goal: "",
     dueDay: "",
     frequency: "",
+    recurrence: null,
     variability: "",
   }
 }
@@ -136,6 +145,9 @@ function bucketToDrafts(bucket: Bucket): CategoryDraft[] {
           ? cat.dueDate
           : "",
     frequency: cat.frequency ?? "",
+    recurrence:
+      cat.recurrence ??
+      (cat.frequency ? legacyFrequencyToRecurrence(cat.frequency) : null),
     variability: cat.variability ?? "",
   }))
 }
@@ -222,9 +234,22 @@ function draftsToBucket(
     }
 
     if (bucketKind === "income") {
+      const recurrence = d.recurrence
+      const derivedFreq: PayFrequency | undefined =
+        recurrence?.unit === "week" && recurrence.interval === 1
+          ? "weekly"
+          : recurrence?.unit === "week" && recurrence.interval === 2
+            ? "biweekly"
+            : recurrence?.unit === "month"
+              ? "monthly"
+              : d.frequency || undefined
       return {
-        ...base,
+        id: prev?.id ?? crypto.randomUUID(),
+        name: d.name.trim(),
+        allocations: prev?.allocations ?? {},
         ...(amount !== undefined ? { amount } : {}),
+        ...(recurrence ? { recurrence } : {}),
+        ...(derivedFreq ? { frequency: derivedFreq } : {}),
       }
     }
 
@@ -261,6 +286,7 @@ function snapshotKey(
       goal: d.goal.trim(),
       dueDay: d.dueDay.trim(),
       frequency: d.frequency,
+      recurrence: d.recurrence,
       variability: d.variability,
     })),
   })
@@ -375,6 +401,7 @@ export function AddBucketDialog({
   const [editingName, setEditingName] = useState(false)
   const [typeOpen, setTypeOpen] = useState(false)
   const [dueDayError, setDueDayError] = useState(false)
+  const [frequencyDraftId, setFrequencyDraftId] = useState<string | null>(null)
 
   useEffect(() => {
     if (!open) return
@@ -384,7 +411,14 @@ export function AddBucketDialog({
       setBucketName(bucket.name)
       setBucketType(nextType)
       setDrafts(nextDrafts)
-      setBaseline(snapshotKey(bucket.name, nextType, nextDrafts))
+      const needsRecurrencePersist =
+        bucket.kind === "income" &&
+        bucket.categories.some((c) => !c.recurrence && !!c.frequency)
+      setBaseline(
+        needsRecurrencePersist
+          ? ""
+          : snapshotKey(bucket.name, nextType, nextDrafts),
+      )
     } else {
       const nextDrafts = [newDraft()]
       setBucketName("")
@@ -397,6 +431,7 @@ export function AddBucketDialog({
     setEditingName(false)
     setTypeOpen(false)
     setDueDayError(false)
+    setFrequencyDraftId(null)
   }, [open, bucket])
 
   const dirty = useMemo(
@@ -411,13 +446,20 @@ export function AddBucketDialog({
     drafts.some((d) => d.name.trim() !== "") &&
     drafts
       .filter((d) => d.name.trim() !== "")
-      .every((d) => d.frequency !== "") &&
+      .every((d) =>
+        bucketType === "income"
+          ? isRecurrenceComplete(d.recurrence)
+          : d.frequency !== "",
+      ) &&
     !drafts.some((d) => isDueDayInvalid(d.dueDay))
 
+  const frequencyTarget = frequencyDraftId
+    ? drafts.find((d) => d.id === frequencyDraftId)
+    : undefined
   const removeTarget = removeId
     ? drafts.find((d) => d.id === removeId)
     : undefined
-  const nestedOpen = confirmOpen || !!removeId
+  const nestedOpen = confirmOpen || !!removeId || !!frequencyDraftId
 
   function closeClean() {
     setConfirmOpen(false)
@@ -482,7 +524,7 @@ export function AddBucketDialog({
             return
           }
           // Nested confirm dialogs — don't treat as closing the group dialog
-          if (confirmOpen || removeId) return
+          if (confirmOpen || removeId || frequencyDraftId) return
           // Tab blur / backgrounding can emit a dismiss — keep the modal open
           if (document.visibilityState === "hidden") return
           requestClose()
@@ -493,14 +535,14 @@ export function AddBucketDialog({
           showCloseButton={false}
           onPointerDownOutside={(e) => {
             e.preventDefault()
-            if (confirmOpen || removeId) return
+            if (confirmOpen || removeId || frequencyDraftId) return
             // Ignore dismissals from leaving the browser tab
             if (document.visibilityState === "hidden") return
             requestClose()
           }}
           onInteractOutside={(e) => {
             e.preventDefault()
-            if (confirmOpen || removeId) return
+            if (confirmOpen || removeId || frequencyDraftId) return
             if (document.visibilityState === "hidden") return
             requestClose()
           }}
@@ -510,6 +552,10 @@ export function AddBucketDialog({
           }}
           onEscapeKeyDown={(e) => {
             e.preventDefault()
+            if (frequencyDraftId) {
+              setFrequencyDraftId(null)
+              return
+            }
             if (removeId) {
               setRemoveId(null)
               return
@@ -521,6 +567,17 @@ export function AddBucketDialog({
             requestClose()
           }}
         >
+          {frequencyTarget ? (
+            <FrequencyEditor
+              value={frequencyTarget.recurrence}
+              onCancel={() => setFrequencyDraftId(null)}
+              onSave={(next) => {
+                updateDraft(frequencyTarget.id, { recurrence: next })
+                setFrequencyDraftId(null)
+              }}
+            />
+          ) : (
+            <>
           {/* Header */}
           <div>
             {!editing ? (
@@ -651,7 +708,6 @@ export function AddBucketDialog({
                 <span>Category</span>
                 <span>Income</span>
                 <span>Frequency</span>
-                <span>Type</span>
                 <span />
               </div>
             ) : (
@@ -743,49 +799,20 @@ export function AddBucketDialog({
                       value={draft.amount}
                       onChange={(v) => updateDraft(draft.id, { amount: v })}
                     />
-                    <Select
-                      value={draft.frequency || undefined}
-                      onValueChange={(value) =>
-                        updateDraft(draft.id, {
-                          frequency: value as PayFrequency,
-                        })
-                      }
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className={cn(
+                        fieldH,
+                        "w-full justify-start truncate px-3 font-normal",
+                        !draft.recurrence && "text-muted-foreground",
+                      )}
+                      onClick={() => setFrequencyDraftId(draft.id)}
                     >
-                      <SelectTrigger size="default" className={selectH}>
-                        <SelectValue placeholder="Select frequency" />
-                      </SelectTrigger>
-                      <SelectContent
-                        position="popper"
-                        align="start"
-                        className="min-w-0 w-[var(--radix-select-trigger-width)]"
-                      >
-                        {FREQUENCY_OPTIONS.map((opt) => (
-                          <SelectItem key={opt.value} value={opt.value}>
-                            {opt.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Select
-                      value={draft.variability || undefined}
-                      onValueChange={(value) =>
-                        updateDraft(draft.id, {
-                          variability: value as CategoryVariability,
-                        })
-                      }
-                    >
-                      <SelectTrigger size="default" className={selectTypeH}>
-                        <SelectValue placeholder="Select type" />
-                      </SelectTrigger>
-                      <SelectContent
-                        position="popper"
-                        align="start"
-                        className="min-w-0 w-[var(--radix-select-trigger-width)]"
-                      >
-                        <SelectItem value="fixed">Fixed</SelectItem>
-                        <SelectItem value="variable">Variable</SelectItem>
-                      </SelectContent>
-                    </Select>
+                      {draft.recurrence
+                        ? formatRecurrenceSummary(draft.recurrence)
+                        : "Set frequency"}
+                    </Button>
                     <Button
                       type="button"
                       variant="ghost"
@@ -930,6 +957,8 @@ export function AddBucketDialog({
               {editing ? "Update" : "Create"}
             </Button>
           </DialogFooter>
+            </>
+          )}
         </DialogContent>
       </Dialog>
 

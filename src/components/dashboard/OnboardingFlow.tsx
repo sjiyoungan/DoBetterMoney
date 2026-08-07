@@ -4,6 +4,7 @@ import { FirstGroupForm } from "@/components/dashboard/FirstGroupForm"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import type { IncomeSourceInput } from "@/lib/income-schedule"
+import { legacyFrequencyToRecurrence } from "@/lib/recurrence"
 import type { Bucket, Paycheck, PayFrequency } from "@/types/budget"
 
 type IncomeDraft = {
@@ -76,7 +77,7 @@ export function OnboardingFlow({
         return {
           name: d.name.trim(),
           amount,
-          frequency: d.frequency,
+          recurrence: legacyFrequencyToRecurrence(d.frequency),
         }
       })
       .filter((s): s is IncomeSourceInput => s !== null)
