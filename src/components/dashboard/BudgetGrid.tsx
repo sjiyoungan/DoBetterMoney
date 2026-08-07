@@ -9,9 +9,15 @@ import { Check, CirclePlus, Menu } from "lucide-react"
 import { AddBucketDialog } from "@/components/dashboard/AddBucketDialog"
 import { CategoryDrawer } from "@/components/dashboard/CategoryDrawer"
 import { OnboardingFlow } from "@/components/dashboard/OnboardingFlow"
-import { allocationKey, formatPayDate, savingsBalanceLeft } from "@/lib/format"
+import {
+  allocationKey,
+  formatMoney,
+  formatPayDate,
+  savingsBalanceLeft,
+} from "@/lib/format"
 import type { IncomeSourceInput } from "@/lib/income-schedule"
 import { isReorderNoOp } from "@/lib/reorder"
+import { computeTotalForDate } from "@/lib/totals"
 import { cn } from "@/lib/utils"
 import type { Bucket, Category, Paycheck } from "@/types/budget"
 
@@ -44,6 +50,8 @@ const W = { bucket: 118, category: 168, goal: 110, balance: 96, pay: 128 } as co
 const LEFT_WIDTH = W.bucket + W.category + W.goal + W.balance
 
 const paneBg = "bg-white dark:bg-background"
+/** Totals footer rows — light grey so they read as summary, not editable cells */
+const totalsBg = "bg-neutral-100 dark:bg-neutral-900"
 
 /** Right edge of column i is a month boundary when the next paycheck is a new month. */
 function isMonthBoundaryAfter(
@@ -106,8 +114,9 @@ type GridRow = {
  * Right pane (paycheck columns) scrolls independently.
  * Outer frame owns 8px radius + clip. Upcoming stroke overlays the card
  * border (sibling, not clipped) so top/bottom sit on the frame edge.
- * Left pane owns the scroll shadow.
- * Sticky offsets are intentionally not used — that keeps cosmetics independent.
+ * Left pane owns the horizontal scroll shadow.
+ * Totals footer uses sticky bottom:0 (outside overflow-hidden) with an upward
+ * shadow when content scrolls underneath.
  */
 export function BudgetGrid({
   buckets,
@@ -134,9 +143,11 @@ export function BudgetGrid({
   const rightRowRefs = useRef(new Map<string, HTMLTableRowElement>())
   const bucketBodyRefs = useRef(new Map<string, HTMLTableSectionElement>())
   const gridFrameRef = useRef<HTMLDivElement>(null)
+  const totalsSentinelRef = useRef<HTMLDivElement>(null)
 
   const [scrolled, setScrolled] = useState(false)
   const [scrollLeft, setScrollLeft] = useState(0)
+  const [totalsStuck, setTotalsStuck] = useState(false)
   const [bucketDialog, setBucketDialog] = useState<
     { mode: "create" } | { mode: "edit"; bucket: Bucket } | null
   >(null)
@@ -153,10 +164,23 @@ export function BudgetGrid({
   >({})
   const dragMovedRef = useRef(false)
 
-  /** Visible rows only — hidden categories stay in stored data / edit modal. */
+  /** Visible body rows — hidden categories stay in data; Totals render in the footer. */
   const displayBuckets = useMemo(
     () =>
       buckets
+        .filter((bucket) => bucket.kind !== "totals")
+        .map((bucket) => ({
+          ...bucket,
+          categories: bucket.categories.filter((c) => !c.hidden),
+        }))
+        .filter((bucket) => bucket.categories.length > 0),
+    [buckets],
+  )
+
+  const totalsBuckets = useMemo(
+    () =>
+      buckets
+        .filter((bucket) => bucket.kind === "totals")
         .map((bucket) => ({
           ...bucket,
           categories: bucket.categories.filter((c) => !c.hidden),
@@ -186,6 +210,25 @@ export function BudgetGrid({
     })
     return result
   }, [displayBuckets])
+
+  const totalsRows = useMemo(() => {
+    const result: GridRow[] = []
+    totalsBuckets.forEach((bucket, bucketIndex) => {
+      bucket.categories.forEach((category, rowIndex) => {
+        result.push({
+          key: category.id,
+          bucketId: bucket.id,
+          rowCount: bucket.categories.length,
+          isFirstInBucket: rowIndex === 0,
+          isLastInBucket: rowIndex === bucket.categories.length - 1,
+          showBucketDivider: rowIndex === 0 && bucketIndex > 0,
+        })
+      })
+    })
+    return result
+  }, [totalsBuckets])
+
+  const hasTotalsFooter = totalsRows.length > 0
 
   const dropIndicatorActive =
     draggingId !== null &&
@@ -236,12 +279,37 @@ export function BudgetGrid({
     }
   }, [])
 
+  // Upward shadow when table content scrolls under the sticky Totals footer
+  useEffect(() => {
+    if (!hasTotalsFooter) {
+      setTotalsStuck(false)
+      return
+    }
+    const sentinel = totalsSentinelRef.current
+    if (!sentinel) return
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        setTotalsStuck(!(entry?.isIntersecting ?? true))
+      },
+      { root: null, threshold: 0 },
+    )
+    io.observe(sentinel)
+    return () => io.disconnect()
+  }, [hasTotalsFooter, totalsRows])
+
   // Keep left/right row heights matched + sync external grip positions
   useEffect(() => {
     const sync = () => {
       const pairs: Array<[HTMLTableRowElement | null, HTMLTableRowElement | null]> = [
         [leftHeaderRef.current, rightHeaderRef.current],
         ...rows.map(
+          (row) =>
+            [
+              leftRowRefs.current.get(row.key) ?? null,
+              rightRowRefs.current.get(row.key) ?? null,
+            ] as [HTMLTableRowElement | null, HTMLTableRowElement | null],
+        ),
+        ...totalsRows.map(
           (row) =>
             [
               leftRowRefs.current.get(row.key) ?? null,
@@ -295,7 +363,7 @@ export function BudgetGrid({
     if (leftTableRef.current) ro.observe(leftTableRef.current)
     if (rightTableRef.current) ro.observe(rightTableRef.current)
     return () => ro.disconnect()
-  }, [rows, paychecks, displayBucketIds])
+  }, [rows, totalsRows, paychecks, displayBucketIds])
 
   // Group rearrange: track drop line while pointer is down on the grip
   useEffect(() => {
@@ -399,7 +467,11 @@ export function BudgetGrid({
     )
   }
 
-  if (buckets.every((b) => b.kind === "income")) {
+  const bodyBuckets = buckets.filter((b) => b.kind !== "totals")
+  if (
+    bodyBuckets.length > 0 &&
+    bodyBuckets.every((b) => b.kind === "income")
+  ) {
     return (
       <OnboardingFlow
         hasIncome={buckets.some((b) => b.kind === "income")}
@@ -440,7 +512,18 @@ export function BudgetGrid({
           })}
         </div>
 
-        <div className="overflow-hidden rounded-[8px] border border-neutral-500">
+        {/*
+          Border card without overflow-hidden so sticky Totals can pin to the
+          viewport. Body keeps overflow-hidden for top corner clip; footer is
+          a sibling so it is not clipped and can sticky bottom:0.
+        */}
+        <div className="rounded-[8px] border border-neutral-500">
+          <div
+            className={cn(
+              "overflow-hidden",
+              hasTotalsFooter ? "rounded-t-[8px]" : "rounded-[8px]",
+            )}
+          >
           <div className="flex">
           {/* Left pane: labels stay put; owns the continuous scroll shadow */}
           <div
@@ -807,6 +890,205 @@ export function BudgetGrid({
             </div>
           </div>
         </div>
+          </div>
+
+          {hasTotalsFooter ? (
+            <>
+              <div
+                ref={totalsSentinelRef}
+                aria-hidden
+                className="h-0 w-full"
+              />
+              <div
+                className="sticky bottom-0 z-30 flex rounded-b-[8px]"
+                style={{
+                  boxShadow: totalsStuck
+                    ? "0 -6px 10px rgba(0, 0, 0, 0.16)"
+                    : "none",
+                }}
+              >
+                {/* Left totals labels */}
+                <div
+                  className={cn("relative z-10 shrink-0", totalsBg)}
+                  style={{
+                    width: LEFT_WIDTH,
+                    boxShadow: scrolled
+                      ? "6px 0 10px rgba(0, 0, 0, 0.16)"
+                      : "none",
+                  }}
+                >
+                  <table className="w-full border-separate border-spacing-0 text-sm">
+                    <colgroup>
+                      <col style={{ width: W.bucket }} />
+                      <col style={{ width: W.category }} />
+                      <col style={{ width: W.goal }} />
+                      <col style={{ width: W.balance }} />
+                    </colgroup>
+                    {totalsBuckets.map((bucket) => {
+                      const fullBucket =
+                        buckets.find((b) => b.id === bucket.id) ?? bucket
+                      return (
+                        <tbody key={bucket.id}>
+                          {bucket.categories.map((category) => {
+                            const row = totalsRows.find(
+                              (r) => r.key === category.id,
+                            )!
+                            const topBorder = groupDividerTopClass(
+                              row.showBucketDivider ||
+                                (row.isFirstInBucket &&
+                                  totalsBuckets[0]?.id === bucket.id),
+                            )
+                            return (
+                              <tr
+                                key={category.id}
+                                ref={(el) => setLeftRowRef(category.id, el)}
+                              >
+                                {row.isFirstInBucket ? (
+                                  <td
+                                    rowSpan={row.rowCount}
+                                    className={cn(
+                                      "relative border-r border-r-neutral-900 p-0 text-center align-middle text-[11px] font-semibold uppercase tracking-wide text-muted-foreground",
+                                      totalsBg,
+                                      topBorder,
+                                    )}
+                                  >
+                                    <button
+                                      type="button"
+                                      title={`Edit ${bucket.name}`}
+                                      onClick={() =>
+                                        setBucketDialog({
+                                          mode: "edit",
+                                          bucket: fullBucket,
+                                        })
+                                      }
+                                      className="absolute inset-0 flex items-center justify-center px-2 transition-colors hover:bg-neutral-200/80 hover:text-foreground"
+                                    >
+                                      {bucket.name}
+                                    </button>
+                                  </td>
+                                ) : null}
+                                <td
+                                  className={cn(
+                                    "relative border-r border-r-border/60 p-0",
+                                    totalsBg,
+                                    topBorder,
+                                  )}
+                                >
+                                  <button
+                                    type="button"
+                                    title={`Edit ${bucket.name}`}
+                                    onClick={() =>
+                                      setBucketDialog({
+                                        mode: "edit",
+                                        bucket: fullBucket,
+                                      })
+                                    }
+                                    className="flex h-9 w-full items-center px-3 text-left text-sm text-muted-foreground transition-colors hover:bg-neutral-200/80 hover:text-foreground"
+                                  >
+                                    {category.name}
+                                  </button>
+                                </td>
+                                <td
+                                  className={cn(
+                                    "relative border-r border-r-border/60",
+                                    totalsBg,
+                                    topBorder,
+                                  )}
+                                />
+                                <td
+                                  className={cn(
+                                    "relative",
+                                    totalsBg,
+                                    balanceEdge,
+                                    topBorder,
+                                  )}
+                                />
+                              </tr>
+                            )
+                          })}
+                        </tbody>
+                      )
+                    })}
+                  </table>
+                </div>
+
+                {/* Right totals values — translate to match paycheck scroll */}
+                <div className="min-w-0 flex-1 overflow-hidden rounded-br-[8px]">
+                  <div
+                    className="w-max min-w-full"
+                    style={{ transform: `translateX(-${scrollLeft}px)` }}
+                  >
+                    <table className="border-separate border-spacing-0 text-sm">
+                      <colgroup>
+                        {paychecks.map((p) => (
+                          <col key={p.id} style={{ width: W.pay }} />
+                        ))}
+                      </colgroup>
+                      {totalsBuckets.map((bucket) => (
+                        <tbody key={bucket.id}>
+                          {bucket.categories.map((category) => {
+                            const row = totalsRows.find(
+                              (r) => r.key === category.id,
+                            )!
+                            const topBorder = groupDividerTopClass(
+                              row.showBucketDivider ||
+                                (row.isFirstInBucket &&
+                                  totalsBuckets[0]?.id === bucket.id),
+                            )
+                            return (
+                              <tr
+                                key={category.id}
+                                ref={(el) => setRightRowRef(category.id, el)}
+                              >
+                                {paychecks.map((p, i) => {
+                                  const value = computeTotalForDate(
+                                    buckets,
+                                    category.totalSources,
+                                    p.date,
+                                  )
+                                  const isUpcoming =
+                                    p.id === currentPaycheckId
+                                  const isPast =
+                                    p.completed ||
+                                    (upcomingIndex >= 0 && i < upcomingIndex)
+                                  return (
+                                    <td
+                                      key={p.id}
+                                      className={cn(
+                                        "relative px-1",
+                                        totalsBg,
+                                        isUpcoming && !isPast
+                                          ? "text-[#3A121C]"
+                                          : "text-muted-foreground",
+                                        payColumnBorderClass(paychecks, i),
+                                        topBorder,
+                                      )}
+                                      style={{
+                                        width: W.pay,
+                                        minWidth: W.pay,
+                                      }}
+                                    >
+                                      <div className="flex h-9 items-center justify-end px-2">
+                                        <span className="text-sm tabular-nums">
+                                          {value === 0
+                                            ? ""
+                                            : formatMoney(value)}
+                                        </span>
+                                      </div>
+                                    </td>
+                                  )
+                                })}
+                              </tr>
+                            )
+                          })}
+                        </tbody>
+                      ))}
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </>
+          ) : null}
         </div>
 
         {upcomingIndex >= 0 ? (
@@ -857,6 +1139,7 @@ export function BudgetGrid({
         }
         open={!!bucketDialog}
         bucket={bucketDialog?.mode === "edit" ? bucketDialog.bucket : null}
+        allBuckets={buckets}
         paychecks={paychecks}
         onOpenChange={(open) => {
           if (!open) setBucketDialog(null)

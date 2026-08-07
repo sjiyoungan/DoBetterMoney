@@ -1,6 +1,6 @@
 export type UserRole = "liz" | "ji"
 
-export type BucketKind = "spending" | "savings" | "holder" | "income"
+export type BucketKind = "spending" | "savings" | "holder" | "income" | "totals"
 
 export type PayFrequency = "weekly" | "biweekly" | "monthly"
 export type CategoryVariability = "fixed" | "variable"
@@ -23,6 +23,18 @@ export type IncomeRecurrence = {
   /** ISO date — series starts on/after this day */
   startDate: string
   ends: RecurrenceEnds
+}
+
+/**
+ * One group included in a Totals row.
+ * `categoryIds: "all"` sums every visible category in the group;
+ * otherwise only the listed category IDs.
+ */
+export type TotalSource = {
+  bucketId: string
+  categoryIds: "all" | string[]
+  /** Default "add". Use "subtract" for remaining-style rows. */
+  op?: "add" | "subtract"
 }
 
 export type Category = {
@@ -50,6 +62,8 @@ export type Category = {
   hidden?: boolean
   /** amount planned per paycheck date (ISO date -> amount) */
   allocations: Record<string, number | "">
+  /** Totals rows: which groups/categories to include in the per-paycheck sum */
+  totalSources?: TotalSource[]
 }
 
 export type Bucket = {

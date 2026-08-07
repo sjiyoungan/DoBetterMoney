@@ -8,6 +8,7 @@ import {
 } from "react"
 import { Eye, EyeOff, Menu, Pencil, Plus, Trash2 } from "lucide-react"
 import { FrequencyEditor } from "@/components/dashboard/FrequencyEditor"
+import { TotalsSourcesEditor } from "@/components/dashboard/TotalsSourcesEditor"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -32,6 +33,7 @@ import {
   legacyFrequencyToRecurrence,
 } from "@/lib/recurrence"
 import { isReorderNoOp, reorderById } from "@/lib/reorder"
+import { formatSourcesSummary } from "@/lib/totals"
 import type {
   Bucket,
   BucketKind,
@@ -40,9 +42,10 @@ import type {
   IncomeRecurrence,
   PayFrequency,
   Paycheck,
+  TotalSource,
 } from "@/types/budget"
 
-export type BucketDraftType = "expenses" | "savings" | "income"
+export type BucketDraftType = "expenses" | "savings" | "income" | "totals"
 
 type CategoryDraft = {
   id: string
@@ -54,11 +57,14 @@ type CategoryDraft = {
   recurrence: IncomeRecurrence | null
   variability: CategoryVariability | ""
   hidden: boolean
+  totalSources: TotalSource[]
 }
 
 type Props = {
   open: boolean
   bucket?: Bucket | null
+  /** All year buckets — used when configuring Totals sources */
+  allBuckets?: Bucket[]
   paychecks?: Paycheck[]
   onOpenChange: (open: boolean) => void
   onAdd: (bucket: Bucket) => void
@@ -78,11 +84,14 @@ const COL_INC =
   "grid-cols-[24px_minmax(0,238px)_68px_minmax(11rem,1fr)_28px_24px]" as const
 const COL_SAV =
   "grid-cols-[24px_minmax(0,1fr)_68px_68px_28px_24px]" as const
+const COL_TOT =
+  "grid-cols-[24px_minmax(0,200px)_minmax(11rem,1fr)_28px_24px]" as const
 
 const TYPE_LABEL: Record<BucketDraftType, string> = {
   expenses: "Expenses",
   savings: "Savings",
   income: "Income",
+  totals: "Totals",
 }
 
 const FREQUENCY_OPTIONS: { value: PayFrequency; label: string }[] = [
@@ -102,18 +111,21 @@ function newDraft(): CategoryDraft {
     recurrence: null,
     variability: "",
     hidden: false,
+    totalSources: [],
   }
 }
 
 function mapType(type: BucketDraftType): BucketKind {
   if (type === "savings") return "savings"
   if (type === "income") return "income"
+  if (type === "totals") return "totals"
   return "spending"
 }
 
 function kindToDraftType(kind: BucketKind): BucketDraftType {
   if (kind === "savings") return "savings"
   if (kind === "income") return "income"
+  if (kind === "totals") return "totals"
   return "expenses"
 }
 
@@ -163,6 +175,7 @@ function bucketToDrafts(bucket: Bucket): CategoryDraft[] {
       (cat.frequency ? legacyFrequencyToRecurrence(cat.frequency) : null),
     variability: cat.variability ?? "",
     hidden: !!cat.hidden,
+    totalSources: cat.totalSources ? [...cat.totalSources] : [],
   }))
 }
 
@@ -278,6 +291,16 @@ function draftsToBucket(
       }
     }
 
+    if (bucketKind === "totals") {
+      return {
+        id: prev?.id ?? crypto.randomUUID(),
+        name: d.name.trim(),
+        allocations: {},
+        totalSources: d.totalSources,
+        ...(d.hidden ? { hidden: true } : {}),
+      }
+    }
+
     return {
       ...base,
       ...(amount !== undefined
@@ -314,6 +337,7 @@ function snapshotKey(
       recurrence: d.recurrence,
       variability: d.variability,
       hidden: d.hidden,
+      totalSources: d.totalSources,
     })),
   })
 }
@@ -419,7 +443,8 @@ function draftHasData(d: CategoryDraft) {
     d.name.trim() !== "" ||
     d.amount.trim() !== "" ||
     d.goal.trim() !== "" ||
-    d.dueDay.trim() !== ""
+    d.dueDay.trim() !== "" ||
+    d.totalSources.length > 0
   )
 }
 
@@ -536,6 +561,7 @@ function isDueDayInvalid(dueDay: string) {
 export function AddBucketDialog({
   open,
   bucket = null,
+  allBuckets = [],
   paychecks = [],
   onOpenChange,
   onAdd,
@@ -552,6 +578,7 @@ export function AddBucketDialog({
   const [typeOpen, setTypeOpen] = useState(false)
   const [dueDayError, setDueDayError] = useState(false)
   const [frequencyDraftId, setFrequencyDraftId] = useState<string | null>(null)
+  const [sourcesDraftId, setSourcesDraftId] = useState<string | null>(null)
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const [dropBeforeId, setDropBeforeId] = useState<string | null | undefined>(
     undefined,
@@ -581,6 +608,7 @@ export function AddBucketDialog({
     setTypeOpen(false)
     setDueDayError(false)
     setFrequencyDraftId(null)
+    setSourcesDraftId(null)
     setDraggingId(null)
     setDropBeforeId(undefined)
   }, [open, bucket])
@@ -661,10 +689,26 @@ export function AddBucketDialog({
   const frequencyTarget = frequencyDraftId
     ? drafts.find((d) => d.id === frequencyDraftId)
     : undefined
+  const sourcesTarget = sourcesDraftId
+    ? drafts.find((d) => d.id === sourcesDraftId)
+    : undefined
   const removeTarget = removeId
     ? drafts.find((d) => d.id === removeId)
     : undefined
-  const nestedOpen = confirmOpen || !!removeId || !!frequencyDraftId
+  const nestedOpen =
+    confirmOpen || !!removeId || !!frequencyDraftId || !!sourcesDraftId
+
+  const sourceBuckets = useMemo(
+    () =>
+      allBuckets.filter(
+        (b) =>
+          b.kind !== "totals" &&
+          b.kind !== "holder" &&
+          (bucket ? b.id !== bucket.id : true) &&
+          b.categories.some((c) => !c.hidden),
+      ),
+    [allBuckets, bucket],
+  )
 
   function closeClean() {
     setConfirmOpen(false)
@@ -762,7 +806,7 @@ export function AddBucketDialog({
             return
           }
           // Nested confirm dialogs — don't treat as closing the group dialog
-          if (confirmOpen || removeId || frequencyDraftId) return
+          if (confirmOpen || removeId || frequencyDraftId || sourcesDraftId) return
           // Tab blur / backgrounding can emit a dismiss — keep the modal open
           if (document.visibilityState === "hidden") return
           requestClose()
@@ -773,14 +817,14 @@ export function AddBucketDialog({
           showCloseButton={false}
           onPointerDownOutside={(e) => {
             e.preventDefault()
-            if (confirmOpen || removeId || frequencyDraftId) return
+            if (confirmOpen || removeId || frequencyDraftId || sourcesDraftId) return
             // Ignore dismissals from leaving the browser tab
             if (document.visibilityState === "hidden") return
             requestClose()
           }}
           onInteractOutside={(e) => {
             e.preventDefault()
-            if (confirmOpen || removeId || frequencyDraftId) return
+            if (confirmOpen || removeId || frequencyDraftId || sourcesDraftId) return
             if (document.visibilityState === "hidden") return
             requestClose()
           }}
@@ -790,6 +834,10 @@ export function AddBucketDialog({
           }}
           onEscapeKeyDown={(e) => {
             e.preventDefault()
+            if (sourcesDraftId) {
+              setSourcesDraftId(null)
+              return
+            }
             if (frequencyDraftId) {
               setFrequencyDraftId(null)
               return
@@ -812,6 +860,16 @@ export function AddBucketDialog({
               onSave={(next) => {
                 updateDraft(frequencyTarget.id, { recurrence: next })
                 setFrequencyDraftId(null)
+              }}
+            />
+          ) : sourcesTarget ? (
+            <TotalsSourcesEditor
+              value={sourcesTarget.totalSources}
+              sourceBuckets={sourceBuckets}
+              onCancel={() => setSourcesDraftId(null)}
+              onSave={(next) => {
+                updateDraft(sourcesTarget.id, { totalSources: next })
+                setSourcesDraftId(null)
               }}
             />
           ) : (
@@ -851,6 +909,7 @@ export function AddBucketDialog({
                   >
                     <SelectItem value="expenses">Expenses</SelectItem>
                     <SelectItem value="savings">Savings</SelectItem>
+                    <SelectItem value="totals">Totals</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -924,6 +983,19 @@ export function AddBucketDialog({
                 <span>Category</span>
                 <span>Income</span>
                 <span>Frequency</span>
+                <span />
+                <span />
+              </div>
+            ) : bucketType === "totals" ? (
+              <div
+                className={cn(
+                  "grid gap-2 text-xs font-medium text-muted-foreground",
+                  COL_TOT,
+                )}
+              >
+                <span />
+                <span>Name</span>
+                <span>Sources</span>
                 <span />
                 <span />
               </div>
@@ -1080,6 +1152,71 @@ export function AddBucketDialog({
                 )
               }
 
+              if (bucketType === "totals") {
+                const sourcesLabel = formatSourcesSummary(
+                  sourceBuckets,
+                  draft.totalSources,
+                )
+                const hasSources = draft.totalSources.length > 0
+                return (
+                  <div
+                    key={draft.id}
+                    ref={(el) => setRowRef(draft.id, el)}
+                    className={cn(
+                      draftRowClass(draft.hidden, COL_TOT),
+                      draggingId === draft.id && "opacity-50",
+                    )}
+                  >
+                    <CategoryDropLine show={showTopLine} edge="top" />
+                    <CategoryDropLine show={showBottomLine} edge="bottom" />
+                    <HideToggle
+                      hidden={draft.hidden}
+                      onToggle={() =>
+                        updateDraft(draft.id, { hidden: !draft.hidden })
+                      }
+                    />
+                    <Input
+                      className={cn(fieldH, dimField(draft.hidden))}
+                      value={draft.name}
+                      onChange={(e) =>
+                        updateDraft(draft.id, { name: e.target.value })
+                      }
+                      placeholder="e.g. Send to Ji"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className={cn(
+                        fieldH,
+                        "w-full justify-start truncate px-3 font-normal",
+                        !hasSources && "text-muted-foreground",
+                        dimTrigger(draft.hidden),
+                      )}
+                      onClick={() => setSourcesDraftId(draft.id)}
+                    >
+                      {sourcesLabel}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      className={cn(
+                        "justify-self-end hover:bg-transparent",
+                        draft.hidden
+                          ? "text-neutral-400 hover:text-neutral-400"
+                          : "text-muted-foreground",
+                      )}
+                      disabled={drafts.length === 1}
+                      onClick={() => requestRemove(draft.id)}
+                      title="Remove total"
+                    >
+                      <Trash2 className="size-3.5" />
+                    </Button>
+                    {grip}
+                  </div>
+                )
+              }
+
               return (
                 <div
                   key={draft.id}
@@ -1211,7 +1348,11 @@ export function AddBucketDialog({
               onClick={() => setDrafts((prev) => [...prev, newDraft()])}
             >
               <Plus className="size-3.5" />
-              {bucketType === "income" ? "Add another income" : "Add category"}
+              {bucketType === "income"
+                ? "Add another income"
+                : bucketType === "totals"
+                  ? "Add total"
+                  : "Add category"}
             </Button>
             {dueDayError ? (
               <p className="text-xs text-destructive">
