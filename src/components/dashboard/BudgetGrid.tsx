@@ -632,8 +632,16 @@ function AmountCell({
   const [showFutureHint, setShowFutureHint] = useState(false)
   const startValueRef = useRef(value)
   const rootRef = useRef<HTMLDivElement>(null)
+  const hintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const suppressApplyUntilRef = useRef(0)
   const hasAmount = value !== "" && Number(value) !== 0
   const canCheck = hasAmount && (showCheck || done)
+
+  useEffect(() => {
+    return () => {
+      if (hintTimerRef.current) clearTimeout(hintTimerRef.current)
+    }
+  }, [])
 
   useEffect(() => {
     if (!showFutureHint) return
@@ -646,25 +654,41 @@ function AmountCell({
     return () => document.removeEventListener("pointerdown", onPointerDown)
   }, [showFutureHint])
 
+  function clearHintTimer() {
+    if (hintTimerRef.current) {
+      clearTimeout(hintTimerRef.current)
+      hintTimerRef.current = null
+    }
+  }
+
+  function offerApplyToFuture() {
+    // Delay showing the chip so the click/tap that blurred the input
+    // cannot land on "Apply to future" and fan the value out.
+    clearHintTimer()
+    suppressApplyUntilRef.current = Date.now() + 500
+    hintTimerRef.current = setTimeout(() => {
+      setShowFutureHint(true)
+      hintTimerRef.current = null
+    }, 250)
+  }
+
   return (
     <div ref={rootRef} className="group/cell relative flex h-9 items-center gap-1 px-1">
       {showFutureHint ? (
-        <div className="absolute -top-1 right-0 z-30 flex translate-y-[-100%] items-center gap-0.5 rounded-md border border-neutral-200 bg-white px-1 py-0.5 shadow-sm dark:border-neutral-700 dark:bg-neutral-900">
-          <span className="px-1 text-[10px] leading-none text-muted-foreground whitespace-nowrap">
-            Apply to future
-          </span>
+        <div className="absolute -top-1 right-0 z-30 flex translate-y-[-100%] items-center rounded-md border border-neutral-200 bg-white shadow-sm dark:border-neutral-700 dark:bg-neutral-900">
           <button
             type="button"
-            title="Apply to matching future pay periods"
-            className="inline-flex size-5 items-center justify-center rounded-sm text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-foreground"
+            title="Apply this amount to matching future pay periods"
+            className="px-1.5 py-1 text-[10px] leading-none text-muted-foreground transition-colors hover:bg-neutral-100 hover:text-foreground whitespace-nowrap"
             onMouseDown={(e) => e.preventDefault()}
             onClick={(e) => {
               e.stopPropagation()
+              if (Date.now() < suppressApplyUntilRef.current) return
               onApplyToFuture(value)
               setShowFutureHint(false)
             }}
           >
-            <Check className="size-3" strokeWidth={2.5} />
+            Apply to future
           </button>
         </div>
       ) : null}
@@ -704,6 +728,7 @@ function AmountCell({
         )}
         onClick={() => {
           startValueRef.current = value
+          clearHintTimer()
           setEditing(true)
           setShowFutureHint(false)
         }}
@@ -726,7 +751,7 @@ function AmountCell({
               const next =
                 value.trim() === "" || Number(value) === 0 ? "" : value
               if (next !== startValueRef.current) {
-                setShowFutureHint(true)
+                offerApplyToFuture()
               }
             }}
             onKeyDown={(e) => {
@@ -734,6 +759,7 @@ function AmountCell({
               if (e.key === "Escape") {
                 onChange(startValueRef.current)
                 setEditing(false)
+                clearHintTimer()
                 setShowFutureHint(false)
               }
             }}
