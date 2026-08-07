@@ -458,7 +458,7 @@ export default function App() {
 
   function onCategoryFieldChange(
     categoryId: string,
-    field: "goal",
+    field: "goal" | "amount",
     value: string,
   ) {
     recordHistory(`field:${categoryId}:${field}`)
@@ -471,13 +471,27 @@ export default function App() {
             if (cat.id !== categoryId) return cat
             const trimmed = value.trim()
             if (trimmed === "") {
-              return { ...cat, [field]: undefined }
+              if (field === "amount") {
+                return {
+                  ...cat,
+                  amount: undefined,
+                  recurringAmount: undefined,
+                  minPayment: undefined,
+                }
+              }
+              return { ...cat, goal: undefined }
             }
             const parsed = Number(trimmed.replace(/,/g, ""))
-            return {
-              ...cat,
-              [field]: Number.isFinite(parsed) ? parsed : cat[field],
+            if (!Number.isFinite(parsed)) return cat
+            if (field === "amount") {
+              return {
+                ...cat,
+                amount: parsed,
+                recurringAmount: parsed,
+                isRecurring: true,
+              }
             }
+            return { ...cat, goal: parsed }
           }),
         })),
       })),

@@ -30,7 +30,7 @@ type Props = {
   onAmountCommit?: () => void
   onCategoryFieldChange: (
     categoryId: string,
-    field: "goal",
+    field: "goal" | "amount",
     value: string,
   ) => void
   onAddBucket: (bucket: Bucket) => void
@@ -45,7 +45,7 @@ type Props = {
   saveStatus?: "idle" | "saving" | "saved" | "error"
 }
 
-const W = { bucket: 92, category: 168, goal: 96, balance: 96, pay: 128 } as const
+const W = { bucket: 92, category: 168, goal: 110, balance: 96, pay: 128 } as const
 const LEFT_WIDTH = W.bucket + W.category + W.goal + W.balance
 
 const paneBg = "bg-white dark:bg-background"
@@ -500,7 +500,7 @@ export function BudgetGrid({
                       paneBg,
                     )}
                   >
-                    Goal
+                    Goal/payment
                   </th>
                   <th
                     className={cn(
@@ -538,6 +538,7 @@ export function BudgetGrid({
                   {bucket.categories.map((category) => {
                     const row = rows.find((r) => r.key === category.id)!
                     const isSavings = bucket.kind === "savings"
+                    const isExpense = bucket.kind === "spending"
                     const fullBucket =
                       buckets.find((b) => b.id === bucket.id) ?? bucket
                     const dropBefore = isDropBeforeBucket(bucket.id)
@@ -557,6 +558,10 @@ export function BudgetGrid({
                           category.allocations,
                         )
                       : undefined
+                    const paymentAmount =
+                      category.amount ??
+                      category.recurringAmount ??
+                      category.minPayment
 
                     return (
                       <tr
@@ -631,6 +636,21 @@ export function BudgetGrid({
                               }
                               onChange={(value) =>
                                 onCategoryFieldChange(category.id, "goal", value)
+                              }
+                            />
+                          ) : isExpense ? (
+                            <MoneyField
+                              value={
+                                paymentAmount === undefined
+                                  ? ""
+                                  : String(paymentAmount)
+                              }
+                              onChange={(value) =>
+                                onCategoryFieldChange(
+                                  category.id,
+                                  "amount",
+                                  value,
+                                )
                               }
                             />
                           ) : null}
