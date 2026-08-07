@@ -113,7 +113,14 @@ export function FrequencyEditor({ value, onCancel, onSave }: Props) {
             <SelectTrigger className="h-10 w-full">
               <SelectValue placeholder="Select" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent
+              position="popper"
+              side="bottom"
+              sideOffset={4}
+              avoidCollisions={false}
+              align="start"
+              className="w-[var(--radix-select-trigger-width)]"
+            >
               <SelectItem value="dates">On dates in the month</SelectItem>
               <SelectItem value="weekday">On a day of the week</SelectItem>
             </SelectContent>

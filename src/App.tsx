@@ -19,12 +19,15 @@ import type { Bucket, BudgetWorkspace, UserRole } from "@/types/budget"
 
 export default function App() {
   const { user, profile, setPreferredRole, signOut } = useAuth()
+  const freshPreview =
+    typeof window !== "undefined" &&
+    new URLSearchParams(window.location.search).has("fresh")
   const [role, setRole] = useState<UserRole>("liz")
   const [workspaceId, setWorkspaceId] = useState<string | null>(null)
   const [workspace, setWorkspace] = useState<BudgetWorkspace>(emptyWorkspace)
   const [selectedPaycheckId, setSelectedPaycheckId] = useState("")
   const [doneKeys, setDoneKeys] = useState<Set<string>>(new Set())
-  const [loadingWorkspace, setLoadingWorkspace] = useState(true)
+  const [loadingWorkspace, setLoadingWorkspace] = useState(!freshPreview)
   const [saveError, setSaveError] = useState<string | null>(null)
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const readyToSave = useRef(false)
@@ -34,6 +37,15 @@ export default function App() {
   }, [profile?.preferred_role])
 
   useEffect(() => {
+    if (freshPreview) {
+      setWorkspace(emptyWorkspace)
+      setWorkspaceId(null)
+      setDoneKeys(new Set())
+      setSelectedPaycheckId("")
+      setLoadingWorkspace(false)
+      readyToSave.current = false
+      return
+    }
     if (!user?.id) return
     let cancelled = false
     setLoadingWorkspace(true)
@@ -76,9 +88,10 @@ export default function App() {
     return () => {
       cancelled = true
     }
-  }, [user?.id])
+  }, [user?.id, freshPreview])
 
   useEffect(() => {
+    if (freshPreview) return
     if (!user?.id || !workspaceId || !readyToSave.current) return
     if (saveTimer.current) clearTimeout(saveTimer.current)
 
@@ -91,7 +104,7 @@ export default function App() {
     return () => {
       if (saveTimer.current) clearTimeout(saveTimer.current)
     }
-  }, [workspace, doneKeys, workspaceId, user?.id])
+  }, [workspace, doneKeys, workspaceId, user?.id, freshPreview])
 
   async function onUserChange(next: UserRole) {
     setRole(next)
@@ -236,6 +249,14 @@ export default function App() {
         onSignOut={signOut}
         username={profile?.username}
       />
+
+      {freshPreview ? (
+        <div className="border-b border-amber-200 bg-amber-50 px-[60px] py-2 text-xs text-amber-900">
+          Fresh preview — empty workspace, not saved to your account. Remove{" "}
+          <code className="font-mono">?fresh</code> from the URL to use your
+          real data.
+        </div>
+      ) : null}
 
       {saveError ? (
         <div className="border-b border-destructive/30 bg-destructive/10 px-[60px] py-2 text-xs text-destructive">
