@@ -471,14 +471,14 @@ export function BudgetGrid({
                       paneBg,
                     )}
                   >
-                    <div className="flex items-center justify-center gap-1.5">
+                    <div className="flex items-center justify-center gap-2">
                       <span>Group</span>
                       <button
                         type="button"
                         title="Add group"
                         aria-label="Add group"
                         onClick={() => setBucketDialog({ mode: "create" })}
-                        className="inline-flex size-8 shrink-0 items-center justify-center text-muted-foreground transition-colors hover:text-foreground"
+                        className="-mr-1 inline-flex size-8 shrink-0 items-center justify-start text-muted-foreground transition-colors hover:text-foreground"
                       >
                         <CirclePlus className="size-5" strokeWidth={1.75} />
                       </button>
