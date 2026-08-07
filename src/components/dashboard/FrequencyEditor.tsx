@@ -30,18 +30,25 @@ function toggleNumber(list: number[], value: number) {
       })
 }
 
-function kindFromRecurrence(r: IncomeRecurrence): PayKind {
-  return r.unit === "week" ? "weekday" : "dates"
+function kindFromRecurrence(r: IncomeRecurrence | null): PayKind | null {
+  if (!r) return null
+  if (r.unit === "week" && r.weekdays.length > 0) return "weekday"
+  if (r.unit === "month" && r.monthDays.length > 0) return "dates"
+  return null
 }
 
 export function FrequencyEditor({ value, onCancel, onSave }: Props) {
-  const initial = value ?? defaultRecurrence()
-  const [draft, setDraft] = useState<IncomeRecurrence>(initial)
-  const [kind, setKind] = useState<PayKind>(() => kindFromRecurrence(initial))
+  const [draft, setDraft] = useState<IncomeRecurrence>(
+    () => value ?? defaultRecurrence(),
+  )
+  const [kind, setKind] = useState<PayKind | null>(() =>
+    kindFromRecurrence(value),
+  )
 
   const canSave = useMemo(() => {
     if (kind === "dates") return draft.monthDays.length > 0
-    return draft.weekdays.length > 0 && draft.interval >= 1
+    if (kind === "weekday") return draft.weekdays.length > 0 && draft.interval >= 1
+    return false
   }, [kind, draft])
 
   function switchKind(next: PayKind) {
@@ -52,6 +59,7 @@ export function FrequencyEditor({ value, onCancel, onSave }: Props) {
           ...prev,
           unit: "month",
           interval: 1,
+          monthDays: prev.unit === "month" ? prev.monthDays : [],
           ends: { kind: "never" },
           startDate: prev.startDate || todayIso(),
         }
@@ -77,12 +85,14 @@ export function FrequencyEditor({ value, onCancel, onSave }: Props) {
       })
       return
     }
-    onSave({
-      ...draft,
-      unit: "week",
-      interval: Math.max(1, draft.interval),
-      ends: { kind: "never" },
-    })
+    if (kind === "weekday") {
+      onSave({
+        ...draft,
+        unit: "week",
+        interval: Math.max(1, draft.interval),
+        ends: { kind: "never" },
+      })
+    }
   }
 
   return (
@@ -97,11 +107,11 @@ export function FrequencyEditor({ value, onCancel, onSave }: Props) {
             How do you get paid?
           </p>
           <Select
-            value={kind}
+            value={kind ?? undefined}
             onValueChange={(v) => switchKind(v as PayKind)}
           >
             <SelectTrigger className="h-10 w-full">
-              <SelectValue />
+              <SelectValue placeholder="Select" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="dates">On dates in the month</SelectItem>
@@ -156,7 +166,9 @@ export function FrequencyEditor({ value, onCancel, onSave }: Props) {
               </button>
             </div>
           </div>
-        ) : (
+        ) : null}
+
+        {kind === "weekday" ? (
           <div className="space-y-4">
             <div className="flex flex-wrap gap-2">
               {WEEKDAY_SHORT.map((label, day) => {
@@ -200,7 +212,7 @@ export function FrequencyEditor({ value, onCancel, onSave }: Props) {
               <span className="text-sm text-foreground">weeks</span>
             </div>
           </div>
-        )}
+        ) : null}
       </div>
 
       <div className="mt-8 flex items-center justify-end gap-3">
