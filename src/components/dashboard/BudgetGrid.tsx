@@ -122,9 +122,21 @@ export function BudgetGrid({
     [buckets],
   )
 
+  /** Visible rows only — hidden categories stay in stored data / edit modal. */
+  const displayBuckets = useMemo(
+    () =>
+      orderedBuckets
+        .map((bucket) => ({
+          ...bucket,
+          categories: bucket.categories.filter((c) => !c.hidden),
+        }))
+        .filter((bucket) => bucket.categories.length > 0),
+    [orderedBuckets],
+  )
+
   const rows = useMemo(() => {
     const result: GridRow[] = []
-    orderedBuckets.forEach((bucket, bucketIndex) => {
+    displayBuckets.forEach((bucket, bucketIndex) => {
       bucket.categories.forEach((category, rowIndex) => {
         result.push({
           key: category.id,
@@ -136,7 +148,7 @@ export function BudgetGrid({
       })
     })
     return result
-  }, [orderedBuckets])
+  }, [displayBuckets])
 
   const today = useMemo(() => new Date().toISOString().slice(0, 10), [])
 
@@ -304,11 +316,13 @@ export function BudgetGrid({
                 </tr>
               </thead>
 
-              {orderedBuckets.map((bucket) => (
+              {displayBuckets.map((bucket) => (
                 <tbody key={bucket.id}>
                   {bucket.categories.map((category) => {
                     const row = rows.find((r) => r.key === category.id)!
                     const isSavings = bucket.kind === "savings"
+                    const fullBucket =
+                      buckets.find((b) => b.id === bucket.id) ?? bucket
 
                     return (
                       <tr
@@ -329,7 +343,10 @@ export function BudgetGrid({
                               type="button"
                               title={`Edit ${bucket.name}`}
                               onClick={() =>
-                                setBucketDialog({ mode: "edit", bucket })
+                                setBucketDialog({
+                                  mode: "edit",
+                                  bucket: fullBucket,
+                                })
                               }
                               className="absolute inset-0 flex items-center justify-center px-2 transition-colors hover:bg-neutral-100 hover:text-foreground"
                             >
@@ -460,7 +477,7 @@ export function BudgetGrid({
                   </tr>
                 </thead>
 
-                {orderedBuckets.map((bucket) => (
+                {displayBuckets.map((bucket) => (
                   <tbody key={bucket.id}>
                     {bucket.categories.map((category) => {
                       const row = rows.find((r) => r.key === category.id)!

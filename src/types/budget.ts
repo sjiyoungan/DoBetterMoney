@@ -46,6 +46,8 @@ export type Category = {
   /** Income pay schedule (drives calendar columns) */
   recurrence?: IncomeRecurrence
   variability?: CategoryVariability
+  /** When true, category stays in data but is hidden from the main grid */
+  hidden?: boolean
   /** amount planned per paycheck date (ISO date -> amount) */
   allocations: Record<string, number | "">
 }

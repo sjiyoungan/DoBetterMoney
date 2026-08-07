@@ -1,5 +1,5 @@
 import { useLayoutEffect, useMemo, useState } from "react"
-import { Pencil, Plus, Trash2 } from "lucide-react"
+import { Eye, EyeOff, Pencil, Plus, Trash2 } from "lucide-react"
 import { FrequencyEditor } from "@/components/dashboard/FrequencyEditor"
 import { Button } from "@/components/ui/button"
 import {
@@ -46,6 +46,7 @@ type CategoryDraft = {
   frequency: PayFrequency | ""
   recurrence: IncomeRecurrence | null
   variability: CategoryVariability | ""
+  hidden: boolean
 }
 
 type Props = {
@@ -63,13 +64,13 @@ const selectH = "h-10 w-full data-[size=default]:h-10"
 const selectTypeH = "h-10 w-full data-[size=default]:h-10"
 const selectFreqH = "h-10 w-full data-[size=default]:h-10"
 
-/** Expenses / income category row columns */
+/** Expenses / income category row columns — eye | fields… | trash */
 const COL_EXP =
-  "grid-cols-[minmax(0,200px)_68px_64px_9.75rem_7.5rem_40px]" as const
+  "grid-cols-[40px_minmax(0,200px)_68px_64px_9.75rem_7.5rem_40px]" as const
 const COL_INC =
-  "grid-cols-[minmax(0,238px)_68px_minmax(11rem,1fr)_40px]" as const
+  "grid-cols-[40px_minmax(0,238px)_68px_minmax(11rem,1fr)_40px]" as const
 const COL_SAV =
-  "grid-cols-[minmax(0,200px)_68px_68px_9.75rem_40px]" as const
+  "grid-cols-[40px_minmax(0,200px)_68px_68px_9.75rem_40px]" as const
 
 const TYPE_LABEL: Record<BucketDraftType, string> = {
   expenses: "Expenses",
@@ -93,6 +94,7 @@ function newDraft(): CategoryDraft {
     frequency: "",
     recurrence: null,
     variability: "",
+    hidden: false,
   }
 }
 
@@ -149,6 +151,7 @@ function bucketToDrafts(bucket: Bucket): CategoryDraft[] {
       cat.recurrence ??
       (cat.frequency ? legacyFrequencyToRecurrence(cat.frequency) : null),
     variability: cat.variability ?? "",
+    hidden: !!cat.hidden,
   }))
 }
 
@@ -228,6 +231,7 @@ function draftsToBucket(
       }),
       ...(d.variability ? { variability: d.variability } : {}),
       ...(frequency ? { frequency } : {}),
+      ...(d.hidden ? { hidden: true } : {}),
     }
 
     if (bucketKind === "savings") {
@@ -258,6 +262,7 @@ function draftsToBucket(
         ...(amount !== undefined ? { amount } : {}),
         ...(recurrence ? { recurrence } : {}),
         ...(derivedFreq ? { frequency: derivedFreq } : {}),
+        ...(d.hidden ? { hidden: true } : {}),
       }
     }
 
@@ -296,8 +301,45 @@ function snapshotKey(
       frequency: d.frequency,
       recurrence: d.recurrence,
       variability: d.variability,
+      hidden: d.hidden,
     })),
   })
+}
+
+function HideToggle({
+  hidden,
+  onToggle,
+}: {
+  hidden: boolean
+  onToggle: () => void
+}) {
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon-sm"
+      className={cn(
+        "text-muted-foreground",
+        hidden && "text-neutral-400 hover:text-neutral-500",
+      )}
+      onClick={onToggle}
+      title={hidden ? "Show category" : "Hide category"}
+    >
+      {hidden ? (
+        <EyeOff className="size-3.5" />
+      ) : (
+        <Eye className="size-3.5" />
+      )}
+    </Button>
+  )
+}
+
+function draftRowClass(hidden: boolean, cols: string) {
+  return cn(
+    "grid items-center gap-2 rounded-md px-1 -mx-1 py-1",
+    cols,
+    hidden && "bg-neutral-100 text-neutral-400",
+  )
 }
 
 function draftHasData(d: CategoryDraft) {
@@ -693,6 +735,7 @@ export function AddBucketDialog({
                   COL_SAV,
                 )}
               >
+                <span />
                 <span>Category</span>
                 <span>Amount</span>
                 <span>Goal</span>
@@ -706,6 +749,7 @@ export function AddBucketDialog({
                   COL_INC,
                 )}
               >
+                <span />
                 <span>Category</span>
                 <span>Income</span>
                 <span>Frequency</span>
@@ -718,6 +762,7 @@ export function AddBucketDialog({
                   COL_EXP,
                 )}
               >
+                <span />
                 <span>Category</span>
                 <span>Payment</span>
                 <span>Due day</span>
@@ -730,7 +775,16 @@ export function AddBucketDialog({
             {drafts.map((draft) => {
               if (bucketType === "savings") {
                 return (
-                  <div key={draft.id} className={cn("grid items-center gap-2", COL_SAV)}>
+                  <div
+                    key={draft.id}
+                    className={draftRowClass(draft.hidden, COL_SAV)}
+                  >
+                    <HideToggle
+                      hidden={draft.hidden}
+                      onToggle={() =>
+                        updateDraft(draft.id, { hidden: !draft.hidden })
+                      }
+                    />
                     <Input
                       className={fieldH}
                       value={draft.name}
@@ -787,7 +841,16 @@ export function AddBucketDialog({
 
               if (bucketType === "income") {
                 return (
-                  <div key={draft.id} className={cn("grid items-center gap-2", COL_INC)}>
+                  <div
+                    key={draft.id}
+                    className={draftRowClass(draft.hidden, COL_INC)}
+                  >
+                    <HideToggle
+                      hidden={draft.hidden}
+                      onToggle={() =>
+                        updateDraft(draft.id, { hidden: !draft.hidden })
+                      }
+                    />
                     <Input
                       className={fieldH}
                       value={draft.name}
@@ -830,7 +893,16 @@ export function AddBucketDialog({
               }
 
               return (
-                <div key={draft.id} className={cn("grid items-center gap-2", COL_EXP)}>
+                <div
+                  key={draft.id}
+                  className={draftRowClass(draft.hidden, COL_EXP)}
+                >
+                  <HideToggle
+                    hidden={draft.hidden}
+                    onToggle={() =>
+                      updateDraft(draft.id, { hidden: !draft.hidden })
+                    }
+                  />
                   <Input
                     className={fieldH}
                     value={draft.name}
