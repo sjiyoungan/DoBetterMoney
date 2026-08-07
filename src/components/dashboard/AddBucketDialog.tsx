@@ -22,7 +22,6 @@ import { cn } from "@/lib/utils"
 import { prefillAllocations, mergeAllocationsOntoPaychecks } from "@/lib/allocations"
 import {
   formatRecurrenceSummary,
-  isRecurrenceComplete,
   legacyFrequencyToRecurrence,
 } from "@/lib/recurrence"
 import type {
@@ -525,13 +524,6 @@ export function AddBucketDialog({
     bucketName.trim() !== "" &&
     bucketType !== "" &&
     drafts.some((d) => d.name.trim() !== "") &&
-    drafts
-      .filter((d) => d.name.trim() !== "")
-      .every((d) =>
-        bucketType === "income"
-          ? isRecurrenceComplete(d.recurrence)
-          : d.frequency !== "",
-      ) &&
     !drafts.some((d) => isDueDayInvalid(d.dueDay))
 
   const frequencyTarget = frequencyDraftId

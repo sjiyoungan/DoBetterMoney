@@ -259,9 +259,6 @@ export function FirstGroupForm({ paychecks, onCreate }: Props) {
       name.trim() !== "" &&
       type !== "" &&
       drafts.some((d) => d.name.trim() !== "") &&
-      drafts
-        .filter((d) => d.name.trim() !== "")
-        .every((d) => d.frequency !== "") &&
       !drafts.some((d) => isDueDayInvalid(d.dueDay)),
     [name, type, drafts],
   )
