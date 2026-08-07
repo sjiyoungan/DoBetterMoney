@@ -29,6 +29,7 @@ type Props = {
   onAddBucket: (bucket: Bucket) => void
   onUpdateBucket: (bucket: Bucket) => void
   onSetupIncome: (sources: IncomeSourceInput[]) => void
+  onPaycheckDateChange?: (paycheckId: string, date: string) => void
   canUndo?: boolean
   canRedo?: boolean
   onUndo?: () => void
@@ -88,6 +89,7 @@ export function BudgetGrid({
   onAddBucket,
   onUpdateBucket,
   onSetupIncome,
+  onPaycheckDateChange,
   canUndo = false,
   canRedo = false,
   onUndo,
@@ -437,8 +439,9 @@ export function BudgetGrid({
                         (p.completed ||
                           (upcomingIndex >= 0 && i < upcomingIndex))
                       return (
-                        <th
+                        <PayDateHeader
                           key={p.id}
+                          paycheck={p}
                           className={cn(
                             "border-b-2 border-b-neutral-900 px-1 py-3 text-center font-medium",
                             payColumnBorderClass(paychecks, i),
@@ -448,10 +451,10 @@ export function BudgetGrid({
                                 ? "bg-neutral-100 text-[#969696]"
                                 : cn(paneBg, "text-muted-foreground"),
                           )}
-                          style={{ width: W.pay, minWidth: W.pay }}
-                        >
-                          {formatPayDate(p.date)}
-                        </th>
+                          onDateChange={(date) =>
+                            onPaycheckDateChange?.(p.id, date)
+                          }
+                        />
                       )
                     })}
                   </tr>
@@ -639,6 +642,80 @@ export function BudgetGrid({
         doneKeys={doneKeys}
       />
     </div>
+  )
+}
+
+function PayDateHeader({
+  paycheck,
+  className,
+  onDateChange,
+}: {
+  paycheck: Paycheck
+  className?: string
+  onDateChange: (date: string) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const wrapRef = useRef<HTMLTableCellElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const year = paycheck.date.slice(0, 4)
+
+  useEffect(() => {
+    if (!open) return
+    function onPointerDown(e: PointerEvent) {
+      if (!wrapRef.current?.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener("pointerdown", onPointerDown)
+    return () => document.removeEventListener("pointerdown", onPointerDown)
+  }, [open])
+
+  useEffect(() => {
+    if (!open) return
+    const input = inputRef.current
+    if (!input) return
+    input.focus()
+    try {
+      input.showPicker?.()
+    } catch {
+      // Older browsers: visible date field is enough
+    }
+  }, [open])
+
+  return (
+    <th
+      ref={wrapRef}
+      className={cn("relative", className)}
+      style={{ width: W.pay, minWidth: W.pay }}
+    >
+      <button
+        type="button"
+        className="w-full rounded-sm px-0.5 py-0.5 transition-colors hover:bg-black/5"
+        title="Change paycheck date"
+        onClick={() => setOpen((v) => !v)}
+      >
+        {formatPayDate(paycheck.date)}
+      </button>
+      {open ? (
+        <div className="absolute left-1/2 top-full z-50 mt-1 -translate-x-1/2 rounded-md border border-neutral-400 bg-white p-2 shadow-md dark:border-neutral-600 dark:bg-neutral-900">
+          <input
+            ref={inputRef}
+            type="date"
+            value={paycheck.date}
+            min={`${year}-01-01`}
+            max={`${year}-12-31`}
+            className="rounded border border-neutral-300 bg-white px-1.5 py-1 text-sm text-foreground outline-none dark:border-neutral-600 dark:bg-neutral-950"
+            onChange={(e) => {
+              const next = e.target.value
+              if (!next || next === paycheck.date) return
+              onDateChange(next)
+              setOpen(false)
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") setOpen(false)
+            }}
+          />
+        </div>
+      ) : null}
+    </th>
   )
 }
 

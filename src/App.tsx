@@ -5,6 +5,7 @@ import { HolderPanel } from "@/components/holder/HolderPanel"
 import { AppHeader } from "@/components/layout/AppHeader"
 import { createEmptyWorkspace, emptyWorkspace } from "@/data/empty"
 import { applyAmountToFuture } from "@/lib/apply-to-future"
+import { renamePaycheckDate } from "@/lib/paycheck-date"
 import {
   applyIncomeAllocations,
   buildIncomeBucket,
@@ -584,6 +585,15 @@ export default function App() {
     })
   }
 
+  function onPaycheckDateChange(paycheckId: string, date: string) {
+    recordHistory()
+    patchWorkspace((prev) =>
+      updateActiveYearBudget(prev, (year) =>
+        renamePaycheckDate(year, paycheckId, date),
+      ),
+    )
+  }
+
   function onToggleHolderFlag(
     paycheckId: string,
     field: "received" | "boaMoved" | "sofiMoved",
@@ -652,6 +662,7 @@ export default function App() {
             onAddBucket={onAddBucket}
             onUpdateBucket={onUpdateBucket}
             onSetupIncome={onSetupIncome}
+            onPaycheckDateChange={onPaycheckDateChange}
             canUndo={undoDepth > 0}
             canRedo={redoDepth > 0}
             onUndo={undo}
