@@ -7,6 +7,14 @@ function allocationAt(cat: Category, date: string): number {
   return Number.isFinite(n) ? n : 0
 }
 
+/** True when a cell has a non-empty, non-zero entered amount for this date. */
+function hasAllocationAt(cat: Category, date: string): boolean {
+  const raw = cat.allocations[date]
+  if (raw === "" || raw === undefined) return false
+  const n = Number(raw)
+  return Number.isFinite(n) && n !== 0
+}
+
 /** Resolve category IDs included by a total source within a bucket. */
 export function resolveSourceCategoryIds(
   bucket: Bucket,
@@ -47,6 +55,26 @@ export function computeTotalForDate(
   return total
 }
 
+/** Whether any configured Totals source has an entered amount on this date. */
+export function hasTotalInputsForDate(
+  buckets: Bucket[],
+  sources: TotalSource[] | undefined,
+  date: string,
+): boolean {
+  if (!sources || sources.length === 0) return false
+  const byId = new Map(buckets.map((b) => [b.id, b]))
+  for (const source of sources) {
+    const bucket = byId.get(source.bucketId)
+    if (!bucket || !isSummableSourceBucket(bucket)) continue
+    const ids = new Set(resolveSourceCategoryIds(bucket, source))
+    for (const cat of bucket.categories) {
+      if (!ids.has(cat.id)) continue
+      if (hasAllocationAt(cat, date)) return true
+    }
+  }
+  return false
+}
+
 /**
  * Leftover to allocate for one paycheck:
  * income − expenses − savings (visible categories only; skips totals / budget_calc / holder).
@@ -77,6 +105,30 @@ export function computeBudgetCalcForDate(
     }
   }
   return income - expenses - savings
+}
+
+/**
+ * Whether budget calc has any income / expense / savings input on this date.
+ * Empty paycheck columns stay blank in the footer (not "$0").
+ */
+export function hasBudgetCalcInputsForDate(
+  buckets: Bucket[],
+  date: string,
+): boolean {
+  for (const bucket of buckets) {
+    if (
+      bucket.kind !== "income" &&
+      bucket.kind !== "spending" &&
+      bucket.kind !== "savings"
+    ) {
+      continue
+    }
+    for (const cat of bucket.categories) {
+      if (cat.hidden) continue
+      if (hasAllocationAt(cat, date)) return true
+    }
+  }
+  return false
 }
 
 export function computeTotalsRow(

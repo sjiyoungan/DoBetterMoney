@@ -20,6 +20,8 @@ import { isReorderNoOp } from "@/lib/reorder"
 import {
   computeBudgetCalcForDate,
   computeTotalForDate,
+  hasBudgetCalcInputsForDate,
+  hasTotalInputsForDate,
 } from "@/lib/totals"
 import { cn } from "@/lib/utils"
 import type { Bucket, Category, Paycheck } from "@/types/budget"
@@ -54,6 +56,12 @@ const LEFT_WIDTH = W.bucket + W.category + W.goal + W.balance
 const paneBg = "bg-white dark:bg-background"
 /** Totals footer rows — light grey so they read as summary, not editable cells */
 const totalsBg = "bg-neutral-100 dark:bg-neutral-900"
+/** Top edge of Totals footer — darker than border/60 so it reads on the grey fill */
+const totalsDividerTop = "border-t-2 border-t-neutral-400"
+/** Upcoming paycheck column tint (a step darker than the prior blush fill) */
+const upcomingFill =
+  "bg-[#F3E4E8] text-[#3A121C] dark:bg-rose-950/20 dark:text-rose-100"
+const upcomingStrokeSide = "border-l-2 border-l-[#C9A8AE] border-r-2 border-r-[#C9A8AE]"
 
 /** Right edge of column i is a month boundary when the next paycheck is a new month. */
 function isMonthBoundaryAfter(
@@ -77,8 +85,28 @@ function groupDividerTopClass(showDivider: boolean) {
   return showDivider ? "border-t-2 border-t-neutral-900" : undefined
 }
 
+/** Totals footer section top (body → footer) and between footer groups on grey fill. */
+function totalsDividerTopClass(showDivider: boolean) {
+  return showDivider ? totalsDividerTop : undefined
+}
+
 function groupDividerBottomClass(isLastInBucket: boolean) {
   return !isLastInBucket ? "border-b border-b-border/60" : undefined
+}
+
+/** Upcoming paycheck column fill + matching L/R (and optional top/bottom) pink stroke. */
+function upcomingColumnClass(opts: {
+  active: boolean
+  top?: boolean
+  bottom?: boolean
+}) {
+  if (!opts.active) return undefined
+  return cn(
+    upcomingFill,
+    upcomingStrokeSide,
+    opts.top && "border-t-2 border-t-[#C9A8AE]",
+    opts.bottom && "border-b-2 border-b-[#C9A8AE]",
+  )
 }
 
 function DropLine({
@@ -114,11 +142,11 @@ type GridRow = {
  *
  * Left pane (Group → Balance) does not scroll horizontally.
  * Right pane (paycheck columns) scrolls independently.
- * Outer frame owns 8px radius + clip. Upcoming stroke overlays the card
- * border (sibling, not clipped) so top/bottom sit on the frame edge.
+ * Sticky header and Totals footer sit outside body overflow so they can pin
+ * to the viewport. Right header/footer sync horizontally via translateX with
+ * the paycheck scroller. Upcoming column uses cell-level pink fill + L/R
+ * stroke (bottom stroke on footer only when not stuck).
  * Left pane owns the horizontal scroll shadow.
- * Totals footer uses sticky bottom:0 (outside overflow-hidden) with an upward
- * shadow when content scrolls underneath.
  */
 export function BudgetGrid({
   buckets,
@@ -136,6 +164,8 @@ export function BudgetGrid({
   onPaycheckDateChange,
 }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null)
+  const headerScrollSurfaceRef = useRef<HTMLDivElement>(null)
+  const footerScrollSurfaceRef = useRef<HTMLDivElement>(null)
   const leftTableRef = useRef<HTMLTableElement>(null)
   const rightTableRef = useRef<HTMLTableElement>(null)
   const leftHeaderRef = useRef<HTMLTableRowElement>(null)
@@ -263,7 +293,7 @@ export function BudgetGrid({
     setScrollLeft(el.scrollLeft)
   }, [upcomingIndex])
 
-  // Track horizontal scroll + map vertical wheel to horizontal in the right pane
+  // Track horizontal scroll + map vertical wheel to horizontal in right panes
   useEffect(() => {
     const el = scrollRef.current
     if (!el) return
@@ -278,11 +308,17 @@ export function BudgetGrid({
     }
     el.addEventListener("scroll", onScroll, { passive: true })
     el.addEventListener("wheel", onWheel, { passive: false })
+    const headerSurface = headerScrollSurfaceRef.current
+    const footerSurface = footerScrollSurfaceRef.current
+    headerSurface?.addEventListener("wheel", onWheel, { passive: false })
+    footerSurface?.addEventListener("wheel", onWheel, { passive: false })
     return () => {
       el.removeEventListener("scroll", onScroll)
       el.removeEventListener("wheel", onWheel)
+      headerSurface?.removeEventListener("wheel", onWheel)
+      footerSurface?.removeEventListener("wheel", onWheel)
     }
-  }, [])
+  }, [hasTotalsFooter])
 
   // Upward shadow when table content scrolls under the sticky Totals footer
   useEffect(() => {
@@ -520,18 +556,145 @@ export function BudgetGrid({
         </div>
 
         {/*
-          Border card without overflow-hidden so sticky Totals can pin to the
-          viewport. Body keeps overflow-hidden for top corner clip; footer is
-          a sibling so it is not clipped and can sticky bottom:0.
+          Border card without overflow clipping so sticky header + Totals footer
+          can pin to the viewport. Header/footer are siblings of the body; the
+          right panes sync horizontally via translateX with the body scroller.
         */}
         <div className="rounded-[8px] border border-neutral-500">
+          {/* Sticky header — mirrors footer split-pane + translateX pattern */}
           <div
             className={cn(
-              "overflow-hidden",
-              hasTotalsFooter ? "rounded-t-[8px]" : "rounded-[8px]",
+              "sticky top-0 z-40 flex overflow-hidden rounded-t-[8px]",
+              paneBg,
             )}
           >
-          <div className="flex">
+            <div
+              className={cn("relative z-10 shrink-0", paneBg)}
+              style={{
+                width: LEFT_WIDTH,
+                minWidth: LEFT_WIDTH,
+                maxWidth: LEFT_WIDTH,
+                boxShadow: scrolled
+                  ? "6px 0 10px rgba(0, 0, 0, 0.16)"
+                  : "none",
+              }}
+            >
+              <table className="w-full table-fixed border-separate border-spacing-0 text-sm">
+                <colgroup>
+                  <col style={{ width: W.bucket, minWidth: W.bucket }} />
+                  <col style={{ width: W.category, minWidth: W.category }} />
+                  <col style={{ width: W.goal, minWidth: W.goal }} />
+                  <col style={{ width: W.balance, minWidth: W.balance }} />
+                </colgroup>
+                <thead>
+                  <tr ref={leftHeaderRef}>
+                    <th
+                      className={cn(
+                        "border-b-2 border-b-neutral-900 border-r border-r-neutral-900 px-2 py-3 text-center font-medium",
+                        paneBg,
+                      )}
+                    >
+                      <div className="flex items-center justify-center gap-2">
+                        <span>Group</span>
+                        <button
+                          type="button"
+                          title="Add group"
+                          aria-label="Add group"
+                          onClick={() => setBucketDialog({ mode: "create" })}
+                          className="-mr-1 inline-flex size-8 shrink-0 items-center justify-start text-muted-foreground transition-colors hover:text-foreground"
+                        >
+                          <CirclePlus className="size-5" strokeWidth={1.75} />
+                        </button>
+                      </div>
+                    </th>
+                    <th
+                      className={cn(
+                        "border-b-2 border-b-neutral-900 border-r border-r-border/60 px-3 py-3 text-left font-medium",
+                        paneBg,
+                      )}
+                    >
+                      Category
+                    </th>
+                    <th
+                      className={cn(
+                        "border-b-2 border-b-neutral-900 border-r border-r-border/60 px-3 py-3 text-right font-medium",
+                        paneBg,
+                      )}
+                    >
+                      Goal/payment
+                    </th>
+                    <th
+                      className={cn(
+                        "border-b-2 border-b-neutral-900 px-3 py-3 text-right font-medium",
+                        paneBg,
+                        balanceEdge,
+                      )}
+                    >
+                      Balance
+                    </th>
+                  </tr>
+                </thead>
+              </table>
+            </div>
+            <div
+              ref={headerScrollSurfaceRef}
+              className="min-w-0 flex-1 overflow-hidden"
+            >
+              <div
+                className="w-max min-w-full"
+                style={{ transform: `translateX(-${scrollLeft}px)` }}
+              >
+                <table className="border-separate border-spacing-0 text-sm">
+                  <colgroup>
+                    {paychecks.map((p) => (
+                      <col key={p.id} style={{ width: W.pay }} />
+                    ))}
+                  </colgroup>
+                  <thead>
+                    <tr ref={rightHeaderRef}>
+                      {paychecks.map((p, i) => {
+                        const isUpcoming = p.id === currentPaycheckId
+                        const isPast =
+                          !isUpcoming &&
+                          (p.completed ||
+                            (upcomingIndex >= 0 && i < upcomingIndex))
+                        return (
+                          <PayDateHeader
+                            key={p.id}
+                            paycheck={p}
+                            className={cn(
+                              "border-b-2 border-b-neutral-900 px-1 py-3 text-center font-medium",
+                              isUpcoming
+                                ? upcomingColumnClass({
+                                    active: true,
+                                    top: true,
+                                  })
+                                : cn(
+                                    payColumnBorderClass(paychecks, i),
+                                    isPast
+                                      ? "bg-neutral-100 text-[#969696]"
+                                      : cn(paneBg, "text-muted-foreground"),
+                                  ),
+                            )}
+                            onDateChange={(date) =>
+                              onPaycheckDateChange?.(p.id, date)
+                            }
+                          />
+                        )
+                      })}
+                    </tr>
+                  </thead>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <div
+            className={cn(
+              "flex",
+              !hasTotalsFooter && "overflow-hidden rounded-b-[8px]",
+            )}
+          >
           {/* Left pane: labels stay put; owns the continuous scroll shadow */}
           <div
             className={cn("relative z-10 shrink-0", paneBg)}
@@ -552,55 +715,6 @@ export function BudgetGrid({
                 <col style={{ width: W.goal, minWidth: W.goal }} />
                 <col style={{ width: W.balance, minWidth: W.balance }} />
               </colgroup>
-
-              <thead>
-                <tr ref={leftHeaderRef}>
-                  <th
-                    className={cn(
-                      "border-b-2 border-b-neutral-900 border-r border-r-neutral-900 px-2 py-3 text-center font-medium",
-                      paneBg,
-                    )}
-                  >
-                    <div className="flex items-center justify-center gap-2">
-                      <span>Group</span>
-                      <button
-                        type="button"
-                        title="Add group"
-                        aria-label="Add group"
-                        onClick={() => setBucketDialog({ mode: "create" })}
-                        className="-mr-1 inline-flex size-8 shrink-0 items-center justify-start text-muted-foreground transition-colors hover:text-foreground"
-                      >
-                        <CirclePlus className="size-5" strokeWidth={1.75} />
-                      </button>
-                    </div>
-                  </th>
-                  <th
-                    className={cn(
-                      "border-b-2 border-b-neutral-900 border-r border-r-border/60 px-3 py-3 text-left font-medium",
-                      paneBg,
-                    )}
-                  >
-                    Category
-                  </th>
-                  <th
-                    className={cn(
-                      "border-b-2 border-b-neutral-900 border-r border-r-border/60 px-3 py-3 text-right font-medium",
-                      paneBg,
-                    )}
-                  >
-                    Goal/payment
-                  </th>
-                  <th
-                    className={cn(
-                      "border-b-2 border-b-neutral-900 px-3 py-3 text-right font-medium",
-                      paneBg,
-                      balanceEdge,
-                    )}
-                  >
-                    Balance
-                  </th>
-                </tr>
-              </thead>
 
               {displayBuckets.map((bucket) => (
                 <tbody
@@ -773,36 +887,6 @@ export function BudgetGrid({
                   ))}
                 </colgroup>
 
-                <thead>
-                  <tr ref={rightHeaderRef}>
-                    {paychecks.map((p, i) => {
-                      const isUpcoming = p.id === currentPaycheckId
-                      const isPast =
-                        !isUpcoming &&
-                        (p.completed ||
-                          (upcomingIndex >= 0 && i < upcomingIndex))
-                      return (
-                        <PayDateHeader
-                          key={p.id}
-                          paycheck={p}
-                          className={cn(
-                            "border-b-2 border-b-neutral-900 px-1 py-3 text-center font-medium",
-                            payColumnBorderClass(paychecks, i),
-                            isUpcoming
-                              ? "bg-[#FDF9FA] text-[#3A121C]"
-                              : isPast
-                                ? "bg-neutral-100 text-[#969696]"
-                                : cn(paneBg, "text-muted-foreground"),
-                          )}
-                          onDateChange={(date) =>
-                            onPaycheckDateChange?.(p.id, date)
-                          }
-                        />
-                      )
-                    })}
-                  </tr>
-                </thead>
-
                 {displayBuckets.map((bucket) => (
                   <tbody
                     key={bucket.id}
@@ -851,9 +935,10 @@ export function BudgetGrid({
                                   cellGray
                                     ? "bg-neutral-100 text-[#969696] dark:bg-neutral-900"
                                     : isUpcoming
-                                      ? "bg-[#FDF9FA] text-[#3A121C] dark:bg-rose-950/10 dark:text-rose-100"
+                                      ? upcomingColumnClass({ active: true })
                                       : "bg-white dark:bg-background",
-                                  payColumnBorderClass(paychecks, i),
+                                  !isUpcoming &&
+                                    payColumnBorderClass(paychecks, i),
                                   topBorder,
                                   bottomBorder,
                                 )}
@@ -896,7 +981,6 @@ export function BudgetGrid({
               </table>
             </div>
           </div>
-        </div>
           </div>
 
           {hasTotalsFooter ? (
@@ -943,7 +1027,7 @@ export function BudgetGrid({
                         style={{ width: W.balance, minWidth: W.balance }}
                       />
                     </colgroup>
-                    {totalsBuckets.map((bucket) => {
+                    {totalsBuckets.map((bucket, bucketIndex) => {
                       const fullBucket =
                         buckets.find((b) => b.id === bucket.id) ?? bucket
                       return (
@@ -952,10 +1036,9 @@ export function BudgetGrid({
                             const row = totalsRows.find(
                               (r) => r.key === category.id,
                             )!
-                            const topBorder = groupDividerTopClass(
+                            const topBorder = totalsDividerTopClass(
                               row.showBucketDivider ||
-                                (row.isFirstInBucket &&
-                                  totalsBuckets[0]?.id === bucket.id),
+                                (row.isFirstInBucket && bucketIndex === 0),
                             )
                             return (
                               <tr
@@ -1008,7 +1091,7 @@ export function BudgetGrid({
                                         bucket: fullBucket,
                                       })
                                     }
-                                    className="flex h-9 w-full items-center px-3 text-left text-sm text-muted-foreground transition-colors hover:bg-neutral-200/80 hover:text-foreground"
+                                    className="flex h-9 w-full items-center px-3 text-left text-sm text-foreground transition-colors hover:bg-neutral-200/80"
                                   >
                                     {category.name}
                                   </button>
@@ -1038,7 +1121,10 @@ export function BudgetGrid({
                 </div>
 
                 {/* Right totals values — translate to match paycheck scroll */}
-                <div className="min-w-0 flex-1 overflow-hidden rounded-br-[8px]">
+                <div
+                  ref={footerScrollSurfaceRef}
+                  className="min-w-0 flex-1 overflow-hidden rounded-br-[8px]"
+                >
                   <div
                     className="w-max min-w-full"
                     style={{ transform: `translateX(-${scrollLeft}px)` }}
@@ -1049,17 +1135,19 @@ export function BudgetGrid({
                           <col key={p.id} style={{ width: W.pay }} />
                         ))}
                       </colgroup>
-                      {totalsBuckets.map((bucket) => (
+                      {totalsBuckets.map((bucket, bucketIndex) => (
                         <tbody key={bucket.id}>
                           {bucket.categories.map((category) => {
                             const row = totalsRows.find(
                               (r) => r.key === category.id,
                             )!
-                            const topBorder = groupDividerTopClass(
+                            const topBorder = totalsDividerTopClass(
                               row.showBucketDivider ||
-                                (row.isFirstInBucket &&
-                                  totalsBuckets[0]?.id === bucket.id),
+                                (row.isFirstInBucket && bucketIndex === 0),
                             )
+                            const isLastFooterRow =
+                              bucketIndex === totalsBuckets.length - 1 &&
+                              row.isLastInBucket
                             return (
                               <tr
                                 key={category.id}
@@ -1078,21 +1166,43 @@ export function BudgetGrid({
                                         category.totalSources,
                                         p.date,
                                       )
+                                  const hasInput = isBudgetCalc
+                                    ? hasBudgetCalcInputsForDate(
+                                        buckets,
+                                        p.date,
+                                      )
+                                    : hasTotalInputsForDate(
+                                        buckets,
+                                        category.totalSources,
+                                        p.date,
+                                      )
                                   const isUpcoming =
                                     p.id === currentPaycheckId
                                   const isPast =
                                     p.completed ||
                                     (upcomingIndex >= 0 && i < upcomingIndex)
+                                  const upcomingActive =
+                                    isUpcoming && !isPast
                                   return (
                                     <td
                                       key={p.id}
                                       className={cn(
                                         "relative px-1",
-                                        totalsBg,
-                                        isUpcoming && !isPast
-                                          ? "text-[#3A121C]"
-                                          : "text-muted-foreground",
-                                        payColumnBorderClass(paychecks, i),
+                                        upcomingActive
+                                          ? upcomingColumnClass({
+                                              active: true,
+                                              bottom:
+                                                isLastFooterRow &&
+                                                !totalsStuck,
+                                            })
+                                          : cn(
+                                              totalsBg,
+                                              "text-muted-foreground",
+                                              payColumnBorderClass(
+                                                paychecks,
+                                                i,
+                                              ),
+                                            ),
                                         topBorder,
                                       )}
                                       style={{
@@ -1102,11 +1212,9 @@ export function BudgetGrid({
                                     >
                                       <div className="flex h-9 items-center justify-end px-2">
                                         <span className="text-sm tabular-nums">
-                                          {isBudgetCalc
+                                          {hasInput
                                             ? formatMoney(value)
-                                            : value === 0
-                                              ? ""
-                                              : formatMoney(value)}
+                                            : ""}
                                         </span>
                                       </div>
                                     </td>
@@ -1125,23 +1233,6 @@ export function BudgetGrid({
           ) : null}
         </div>
 
-        {upcomingIndex >= 0 ? (
-          <div
-            aria-hidden
-            className="pointer-events-none absolute inset-0 z-20 overflow-hidden rounded-[8px]"
-            style={{ clipPath: `inset(0px 0px 0px ${LEFT_WIDTH}px)` }}
-          >
-            <div
-              className="absolute border-2 border-[#C9A8AE]"
-              style={{
-                left: LEFT_WIDTH + upcomingIndex * W.pay - scrollLeft - 2,
-                width: W.pay + 4,
-                top: 0,
-                bottom: 0,
-              }}
-            />
-          </div>
-        ) : null}
       </div>
 
       <AddBucketDialog
