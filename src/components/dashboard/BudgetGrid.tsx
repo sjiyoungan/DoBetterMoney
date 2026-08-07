@@ -236,17 +236,7 @@ export function BudgetGrid({
                       "border-b-2 border-b-neutral-900 border-r border-r-neutral-900 px-1 py-2",
                       paneBg,
                     )}
-                  >
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="h-7 w-full px-1 text-[11px]"
-                      onClick={() => setBucketDialog({ mode: "create" })}
-                    >
-                      Add group
-                    </Button>
-                  </th>
+                  />
                   <th
                     className={cn(
                       "border-b-2 border-b-neutral-900 border-r border-r-border/60 px-3 py-3 text-left font-medium",
@@ -521,6 +511,17 @@ export function BudgetGrid({
             />
           </div>
         ) : null}
+      </div>
+
+      <div className="mt-6">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => setBucketDialog({ mode: "create" })}
+        >
+          Add group
+        </Button>
       </div>
 
       <AddBucketDialog

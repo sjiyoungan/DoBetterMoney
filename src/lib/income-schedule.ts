@@ -1,4 +1,5 @@
 import type { Bucket, PayFrequency, Paycheck } from "@/types/budget"
+import { prefillAllocations } from "@/lib/allocations"
 
 export type IncomeSourceInput = {
   name: string
@@ -18,8 +19,11 @@ function advance(d: Date, frequency: PayFrequency) {
   return next
 }
 
-/** Build an Income group from onboarding sources. */
-export function buildIncomeBucket(sources: IncomeSourceInput[]): Bucket {
+/** Build an Income group from onboarding sources, prefilling calendar cells. */
+export function buildIncomeBucket(
+  sources: IncomeSourceInput[],
+  paychecks: Paycheck[],
+): Bucket {
   return {
     id: crypto.randomUUID(),
     name: "Income",
@@ -29,7 +33,11 @@ export function buildIncomeBucket(sources: IncomeSourceInput[]): Bucket {
       name: s.name,
       amount: s.amount,
       frequency: s.frequency,
-      allocations: {},
+      allocations: prefillAllocations({
+        paychecks,
+        frequency: s.frequency,
+        amount: s.amount,
+      }),
     })),
   }
 }

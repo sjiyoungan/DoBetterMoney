@@ -170,8 +170,8 @@ export default function App() {
   }
 
   function onSetupIncome(sources: IncomeSourceInput[]) {
-    const incomeBucket = buildIncomeBucket(sources)
     const paychecks = generatePaychecksFromIncome(sources)
+    const incomeBucket = buildIncomeBucket(sources, paychecks)
     setWorkspace((prev) => ({
       ...prev,
       buckets: [

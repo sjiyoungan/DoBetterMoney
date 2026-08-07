@@ -159,7 +159,14 @@ function resolveAllocations(opts: {
     prevAmount === amount &&
     (prev.dueDay ?? undefined) === dueDay
 
-  if (unchanged) return prev.allocations
+  const hasFilledCell =
+    prev &&
+    Object.values(prev.allocations).some(
+      (v) => v !== "" && v !== undefined && Number(v) !== 0,
+    )
+
+  // Keep manual/edited cells when inputs match; still fill if calendar was empty
+  if (unchanged && hasFilledCell) return prev.allocations
 
   return prefillAllocations({
     paychecks,
