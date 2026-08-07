@@ -1067,7 +1067,7 @@ export function AddBucketDialog({
             <Button
               type="button"
               variant="outline"
-              className="h-10 gap-1"
+              className="ml-[calc(40px+0.5rem)] h-10 gap-1"
               onClick={() => setDrafts((prev) => [...prev, newDraft()])}
             >
               <Plus className="size-3.5" />
