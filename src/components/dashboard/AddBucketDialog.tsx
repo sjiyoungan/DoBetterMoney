@@ -1095,7 +1095,7 @@ export function AddBucketDialog({
               onClick={handleSubmit}
               className="h-10 disabled:border-neutral-300 disabled:text-muted-foreground/70"
             >
-              {editing ? "Update" : "Create"}
+              {editing ? "Save" : "Create"}
             </Button>
           </DialogFooter>
             </>
