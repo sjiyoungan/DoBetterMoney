@@ -41,6 +41,23 @@ const LEFT_WIDTH = W.bucket + W.category + W.goal + W.balance
 
 const paneBg = "bg-white dark:bg-background"
 
+/** Right edge of column i is a month boundary when the next paycheck is a new month. */
+function isMonthBoundaryAfter(
+  paychecks: Paycheck[],
+  index: number,
+): boolean {
+  const next = paychecks[index + 1]
+  if (!next) return false
+  return paychecks[index].date.slice(0, 7) !== next.date.slice(0, 7)
+}
+
+function payColumnBorderClass(paychecks: Paycheck[], index: number) {
+  if (index >= paychecks.length - 1) return undefined
+  return isMonthBoundaryAfter(paychecks, index)
+    ? "border-r border-r-neutral-500"
+    : "border-r border-r-border/60"
+}
+
 type GridRow = {
   key: string
   rowCount: number
@@ -419,13 +436,12 @@ export function BudgetGrid({
                         !isUpcoming &&
                         (p.completed ||
                           (upcomingIndex >= 0 && i < upcomingIndex))
-                      const isLast = i === paychecks.length - 1
                       return (
                         <th
                           key={p.id}
                           className={cn(
                             "border-b-2 border-b-neutral-900 px-1 py-3 text-center font-medium",
-                            !isLast && "border-r border-r-border/60",
+                            payColumnBorderClass(paychecks, i),
                             isUpcoming
                               ? "bg-[#FDF9FA] text-[#3A121C]"
                               : isPast
@@ -460,7 +476,6 @@ export function BudgetGrid({
                               Number(raw) !== 0
                             const isUpcoming = p.id === currentPaycheckId
                             const manuallyDone = doneKeys.has(key)
-                            const isLastCol = i === paychecks.length - 1
                             const isPast =
                               p.completed ||
                               (upcomingIndex >= 0 && i < upcomingIndex)
@@ -478,7 +493,7 @@ export function BudgetGrid({
                                     : isUpcoming
                                       ? "bg-[#FDF9FA] text-[#3A121C] dark:bg-rose-950/10 dark:text-rose-100"
                                       : "bg-white dark:bg-background",
-                                  !isLastCol && "border-r border-r-border/60",
+                                  payColumnBorderClass(paychecks, i),
                                   row.showBucketDivider &&
                                     "border-t-2 border-t-neutral-900",
                                   !row.isLastInBucket &&
