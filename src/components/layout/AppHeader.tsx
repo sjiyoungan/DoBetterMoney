@@ -1,4 +1,4 @@
-import { Check, ChevronDown, LogOut, Plus } from "lucide-react"
+import { Check, ChevronDown, LogOut, Plus, Redo2, Undo2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -20,6 +20,10 @@ type Props = {
   onYearChange: (year: number) => void
   onCreateYear: () => void
   canCreateYear: boolean
+  canUndo?: boolean
+  canRedo?: boolean
+  onUndo?: () => void
+  onRedo?: () => void
 }
 
 export function AppHeader({
@@ -33,48 +37,84 @@ export function AppHeader({
   onYearChange,
   onCreateYear,
   canCreateYear,
+  canUndo = false,
+  canRedo = false,
+  onUndo,
+  onRedo,
 }: Props) {
   const label = username?.trim() ? username : "Profile"
   const initial = (username?.trim()?.[0] ?? "P").toUpperCase()
+  const mod =
+    typeof navigator !== "undefined" &&
+    /Mac|iPhone|iPad/.test(navigator.platform)
+      ? "⌘"
+      : "Ctrl+"
 
   return (
     <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur">
       <div className="flex items-center justify-between gap-3 px-[60px] py-3">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
-              type="button"
-              className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-lg font-semibold tracking-tight text-foreground transition-colors hover:bg-muted"
-            >
-              {activeYear}
-              <ChevronDown className="size-4 text-muted-foreground" />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="min-w-40">
-            {years.map((year) => (
-              <DropdownMenuItem
-                key={year}
-                className="justify-between gap-3"
-                onSelect={() => onYearChange(year)}
+        <div className="flex items-center gap-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-lg font-semibold tracking-tight text-foreground transition-colors hover:bg-muted"
               >
-                {year}
-                {year === activeYear ? <Check className="size-3.5" /> : null}
-              </DropdownMenuItem>
-            ))}
-            {canCreateYear ? (
-              <>
-                <DropdownMenuSeparator />
+                {activeYear}
+                <ChevronDown className="size-4 text-muted-foreground" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="min-w-40">
+              {years.map((year) => (
                 <DropdownMenuItem
-                  className="gap-2"
-                  onSelect={() => onCreateYear()}
+                  key={year}
+                  className="justify-between gap-3"
+                  onSelect={() => onYearChange(year)}
                 >
-                  <Plus className="size-3.5" />
-                  Create {nextYearLabel}
+                  {year}
+                  {year === activeYear ? <Check className="size-3.5" /> : null}
                 </DropdownMenuItem>
-              </>
-            ) : null}
-          </DropdownMenuContent>
-        </DropdownMenu>
+              ))}
+              {canCreateYear ? (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    className="gap-2"
+                    onSelect={() => onCreateYear()}
+                  >
+                    <Plus className="size-3.5" />
+                    Create {nextYearLabel}
+                  </DropdownMenuItem>
+                </>
+              ) : null}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <div className="flex items-center gap-0.5">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="size-8 text-muted-foreground"
+              disabled={!canUndo}
+              title={`Undo (${mod}Z)`}
+              onClick={() => onUndo?.()}
+            >
+              <Undo2 className="size-4" />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="size-8 text-muted-foreground"
+              disabled={!canRedo}
+              title={`Redo (${mod}Shift+Z)`}
+              onClick={() => onRedo?.()}
+            >
+              <Redo2 className="size-4" />
+            </Button>
+          </div>
+        </div>
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

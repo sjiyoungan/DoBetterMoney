@@ -4,6 +4,7 @@ import { BudgetGrid } from "@/components/dashboard/BudgetGrid"
 import { HolderPanel } from "@/components/holder/HolderPanel"
 import { AppHeader } from "@/components/layout/AppHeader"
 import { createEmptyWorkspace, emptyWorkspace } from "@/data/empty"
+import { applyAmountToFuture } from "@/lib/apply-to-future"
 import {
   applyIncomeAllocations,
   buildIncomeBucket,
@@ -11,6 +12,11 @@ import {
   generatePaychecksFromIncomeBucket,
   type IncomeSourceInput,
 } from "@/lib/income-schedule"
+import {
+  cloneUndoSnapshot,
+  pushUndoSnapshot,
+  type UndoSnapshot,
+} from "@/lib/undo-history"
 import {
   loadOrCreateWorkspace,
   saveWorkspace,
@@ -24,7 +30,6 @@ import {
   syncYearPrefills,
   updateActiveYearBudget,
 } from "@/lib/year-workspace"
-import { applyAmountToFuture } from "@/lib/apply-to-future"
 import type { Bucket, BudgetWorkspace, UserRole } from "@/types/budget"
 
 export default function App() {
@@ -39,17 +44,117 @@ export default function App() {
   const [doneKeys, setDoneKeys] = useState<Set<string>>(new Set())
   const [loadingWorkspace, setLoadingWorkspace] = useState(!freshPreview)
   const [saveError, setSaveError] = useState<string | null>(null)
+  const [undoDepth, setUndoDepth] = useState(0)
+  const [redoDepth, setRedoDepth] = useState(0)
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const readyToSave = useRef(false)
+  const workspaceRef = useRef(workspace)
+  const doneKeysRef = useRef(doneKeys)
+  const undoStackRef = useRef<UndoSnapshot[]>([])
+  const redoStackRef = useRef<UndoSnapshot[]>([])
+  const coalesceKeyRef = useRef<string | null>(null)
+
+  workspaceRef.current = workspace
+  doneKeysRef.current = doneKeys
 
   const yearBudget = useMemo(() => getActiveYearBudget(workspace), [workspace])
   const years = useMemo(() => listYears(workspace), [workspace])
   const nextYearLabel = nextYearToCreate(workspace)
   const canCreateYear = !workspace.years[String(nextYearLabel)]
 
+  function clearHistory() {
+    undoStackRef.current = []
+    redoStackRef.current = []
+    coalesceKeyRef.current = null
+    setUndoDepth(0)
+    setRedoDepth(0)
+  }
+
+  function recordHistory(coalesceKey?: string) {
+    if (
+      coalesceKey !== undefined &&
+      coalesceKeyRef.current === coalesceKey
+    ) {
+      return
+    }
+    coalesceKeyRef.current = coalesceKey ?? null
+    undoStackRef.current = pushUndoSnapshot(
+      undoStackRef.current,
+      cloneUndoSnapshot(workspaceRef.current, doneKeysRef.current),
+    )
+    redoStackRef.current = []
+    setUndoDepth(undoStackRef.current.length)
+    setRedoDepth(0)
+  }
+
+  function applySnapshot(snapshot: UndoSnapshot) {
+    setWorkspace(snapshot.workspace)
+    setDoneKeys(new Set(snapshot.doneKeys))
+    const slice = getActiveYearBudget(snapshot.workspace)
+    setSelectedPaycheckId((prev) =>
+      slice.paychecks.some((p) => p.id === prev)
+        ? prev
+        : (slice.paychecks.find((p) => !p.completed)?.id ??
+          slice.paychecks[0]?.id ??
+          ""),
+    )
+  }
+
+  function undo() {
+    const stack = undoStackRef.current
+    if (stack.length === 0) return
+    const previous = stack[stack.length - 1]
+    undoStackRef.current = stack.slice(0, -1)
+    redoStackRef.current = pushUndoSnapshot(
+      redoStackRef.current,
+      cloneUndoSnapshot(workspaceRef.current, doneKeysRef.current),
+    )
+    coalesceKeyRef.current = null
+    applySnapshot(previous)
+    setUndoDepth(undoStackRef.current.length)
+    setRedoDepth(redoStackRef.current.length)
+  }
+
+  function redo() {
+    const stack = redoStackRef.current
+    if (stack.length === 0) return
+    const next = stack[stack.length - 1]
+    redoStackRef.current = stack.slice(0, -1)
+    undoStackRef.current = pushUndoSnapshot(
+      undoStackRef.current,
+      cloneUndoSnapshot(workspaceRef.current, doneKeysRef.current),
+    )
+    coalesceKeyRef.current = null
+    applySnapshot(next)
+    setUndoDepth(undoStackRef.current.length)
+    setRedoDepth(redoStackRef.current.length)
+  }
+
   useEffect(() => {
     if (profile?.preferred_role) setRole(profile.preferred_role)
   }, [profile?.preferred_role])
+
+  const undoRef = useRef(undo)
+  const redoRef = useRef(redo)
+  undoRef.current = undo
+  redoRef.current = redo
+
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      const mod = e.metaKey || e.ctrlKey
+      if (!mod) return
+      const key = e.key.toLowerCase()
+      if (key === "z" && !e.shiftKey) {
+        e.preventDefault()
+        undoRef.current()
+      } else if ((key === "z" && e.shiftKey) || key === "y") {
+        e.preventDefault()
+        redoRef.current()
+      }
+    }
+    window.addEventListener("keydown", onKeyDown)
+    return () => window.removeEventListener("keydown", onKeyDown)
+  }, [])
 
   useEffect(() => {
     if (freshPreview) {
@@ -59,6 +164,7 @@ export default function App() {
       setSelectedPaycheckId("")
       setLoadingWorkspace(false)
       readyToSave.current = false
+      clearHistory()
       return
     }
     if (!user?.id) return
@@ -78,6 +184,7 @@ export default function App() {
             active.paychecks[0]?.id ??
             "",
         )
+        clearHistory()
         setLoadingWorkspace(false)
         queueMicrotask(() => {
           readyToSave.current = true
@@ -95,6 +202,7 @@ export default function App() {
         )
         setWorkspace(createEmptyWorkspace())
         setWorkspaceId(null)
+        clearHistory()
         readyToSave.current = false
         setLoadingWorkspace(false)
       })
@@ -130,8 +238,8 @@ export default function App() {
   }
 
   function switchYear(year: number) {
+    recordHistory()
     setWorkspace((prev) => {
-      // Persist current doneKeys into the year we're leaving
       const leaving = updateActiveYearBudget(prev, (y) => ({
         ...y,
         doneKeys: [...doneKeys],
@@ -149,6 +257,7 @@ export default function App() {
   }
 
   function onCreateYear() {
+    recordHistory()
     setWorkspace((prev) => {
       const withDone = updateActiveYearBudget(prev, (y) => ({
         ...y,
@@ -167,6 +276,7 @@ export default function App() {
   }
 
   function toggleDone(key: string) {
+    recordHistory()
     setDoneKeys((prev) => {
       const next = new Set(prev)
       if (next.has(key)) next.delete(key)
@@ -176,6 +286,7 @@ export default function App() {
   }
 
   function onAmountChange(categoryId: string, date: string, value: string) {
+    recordHistory(`amount:${categoryId}:${date}`)
     setWorkspace((prev) =>
       updateActiveYearBudget(prev, (year) => ({
         ...year,
@@ -209,6 +320,7 @@ export default function App() {
       value.trim() === "" ? ("" as const) : Number(value.replace(/,/g, ""))
     const nextVal = Number.isFinite(parsed as number) ? parsed : ("" as const)
 
+    recordHistory()
     setWorkspace((prev) =>
       updateActiveYearBudget(prev, (year) => ({
         ...year,
@@ -236,6 +348,7 @@ export default function App() {
     field: "goal" | "balance",
     value: string,
   ) {
+    recordHistory(`field:${categoryId}:${field}`)
     setWorkspace((prev) =>
       updateActiveYearBudget(prev, (year) => ({
         ...year,
@@ -259,6 +372,7 @@ export default function App() {
   }
 
   function onAddBucket(bucket: Bucket) {
+    recordHistory()
     setWorkspace((prev) =>
       updateActiveYearBudget(prev, (year) => ({
         ...year,
@@ -268,6 +382,7 @@ export default function App() {
   }
 
   function onUpdateBucket(bucket: Bucket) {
+    recordHistory()
     if (bucket.kind === "income") {
       const today = new Date().toISOString().slice(0, 10)
       setWorkspace((prev) =>
@@ -328,6 +443,7 @@ export default function App() {
   }
 
   function onSetupIncome(sources: IncomeSourceInput[]) {
+    recordHistory()
     setWorkspace((prev) => {
       const yearNum = prev.activeYear
       const anchored = sources.map((s) => ({
@@ -364,6 +480,7 @@ export default function App() {
     paycheckId: string,
     field: "received" | "boaMoved" | "sofiMoved",
   ) {
+    recordHistory()
     setWorkspace((prev) =>
       updateActiveYearBudget(prev, (year) => ({
         ...year,
@@ -397,6 +514,10 @@ export default function App() {
         onYearChange={switchYear}
         onCreateYear={onCreateYear}
         canCreateYear={canCreateYear}
+        canUndo={undoDepth > 0}
+        canRedo={redoDepth > 0}
+        onUndo={undo}
+        onRedo={redo}
       />
 
       {freshPreview ? (
