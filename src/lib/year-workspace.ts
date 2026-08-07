@@ -225,7 +225,8 @@ function prefillExpenseCategory(
 
 /**
  * Re-attach prefills to the current paycheck columns for a year slice.
- * Keeps non-empty cell values; fills empty schedule dates from frequency/income rules.
+ * Expense amounts follow frequency (e.g. monthly → one paycheck ≥3 days before due).
+ * Clears cells that fall outside the schedule so amounts don't stick on every column.
  */
 export function syncYearPrefills(slice: YearBudget, year: number): YearBudget {
   let paychecks = slice.paychecks.filter((p) =>
