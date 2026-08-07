@@ -268,13 +268,19 @@ export default function App() {
       const today = new Date().toISOString().slice(0, 10)
       setWorkspace((prev) =>
         updateActiveYearBudget(prev, (year) => {
-          const generated = generatePaychecksFromIncomeBucket(bucket)
+          const yearNum = prev.activeYear
+          const yearPrefix = String(yearNum)
+          const generated = generatePaychecksFromIncomeBucket(bucket, yearNum)
           const prevByDate = new Map(year.paychecks.map((p) => [p.date, p]))
           const generatedDates = new Set(generated.map((p) => p.date))
           const retainedPast = year.paychecks.filter(
-            (p) => p.date < today && !generatedDates.has(p.date),
+            (p) =>
+              p.date.startsWith(yearPrefix) &&
+              p.date < today &&
+              !generatedDates.has(p.date),
           )
           const merged = [...retainedPast, ...generated]
+            .filter((p) => p.date.startsWith(yearPrefix))
             .sort((a, b) => a.date.localeCompare(b.date))
             .map((p) => {
               const old = prevByDate.get(p.date)
@@ -297,6 +303,7 @@ export default function App() {
           const next = applyIncomeAllocations(bucket, paychecks, {
             prev: prevIncome,
             fromDate: today,
+            year: yearNum,
           })
           return {
             ...year,
@@ -316,21 +323,31 @@ export default function App() {
   }
 
   function onSetupIncome(sources: IncomeSourceInput[]) {
-    const paychecks = generatePaychecksFromIncome(sources)
-    const incomeBucket = buildIncomeBucket(sources, paychecks)
-    setWorkspace((prev) =>
-      updateActiveYearBudget(prev, (year) => ({
+    setWorkspace((prev) => {
+      const yearNum = prev.activeYear
+      const anchored = sources.map((s) => ({
+        ...s,
+        recurrence: {
+          ...s.recurrence,
+          startDate: s.recurrence.startDate.startsWith(String(yearNum))
+            ? s.recurrence.startDate
+            : `${yearNum}-01-01`,
+        },
+      }))
+      const paychecks = generatePaychecksFromIncome(anchored, yearNum)
+      const incomeBucket = buildIncomeBucket(anchored, paychecks, yearNum)
+      setSelectedPaycheckId(
+        paychecks.find((p) => !p.completed)?.id ?? paychecks[0]?.id ?? "",
+      )
+      return updateActiveYearBudget(prev, (year) => ({
         ...year,
         buckets: [
           incomeBucket,
           ...year.buckets.filter((b) => b.kind !== "income"),
         ],
         paychecks,
-      })),
-    )
-    setSelectedPaycheckId(
-      paychecks.find((p) => !p.completed)?.id ?? paychecks[0]?.id ?? "",
-    )
+      }))
+    })
   }
 
   function onToggleHolderFlag(

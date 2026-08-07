@@ -40,13 +40,14 @@ export function categoryRecurrence(
 /** Build paycheck columns from one or more income recurrences. */
 export function generatePaychecksFromIncome(
   sources: IncomeSourceInput[],
+  year?: number,
 ): Paycheck[] {
   if (sources.length === 0) return []
 
   const byDate = new Map<string, number>()
 
   for (const source of sources) {
-    const dates = generateRecurrenceDates(source.recurrence)
+    const dates = generateRecurrenceDates(source.recurrence, { year })
     for (const date of dates) {
       byDate.set(date, (byDate.get(date) ?? 0) + source.amount)
     }
@@ -64,7 +65,10 @@ export function generatePaychecksFromIncome(
     }))
 }
 
-export function generatePaychecksFromIncomeBucket(bucket: Bucket): Paycheck[] {
+export function generatePaychecksFromIncomeBucket(
+  bucket: Bucket,
+  year?: number,
+): Paycheck[] {
   const sources: IncomeSourceInput[] = bucket.categories
     .map((cat) => {
       const recurrence = categoryRecurrence(cat)
@@ -77,7 +81,7 @@ export function generatePaychecksFromIncomeBucket(bucket: Bucket): Paycheck[] {
     })
     .filter((s): s is IncomeSourceInput => !!s)
 
-  return generatePaychecksFromIncome(sources)
+  return generatePaychecksFromIncome(sources, year)
 }
 
 /** Prefill each income category onto the shared paycheck dates.
@@ -87,11 +91,12 @@ export function generatePaychecksFromIncomeBucket(bucket: Bucket): Paycheck[] {
 export function applyIncomeAllocations(
   bucket: Bucket,
   paychecks: Paycheck[],
-  opts?: { prev?: Bucket | null; fromDate?: string },
+  opts?: { prev?: Bucket | null; fromDate?: string; year?: number },
 ): Bucket {
   const allDates = paychecks.map((p) => p.date)
   const fromDate = opts?.fromDate
   const prevBucket = opts?.prev
+  const year = opts?.year
 
   return {
     ...bucket,
@@ -99,7 +104,7 @@ export function applyIncomeAllocations(
       const recurrence = categoryRecurrence(cat)
       const prevCat = prevBucket?.categories.find((c) => c.id === cat.id)
       const ownDates = recurrence
-        ? new Set(generateRecurrenceDates(recurrence))
+        ? new Set(generateRecurrenceDates(recurrence, { year }))
         : new Set<string>()
 
       const allocations = emptyAllocations(allDates)
@@ -146,6 +151,7 @@ export function applyIncomeAllocations(
 export function buildIncomeBucket(
   sources: IncomeSourceInput[],
   paychecks: Paycheck[],
+  year?: number,
 ): Bucket {
   const dates = paychecks.map((p) => p.date)
   return {
@@ -153,7 +159,7 @@ export function buildIncomeBucket(
     name: "Income",
     kind: "income",
     categories: sources.map((s) => {
-      const ownDates = new Set(generateRecurrenceDates(s.recurrence))
+      const ownDates = new Set(generateRecurrenceDates(s.recurrence, { year }))
       const allocations = emptyAllocations(dates)
       for (const d of dates) {
         if (ownDates.has(d)) allocations[d] = s.amount

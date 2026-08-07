@@ -150,27 +150,42 @@ function withinEnds(iso: string, ends: RecurrenceEnds, countSoFar: number) {
 }
 
 /**
- * Generate upcoming occurrence dates for a recurrence rule.
- * Includes dates from startDate forward.
+ * Generate occurrence dates for a recurrence rule.
+ * Pass `year` to clamp strictly to Jan 1–Dec 31 of that year.
  */
 export function generateRecurrenceDates(
   rule: IncomeRecurrence,
-  opts?: { maxCount?: number; horizonMonths?: number },
+  opts?: { maxCount?: number; horizonMonths?: number; year?: number },
 ): string[] {
-  const maxCount = opts?.maxCount ?? 24
-  const horizonMonths = opts?.horizonMonths ?? 14
   if (!isRecurrenceComplete(rule)) return []
 
-  const start = parseIsoDate(rule.startDate)
-  const endHorizon = new Date(start)
-  endHorizon.setMonth(endHorizon.getMonth() + horizonMonths)
-  const endIso = toIsoDate(endHorizon)
+  const year = opts?.year
+  const yearStart = year !== undefined ? `${year}-01-01` : null
+  const yearEnd = year !== undefined ? `${year}-12-31` : null
+
+  const rangeStartIso =
+    yearStart && yearStart > rule.startDate ? yearStart : rule.startDate
+  const start = parseIsoDate(rangeStartIso)
+
+  let endIso: string
+  let maxCount: number
+  if (yearEnd) {
+    endIso = yearEnd
+    maxCount = opts?.maxCount ?? 400
+  } else {
+    const horizonMonths = opts?.horizonMonths ?? 14
+    maxCount = opts?.maxCount ?? 24
+    const endHorizon = new Date(parseIsoDate(rule.startDate))
+    endHorizon.setMonth(endHorizon.getMonth() + horizonMonths)
+    endIso = toIsoDate(endHorizon)
+  }
 
   const out: string[] = []
 
   const push = (d: Date) => {
     const iso = toIsoDate(d)
-    if (iso < rule.startDate) return
+    if (iso < rangeStartIso) return
+    if (yearStart && iso < yearStart) return
     if (iso > endIso) return
     if (!withinEnds(iso, rule.ends, out.length)) return
     if (out[out.length - 1] === iso) return
@@ -189,9 +204,9 @@ export function generateRecurrenceDates(
 
   if (rule.unit === "week") {
     const weekdays = [...new Set(rule.weekdays)].sort((a, b) => a - b)
-    // Walk day-by-day from start; accept weekday matches on the interval grid
-    // anchored to the week of startDate.
-    const startWeekMonday = new Date(start)
+    // Anchor interval grid to the week of the rule's original startDate
+    const anchor = parseIsoDate(rule.startDate)
+    const startWeekMonday = new Date(anchor)
     const dow = startWeekMonday.getDay()
     startWeekMonday.setDate(startWeekMonday.getDate() - ((dow + 6) % 7))
 
@@ -217,18 +232,20 @@ export function generateRecurrenceDates(
 
   if (rule.unit === "month") {
     const days = [...new Set(rule.monthDays)]
-    let year = start.getFullYear()
+    let y = start.getFullYear()
     let month = start.getMonth()
     let guard = 0
     while (out.length < maxCount && guard < 400) {
       guard += 1
+      if (year !== undefined && y > year) break
       const monthOffset =
-        (year - start.getFullYear()) * 12 + (month - start.getMonth())
+        (y - parseIsoDate(rule.startDate).getFullYear()) * 12 +
+        (month - parseIsoDate(rule.startDate).getMonth())
       if (monthOffset >= 0 && monthOffset % rule.interval === 0) {
         const dates = days
           .map((day) => {
-            const dom = resolveMonthDay(year, month, day)
-            return new Date(year, month, dom, 12, 0, 0, 0)
+            const dom = resolveMonthDay(y, month, day)
+            return new Date(y, month, dom, 12, 0, 0, 0)
           })
           .sort((a, b) => a.getTime() - b.getTime())
         for (const d of dates) {
@@ -242,14 +259,14 @@ export function generateRecurrenceDates(
       month += 1
       if (month > 11) {
         month = 0
-        year += 1
+        y += 1
       }
-      if (toIsoDate(new Date(year, month, 1, 12)) > endIso) break
+      if (toIsoDate(new Date(y, month, 1, 12)) > endIso) break
     }
     return out.slice(0, maxCount)
   }
 
-  // year
+  // year unit
   const cursor = new Date(start)
   while (out.length < maxCount && toIsoDate(cursor) <= endIso) {
     if (!withinEnds(toIsoDate(cursor), rule.ends, out.length)) break

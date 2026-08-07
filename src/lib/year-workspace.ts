@@ -115,7 +115,34 @@ export function listYears(workspace: BudgetWorkspace): number[] {
 
 export function getActiveYearBudget(workspace: BudgetWorkspace): YearBudget {
   const key = String(workspace.activeYear)
-  return workspace.years[key] ?? emptyYearBudget()
+  const raw = workspace.years[key] ?? emptyYearBudget()
+  return clampYearBudget(raw, workspace.activeYear)
+}
+
+/** Keep only Jan 1–Dec 31 columns/allocations for the given year. */
+export function clampYearBudget(slice: YearBudget, year: number): YearBudget {
+  const prefix = String(year)
+  const paychecks = slice.paychecks.filter((p) => p.date.startsWith(prefix))
+  const keep = new Set(paychecks.map((p) => p.date))
+  return {
+    ...slice,
+    paychecks,
+    buckets: slice.buckets.map((bucket) => ({
+      ...bucket,
+      categories: bucket.categories.map((cat) => {
+        const allocations: Record<string, number | ""> = {}
+        for (const [date, amount] of Object.entries(cat.allocations)) {
+          if (keep.has(date) || date.startsWith(prefix)) {
+            allocations[date] = amount
+          }
+        }
+        return { ...cat, allocations }
+      }),
+    })),
+    holderSplits: slice.holderSplits.filter((s) =>
+      paychecks.some((p) => p.id === s.paycheckId),
+    ),
+  }
 }
 
 export function setActiveYear(
@@ -210,20 +237,15 @@ export function createNextYear(workspace: BudgetWorkspace): BudgetWorkspace {
   }))
 
   const incomeBucket = carriedBuckets.find((b) => b.kind === "income")
-  let paychecks = incomeBucket
-    ? generatePaychecksFromIncomeBucket(incomeBucket)
+  const paychecks = incomeBucket
+    ? generatePaychecksFromIncomeBucket(incomeBucket, nextYear)
     : []
-
-  // Prefer dates that fall in the new year
-  paychecks = paychecks.filter((p) => p.date.startsWith(String(nextYear)))
-  if (paychecks.length === 0 && incomeBucket) {
-    // widen: keep generated list even if spanning slightly
-    paychecks = generatePaychecksFromIncomeBucket(incomeBucket)
-  }
 
   let buckets = carriedBuckets
   if (incomeBucket) {
-    const filledIncome = applyIncomeAllocations(incomeBucket, paychecks)
+    const filledIncome = applyIncomeAllocations(incomeBucket, paychecks, {
+      year: nextYear,
+    })
     buckets = buckets.map((b) =>
       b.id === filledIncome.id ? filledIncome : b,
     )
