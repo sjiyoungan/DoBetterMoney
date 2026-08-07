@@ -53,14 +53,15 @@ type Props = {
 const W = { bucket: 118, category: 168, goal: 110, balance: 96, pay: 128 } as const
 const LEFT_WIDTH = W.bucket + W.category + W.goal + W.balance
 
-const paneBg = "bg-white dark:bg-background"
+/** Solid pane fill — sticky header/body must fully cover scrolling rows */
+const paneBg = "bg-white dark:bg-neutral-950"
 /** Totals footer rows — light grey so they read as summary, not editable cells */
 const totalsBg = "bg-neutral-100 dark:bg-neutral-900"
 /** Top edge of Totals footer — black so it reads clearly on the grey fill */
 const totalsDividerTop = "border-t-2 border-t-black"
-/** Upcoming paycheck column tint — same light blush as expense/savings highlights */
+/** Upcoming paycheck column tint — opaque so sticky panes never show rows through */
 const upcomingFill =
-  "bg-[#FDF9FA] text-[#3A121C] dark:bg-rose-950/10 dark:text-rose-100"
+  "bg-[#FDF9FA] text-[#3A121C] dark:bg-rose-950 dark:text-rose-100"
 const upcomingStrokeSide = "border-l-2 border-l-[#C9A8AE] border-r-2 border-r-[#C9A8AE]"
 /** Soft feather under sticky header / above sticky Totals (not a hard band) */
 const stickyEdgeShadowUp = "0 -10px 24px rgba(0, 0, 0, 0.18)"
@@ -670,10 +671,10 @@ export function BudgetGrid({
             </div>
             <div
               ref={headerScrollSurfaceRef}
-              className="min-w-0 flex-1 overflow-hidden"
+              className={cn("min-w-0 flex-1 overflow-hidden", paneBg)}
             >
               <div
-                className="w-max min-w-full"
+                className={cn("w-max min-w-full", paneBg)}
                 style={{ transform: `translateX(-${scrollLeft}px)` }}
               >
                 <table className="border-separate border-spacing-0 text-sm">
@@ -704,7 +705,7 @@ export function BudgetGrid({
                                 : cn(
                                     payColumnBorderClass(paychecks, i),
                                     isPast
-                                      ? "bg-neutral-100 text-[#969696]"
+                                      ? "bg-neutral-100 text-[#969696] dark:bg-neutral-900"
                                       : cn(paneBg, "text-muted-foreground"),
                                   ),
                             )}
@@ -723,7 +724,7 @@ export function BudgetGrid({
 
           <div
             className={cn(
-              "flex border-x",
+              "relative z-0 flex border-x",
               cardStroke,
               !hasTotalsFooter &&
                 "overflow-hidden rounded-b-[8px] border-b",
@@ -970,7 +971,7 @@ export function BudgetGrid({
                                     ? "bg-neutral-100 text-[#969696] dark:bg-neutral-900"
                                     : isUpcoming
                                       ? upcomingColumnClass({ active: true })
-                                      : "bg-white dark:bg-background",
+                                      : paneBg,
                                   !isUpcoming &&
                                     payColumnBorderClass(paychecks, i),
                                   topBorder,
@@ -1024,11 +1025,12 @@ export function BudgetGrid({
                 aria-hidden
                 className="h-0 w-full"
               />
-              {/* Outer sticky: no overflow-hidden so upward box-shadow is not clipped */}
+              {/* Outer sticky: opaque fill + no overflow-hidden so upward shadow isn't clipped */}
               <div
                 className={cn(
                   "sticky bottom-0 z-30 rounded-b-[8px] border border-t-0",
                   cardStroke,
+                  totalsBg,
                 )}
                 style={{
                   boxShadow: totalsStuck ? stickyEdgeShadowUp : "none",
@@ -1112,7 +1114,7 @@ export function BudgetGrid({
                                           bucket: fullBucket,
                                         })
                                       }
-                                      className="absolute inset-0 flex items-center justify-center px-1 transition-colors hover:bg-neutral-200/80 hover:text-foreground"
+                                      className="absolute inset-0 flex items-center justify-center px-1 transition-colors hover:bg-neutral-200 hover:text-foreground"
                                     >
                                       <span className="line-clamp-3 break-words">
                                         {bucket.name}
@@ -1137,7 +1139,7 @@ export function BudgetGrid({
                                         bucket: fullBucket,
                                       })
                                     }
-                                    className="flex h-9 w-full items-center px-3 text-left text-sm text-foreground transition-colors hover:bg-neutral-200/80"
+                                    className="flex h-9 w-full items-center px-3 text-left text-sm text-foreground transition-colors hover:bg-neutral-200"
                                   >
                                     {category.name}
                                   </button>
@@ -1171,10 +1173,13 @@ export function BudgetGrid({
                 {/* Right totals values — translate to match paycheck scroll */}
                 <div
                   ref={footerScrollSurfaceRef}
-                  className="min-w-0 flex-1 overflow-hidden rounded-br-[8px]"
+                  className={cn(
+                    "min-w-0 flex-1 overflow-hidden rounded-br-[8px]",
+                    totalsBg,
+                  )}
                 >
                   <div
-                    className="w-max min-w-full"
+                    className={cn("w-max min-w-full", totalsBg)}
                     style={{ transform: `translateX(-${scrollLeft}px)` }}
                   >
                     <table className="border-separate border-spacing-0 text-sm">
