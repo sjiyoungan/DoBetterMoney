@@ -36,6 +36,46 @@ import {
 import { cn } from "@/lib/utils"
 import type { Bucket, Category, Paycheck } from "@/types/budget"
 
+/** Slim ← / → (horizontal line + arrow head) for paycheck column pan controls. */
+function PayScrollArrow({ dir }: { dir: "left" | "right" }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="size-4"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      {dir === "left" ? (
+        <>
+          <line x1="19" y1="12" x2="5" y2="12" />
+          <polyline points="10 7 5 12 10 17" />
+        </>
+      ) : (
+        <>
+          <line x1="5" y1="12" x2="19" y2="12" />
+          <polyline points="14 7 19 12 14 17" />
+        </>
+      )}
+    </svg>
+  )
+}
+
+/** Form fields / editable text — never start a pan from these. */
+function isPayPanFieldTarget(target: EventTarget | null) {
+  if (!(target instanceof Element)) return false
+  return Boolean(
+    target.closest(
+      "input, textarea, select, [contenteditable]:not([contenteditable='false'])",
+    ),
+  )
+}
+
+const PAY_PAN_SLOP_PX = 4
+
 type Props = {
   buckets: Bucket[]
   paychecks: Paycheck[]
@@ -186,7 +226,8 @@ type GridRow = {
  * Split-pane budget grid.
  *
  * Left pane (Group → Balance) does not scroll horizontally.
- * Right pane (paycheck columns) scrolls independently.
+ * Right pane (paycheck columns) pans horizontally via drag / arrow controls;
+ * mouse wheel over paychecks scrolls the body vertically (not horizontally).
  * Vertical scroll lives only in the body pane: locked header and Totals sit
  * outside that scroller so the Group header never moves and Totals stay flush
  * to the card/viewport bottom. Right header/footer sync via translateX with
@@ -224,6 +265,8 @@ export function BudgetGrid({
 
   const [scrolled, setScrolled] = useState(false)
   const [scrollLeft, setScrollLeft] = useState(0)
+  const [scrollMax, setScrollMax] = useState(0)
+  const [payPanning, setPayPanning] = useState(false)
   const [bodyScrolledPastTop, setBodyScrolledPastTop] = useState(false)
   const [bodyCanScrollUnderFooter, setBodyCanScrollUnderFooter] =
     useState(false)
@@ -243,6 +286,12 @@ export function BudgetGrid({
     Record<string, { top: number; height: number }>
   >({})
   const dragMovedRef = useRef(false)
+  const payPanRef = useRef<{
+    pointerId: number
+    startX: number
+    startScroll: number
+    moved: boolean
+  } | null>(null)
 
   /** Visible body rows — hidden categories stay in data; footer kinds render below. */
   const displayBuckets = useMemo(
@@ -342,30 +391,42 @@ export function BudgetGrid({
     setScrollLeft(el.scrollLeft)
   }, [upcomingIndex])
 
-  // Track horizontal scroll + map vertical wheel to horizontal in right panes
+  // Track horizontal scroll; keep header/footer translateX in sync.
+  // Wheel over paycheck columns must NOT hijack to scrollLeft — vertical wheel
+  // scrolls the body (or is forwarded from sticky header/footer into the body).
   useEffect(() => {
     const el = scrollRef.current
     if (!el) return
-    const onScroll = () => {
+    const syncScroll = () => {
       setScrolled(el.scrollLeft > 1)
       setScrollLeft(el.scrollLeft)
+      setScrollMax(Math.max(0, el.scrollWidth - el.clientWidth))
     }
-    const onWheel = (e: WheelEvent) => {
+    const forwardWheelToBody = (e: WheelEvent) => {
       if (Math.abs(e.deltaY) < Math.abs(e.deltaX)) return
+      const body = bodyScrollRef.current
+      if (!body) return
       e.preventDefault()
-      el.scrollLeft += e.deltaY
+      body.scrollTop += e.deltaY
     }
-    el.addEventListener("scroll", onScroll, { passive: true })
-    el.addEventListener("wheel", onWheel, { passive: false })
+    syncScroll()
+    el.addEventListener("scroll", syncScroll, { passive: true })
+    const ro = new ResizeObserver(syncScroll)
+    ro.observe(el)
     const headerSurface = headerScrollSurfaceRef.current
     const footerSurface = footerScrollSurfaceRef.current
-    headerSurface?.addEventListener("wheel", onWheel, { passive: false })
-    footerSurface?.addEventListener("wheel", onWheel, { passive: false })
+    // Sticky header/footer sit outside the body scroller — forward vertical wheel.
+    headerSurface?.addEventListener("wheel", forwardWheelToBody, {
+      passive: false,
+    })
+    footerSurface?.addEventListener("wheel", forwardWheelToBody, {
+      passive: false,
+    })
     return () => {
-      el.removeEventListener("scroll", onScroll)
-      el.removeEventListener("wheel", onWheel)
-      headerSurface?.removeEventListener("wheel", onWheel)
-      footerSurface?.removeEventListener("wheel", onWheel)
+      el.removeEventListener("scroll", syncScroll)
+      ro.disconnect()
+      headerSurface?.removeEventListener("wheel", forwardWheelToBody)
+      footerSurface?.removeEventListener("wheel", forwardWheelToBody)
     }
   }, [hasTotalsFooter])
 
@@ -573,6 +634,72 @@ export function BudgetGrid({
     setDropBeforeId(bucketId)
   }
 
+  function scrollPayBy(delta: number) {
+    const el = scrollRef.current
+    if (!el) return
+    el.scrollBy({ left: delta, behavior: "smooth" })
+  }
+
+  function onPayPanPointerDown(e: ReactPointerEvent<HTMLDivElement>) {
+    if (e.button !== 0) return
+    // Don't steal from focused form fields; buttons (e.g. date headers) can
+    // still click if the pointer doesn't move past the pan slop.
+    if (isPayPanFieldTarget(e.target)) return
+    const el = scrollRef.current
+    if (!el) return
+    payPanRef.current = {
+      pointerId: e.pointerId,
+      startX: e.clientX,
+      startScroll: el.scrollLeft,
+      moved: false,
+    }
+    e.currentTarget.setPointerCapture(e.pointerId)
+  }
+
+  function onPayPanPointerMove(e: ReactPointerEvent<HTMLDivElement>) {
+    const pan = payPanRef.current
+    if (!pan || pan.pointerId !== e.pointerId) return
+    const el = scrollRef.current
+    if (!el) return
+    const dx = e.clientX - pan.startX
+    if (!pan.moved) {
+      if (Math.abs(dx) < PAY_PAN_SLOP_PX) return
+      pan.moved = true
+      setPayPanning(true)
+    }
+    el.scrollLeft = pan.startScroll - dx
+  }
+
+  function onPayPanPointerUp(e: ReactPointerEvent<HTMLDivElement>) {
+    const pan = payPanRef.current
+    if (!pan || pan.pointerId !== e.pointerId) return
+    const didPan = pan.moved
+    payPanRef.current = null
+    setPayPanning(false)
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+      e.currentTarget.releasePointerCapture(e.pointerId)
+    }
+    // After a real pan, swallow the synthetic click so date/check buttons
+    // don't fire from a drag that started on them.
+    if (didPan) {
+      const swallow = (ev: Event) => {
+        ev.preventDefault()
+        ev.stopPropagation()
+      }
+      document.addEventListener("click", swallow, true)
+      window.setTimeout(() => {
+        document.removeEventListener("click", swallow, true)
+      }, 0)
+    }
+  }
+
+  const payPanSurfaceClass = cn(
+    "select-none",
+    payPanning ? "cursor-grabbing" : "cursor-grab",
+  )
+  const canScrollPayLeft = scrollLeft > 1
+  const canScrollPayRight = scrollLeft < scrollMax - 1
+
   function isDropBeforeBucket(bucketId: string) {
     return (
       dropIndicatorActive &&
@@ -609,6 +736,28 @@ export function BudgetGrid({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
+      <div className="mb-1.5 flex shrink-0 items-center justify-end gap-0.5">
+        <button
+          type="button"
+          title="Scroll paychecks left"
+          aria-label="Scroll paychecks left"
+          disabled={!canScrollPayLeft}
+          onClick={() => scrollPayBy(-W.pay)}
+          className="inline-flex size-7 items-center justify-center text-muted-foreground transition-colors hover:text-foreground disabled:pointer-events-none disabled:opacity-30"
+        >
+          <PayScrollArrow dir="left" />
+        </button>
+        <button
+          type="button"
+          title="Scroll paychecks right"
+          aria-label="Scroll paychecks right"
+          disabled={!canScrollPayRight}
+          onClick={() => scrollPayBy(W.pay)}
+          className="inline-flex size-7 items-center justify-center text-muted-foreground transition-colors hover:text-foreground disabled:pointer-events-none disabled:opacity-30"
+        >
+          <PayScrollArrow dir="right" />
+        </button>
+      </div>
       <div ref={gridFrameRef} className="relative flex min-h-0 flex-1 flex-col">
         {/* Rearrange grips: clipped to body viewport so they never cover header */}
         <div
@@ -727,7 +876,15 @@ export function BudgetGrid({
             </div>
             <div
               ref={headerScrollSurfaceRef}
-              className={cn("min-w-0 flex-1 overflow-hidden", headerBg)}
+              className={cn(
+                "min-w-0 flex-1 overflow-hidden",
+                headerBg,
+                payPanSurfaceClass,
+              )}
+              onPointerDown={onPayPanPointerDown}
+              onPointerMove={onPayPanPointerMove}
+              onPointerUp={onPayPanPointerUp}
+              onPointerCancel={onPayPanPointerUp}
             >
               <div
                 className={cn("w-max min-w-full", headerBg)}
@@ -977,7 +1134,14 @@ export function BudgetGrid({
           {/* Right pane: paycheck columns scroll horizontally */}
           <div
             ref={scrollRef}
-            className="min-w-0 flex-1 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            className={cn(
+              "min-w-0 flex-1 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+              payPanSurfaceClass,
+            )}
+            onPointerDown={onPayPanPointerDown}
+            onPointerMove={onPayPanPointerMove}
+            onPointerUp={onPayPanPointerUp}
+            onPointerCancel={onPayPanPointerUp}
           >
             <div className="relative w-max min-w-full">
               <table
@@ -1251,7 +1415,12 @@ export function BudgetGrid({
                   className={cn(
                     "min-w-0 flex-1 overflow-hidden rounded-br-[8px]",
                     totalsBg,
+                    payPanSurfaceClass,
                   )}
+                  onPointerDown={onPayPanPointerDown}
+                  onPointerMove={onPayPanPointerMove}
+                  onPointerUp={onPayPanPointerUp}
+                  onPointerCancel={onPayPanPointerUp}
                 >
                   <div
                     className={cn("w-max min-w-full", totalsBg)}
