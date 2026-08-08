@@ -1,5 +1,7 @@
 import type { Bucket, Category, Paycheck } from "@/types/budget"
 
+export type CompositionPeriod = "month" | "year"
+
 export type CompositionSegmentKey = "fixed" | "variable" | "savings"
 
 export type CompositionSegment = {
@@ -106,16 +108,56 @@ export function totalSavingsAllocated(
 }
 
 /**
- * Budget composition for the active year (all paychecks).
- * Segments are Fixed / Variable / Savings only (no income).
+ * Month filter for "This month":
+ * - If viewing the current calendar year → today's month
+ * - Else → latest month in that year that has paycheck data
+ */
+export function resolveCompositionMonth(
+  paychecks: Paycheck[],
+  activeYear: number,
+  now: Date = new Date(),
+): { year: number; month: number } {
+  if (activeYear === now.getFullYear()) {
+    return { year: activeYear, month: now.getMonth() + 1 }
+  }
+  let latest = 0
+  for (const p of paychecks) {
+    const y = Number(p.date.slice(0, 4))
+    const m = Number(p.date.slice(5, 7))
+    if (y === activeYear && m > latest) latest = m
+  }
+  return { year: activeYear, month: latest || 12 }
+}
+
+export function paycheckDatesForPeriod(
+  paychecks: Paycheck[],
+  period: CompositionPeriod,
+  activeYear: number,
+  now: Date = new Date(),
+): Set<string> {
+  if (period === "year") {
+    return new Set(paychecks.map((p) => p.date))
+  }
+  const { year, month } = resolveCompositionMonth(paychecks, activeYear, now)
+  const prefix = `${year}-${String(month).padStart(2, "0")}`
+  return new Set(
+    paychecks.filter((p) => p.date.startsWith(prefix)).map((p) => p.date),
+  )
+}
+
+/**
+ * Budget composition for Fixed / Variable / Savings (no income).
  * Percentages renormalize to the sum of those three segments.
  * Spending with missing variability is treated as fixed.
  */
 export function computeComposition(
   buckets: Bucket[],
   paychecks: Paycheck[],
+  period: CompositionPeriod,
+  activeYear: number,
+  now: Date = new Date(),
 ): CompositionResult {
-  const dates = new Set(paychecks.map((p) => p.date))
+  const dates = paycheckDatesForPeriod(paychecks, period, activeYear, now)
   let fixed = 0
   let variable = 0
   let savings = 0

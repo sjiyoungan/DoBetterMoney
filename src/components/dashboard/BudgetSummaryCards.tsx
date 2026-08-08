@@ -3,12 +3,25 @@ import {
   computeComposition,
   savingsAllocatedByBucket,
   totalSavingsAllocated,
+  type CompositionPeriod,
   type CompositionSegment,
 } from "@/lib/budget-summary"
 import { formatMoney } from "@/lib/format"
 import { blushHoverClass, cn } from "@/lib/utils"
 import type { Bucket, Paycheck } from "@/types/budget"
+import { CaretDownIcon } from "@/components/ui/caret-down"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { SavingsDetailDrawer } from "./SavingsDetailDrawer"
+
+const PERIOD_OPTIONS: { value: CompositionPeriod; label: string }[] = [
+  { value: "month", label: "This month" },
+  { value: "year", label: "This year" },
+]
 
 type Props = {
   buckets: Bucket[]
@@ -16,8 +29,13 @@ type Props = {
   activeYear: number
 }
 
-export function BudgetSummaryCards({ buckets, paychecks }: Props) {
+export function BudgetSummaryCards({
+  buckets,
+  paychecks,
+  activeYear,
+}: Props) {
   const [savingsOpen, setSavingsOpen] = useState(false)
+  const [period, setPeriod] = useState<CompositionPeriod>("year")
 
   const totalSavings = useMemo(
     () => totalSavingsAllocated(buckets, paychecks),
@@ -30,9 +48,12 @@ export function BudgetSummaryCards({ buckets, paychecks }: Props) {
   )
 
   const { total, segments } = useMemo(
-    () => computeComposition(buckets, paychecks),
-    [buckets, paychecks],
+    () => computeComposition(buckets, paychecks, period, activeYear),
+    [buckets, paychecks, period, activeYear],
   )
+
+  const periodLabel =
+    PERIOD_OPTIONS.find((o) => o.value === period)?.label ?? "This year"
 
   return (
     <div className="flex shrink-0 flex-wrap items-stretch gap-4">
@@ -58,8 +79,31 @@ export function BudgetSummaryCards({ buckets, paychecks }: Props) {
         total={totalSavings}
       />
 
-      <div className="flex h-auto min-h-full w-fit shrink-0 flex-col rounded-[8px] border border-neutral-500 bg-white p-4">
-        <p className="mb-6 text-sm text-neutral-600">Expenses & savings</p>
+      <div className="relative flex h-auto min-h-full w-fit shrink-0 flex-col rounded-[8px] border border-neutral-500 bg-white p-4">
+        <div className="mb-6 flex items-start justify-between gap-4">
+          <p className="text-sm text-neutral-600">Expenses & savings</p>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className="inline-flex cursor-pointer items-center gap-1.5 text-sm text-neutral-600 transition-colors hover:text-neutral-800"
+              >
+                {periodLabel}
+                <CaretDownIcon className="size-2 text-current" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="min-w-36">
+              {PERIOD_OPTIONS.map((opt) => (
+                <DropdownMenuItem
+                  key={opt.value}
+                  onSelect={() => setPeriod(opt.value)}
+                >
+                  {opt.label}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
 
         <div className="flex w-fit items-center gap-3">
           <CompositionDonut segments={segments} total={total} />

@@ -1,5 +1,6 @@
-import { Check, ChevronDown, LogOut, Plus } from "lucide-react"
+import { Check, LogOut, Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { CaretDownIcon } from "@/components/ui/caret-down"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -47,7 +48,7 @@ export function AppHeader({
               className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-lg font-semibold tracking-tight text-foreground transition-colors hover:bg-muted"
             >
               {activeYear}
-              <ChevronDown className="size-4 text-muted-foreground" />
+              <CaretDownIcon className="size-2.5 text-muted-foreground" />
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="min-w-40">
@@ -89,7 +90,7 @@ export function AppHeader({
               <span className="max-w-[8rem] truncate text-sm font-medium">
                 {label}
               </span>
-              <ChevronDown className="size-3.5 text-muted-foreground" />
+              <CaretDownIcon className="size-2 text-muted-foreground" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="min-w-44">
