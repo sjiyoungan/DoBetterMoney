@@ -8,7 +8,7 @@ import "./index.css"
 
 function MissingConfig() {
   return (
-    <div className="flex min-h-svh flex-col items-center justify-center gap-2 bg-[#FAFBFC] px-6 text-center">
+    <div className="flex min-h-svh flex-col items-center justify-center gap-2 bg-page px-6 text-center">
       <h1 className="text-xl font-semibold tracking-tight">DoBetterMoney</h1>
       <p className="max-w-sm text-sm text-neutral-500">
         Supabase isn’t configured for this deploy. Add{" "}

@@ -646,14 +646,14 @@ export default function App() {
 
   if (loadingWorkspace) {
     return (
-      <div className="flex min-h-svh items-center justify-center bg-neutral-100 text-sm text-muted-foreground">
+      <div className="flex min-h-svh items-center justify-center bg-page text-sm text-muted-foreground">
         Loading budget…
       </div>
     )
   }
 
   return (
-    <div className="flex h-svh flex-col overflow-hidden bg-neutral-100 text-foreground">
+    <div className="flex h-svh flex-col overflow-hidden bg-page text-foreground">
       <AppHeader
         user={role}
         onUserChange={onUserChange}

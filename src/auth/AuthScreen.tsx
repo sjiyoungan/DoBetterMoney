@@ -31,7 +31,7 @@ export function AuthScreen() {
   }
 
   return (
-    <div className="relative flex min-h-svh flex-col overflow-hidden bg-[#FAFBFC] text-foreground">
+    <div className="relative flex min-h-svh flex-col overflow-hidden bg-page text-foreground">
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_50%_-10%,rgba(0,0,0,0.045),transparent_55%)]"

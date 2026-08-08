@@ -38,7 +38,7 @@ export function AppHeader({
   const initial = (username?.trim()?.[0] ?? "P").toUpperCase()
 
   return (
-    <header className="z-50 shrink-0 border-b bg-neutral-100">
+    <header className="z-50 shrink-0 border-b bg-page">
       <div className="flex items-center justify-between gap-3 px-[60px] py-3">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
