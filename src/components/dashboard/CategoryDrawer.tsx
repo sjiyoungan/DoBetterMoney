@@ -57,6 +57,36 @@ function yearFromPaychecks(paychecks: Paycheck[]): number {
   return new Date().getFullYear()
 }
 
+function formatDueDay(day: number): string {
+  const n = Math.round(day)
+  const mod100 = n % 100
+  const mod10 = n % 10
+  const suffix =
+    mod100 >= 11 && mod100 <= 13
+      ? "th"
+      : mod10 === 1
+        ? "st"
+        : mod10 === 2
+          ? "nd"
+          : mod10 === 3
+            ? "rd"
+            : "th"
+  return `${n}${suffix}`
+}
+
+function formatCategoryDue(category: Category): string {
+  if (
+    typeof category.dueDay === "number" &&
+    Number.isFinite(category.dueDay) &&
+    category.dueDay >= 1 &&
+    category.dueDay <= 31
+  ) {
+    return formatDueDay(category.dueDay)
+  }
+  const legacy = category.dueDate?.trim()
+  return legacy || "—"
+}
+
 function historyLabel(item: HistoryItem): string {
   if (item.kind === "carryover") return "Carry over"
   if (item.kind === "deposit") return "Deposit"
@@ -243,7 +273,9 @@ export function CategoryDrawer({
             <dl className="grid grid-cols-2 gap-x-3 gap-y-3 text-sm">
               <div>
                 <dt className="text-muted-foreground">Due date</dt>
-                <dd className="mt-2 font-medium">{category.dueDate ?? "—"}</dd>
+                <dd className="mt-2 font-medium">
+                  {formatCategoryDue(category)}
+                </dd>
               </div>
               <div>
                 <dt className="text-muted-foreground">Min / payment</dt>
