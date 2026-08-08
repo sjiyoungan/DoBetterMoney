@@ -100,12 +100,12 @@ function payColumnBorderClass(paychecks: Paycheck[], index: number) {
     : undefined
 }
 
-/** Group divider: default 2px. Drop target uses an overlay so layout does not jump. */
+/** Group divider: 1px black (same weight as month lines). Drop target uses an overlay so layout does not jump. */
 function groupDividerTopClass(showDivider: boolean) {
-  return showDivider ? "border-t-2 border-t-neutral-900" : undefined
+  return showDivider ? "border-t border-t-neutral-900" : undefined
 }
 
-/** Totals footer section top (body → footer) and between footer groups on grey fill. */
+/** Thick top edge of Totals sticky footer (body → footer only). */
 function totalsDividerTopClass(showDivider: boolean) {
   return showDivider ? totalsDividerTop : undefined
 }
@@ -1116,10 +1116,10 @@ export function BudgetGrid({
                             const row = totalsRows.find(
                               (r) => r.key === category.id,
                             )!
-                            const topBorder = totalsDividerTopClass(
-                              row.showBucketDivider ||
-                                (row.isFirstInBucket && bucketIndex === 0),
-                            )
+                            const topBorder =
+                              row.isFirstInBucket && bucketIndex === 0
+                                ? totalsDividerTopClass(true)
+                                : groupDividerTopClass(row.showBucketDivider)
                             // Same thin row stroke as body categories; omit on
                             // last-in-group (next group top / card edge handles it).
                             const bottomBorder = groupDividerBottomClass(
@@ -1232,10 +1232,10 @@ export function BudgetGrid({
                             const row = totalsRows.find(
                               (r) => r.key === category.id,
                             )!
-                            const topBorder = totalsDividerTopClass(
-                              row.showBucketDivider ||
-                                (row.isFirstInBucket && bucketIndex === 0),
-                            )
+                            const topBorder =
+                              row.isFirstInBucket && bucketIndex === 0
+                                ? totalsDividerTopClass(true)
+                                : groupDividerTopClass(row.showBucketDivider)
                             const bottomBorder = groupDividerBottomClass(
                               row.isLastInBucket,
                             )
