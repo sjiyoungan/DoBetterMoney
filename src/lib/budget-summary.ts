@@ -171,17 +171,37 @@ export function paycheckDatesForPeriod(
 }
 
 /**
+ * Sum of allocations marked moved whose paycheck date is in `dates`.
+ */
+export function sumCheckedAllocationsForDates(
+  categories: Category[],
+  paychecks: Paycheck[],
+  dates: ReadonlySet<string>,
+  doneKeys: ReadonlySet<string>,
+): number {
+  let total = 0
+  for (const cat of categories) {
+    if (cat.hidden) continue
+    for (const p of paychecks) {
+      if (!dates.has(p.date)) continue
+      if (!doneKeys.has(allocationKey(cat.id, p.id))) continue
+      total += allocationAt(cat, p.date)
+    }
+  }
+  return total
+}
+
+/**
  * Budget composition for Fixed / Variable / Savings (no income).
- * Percentages renormalize to the sum of those three segments.
+ * Uses actuals: checked-off allocations in the period, plus savings carry-over.
  * Spending with missing variability is treated as fixed.
- * Savings here is still planned allocations (period slice), not bank actuals —
- * bank actuals are {@link totalSavingsAllocated}.
  */
 export function computeComposition(
   buckets: Bucket[],
   paychecks: Paycheck[],
   period: CompositionPeriod,
   activeYear: number,
+  doneKeys: ReadonlySet<string>,
   now: Date = new Date(),
 ): CompositionResult {
   const dates = paycheckDatesForPeriod(paychecks, period, activeYear, now)
@@ -191,11 +211,25 @@ export function computeComposition(
 
   for (const bucket of buckets) {
     if (bucket.kind === "savings") {
-      savings += sumAllocationsForDates(bucket.categories, dates)
+      for (const cat of bucket.categories) {
+        if (cat.hidden) continue
+        savings += carryOverAt(cat)
+        savings += sumCheckedAllocationsForDates(
+          [cat],
+          paychecks,
+          dates,
+          doneKeys,
+        )
+      }
     } else if (bucket.kind === "spending") {
       for (const cat of bucket.categories) {
         if (cat.hidden) continue
-        const amount = sumAllocationsForDates([cat], dates)
+        const amount = sumCheckedAllocationsForDates(
+          [cat],
+          paychecks,
+          dates,
+          doneKeys,
+        )
         if (cat.variability === "variable") variable += amount
         else fixed += amount
       }

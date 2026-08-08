@@ -50,8 +50,9 @@ export function BudgetSummaryCards({
   )
 
   const { total, segments } = useMemo(
-    () => computeComposition(buckets, paychecks, period, activeYear),
-    [buckets, paychecks, period, activeYear],
+    () =>
+      computeComposition(buckets, paychecks, period, activeYear, doneKeys),
+    [buckets, paychecks, period, activeYear, doneKeys],
   )
 
   const periodLabel =
