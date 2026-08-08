@@ -93,11 +93,36 @@ function isMonthBoundaryAfter(
   return paychecks[index].date.slice(0, 7) !== next.date.slice(0, 7)
 }
 
-function payColumnBorderClass(paychecks: Paycheck[], index: number) {
+/** Right-edge marker between paycheck columns: solid month boundary vs dotted same-month. */
+function payColumnBorderClass(
+  paychecks: Paycheck[],
+  index: number,
+): "month" | "same" | undefined {
   if (index >= paychecks.length - 1) return undefined
-  return isMonthBoundaryAfter(paychecks, index)
-    ? "border-r border-r-neutral-300"
-    : undefined
+  return isMonthBoundaryAfter(paychecks, index) ? "month" : "same"
+}
+
+function payColumnMonthBorderClass(kind: "month" | "same" | undefined) {
+  return kind === "month" ? "border-r border-r-neutral-300" : undefined
+}
+
+/** Same-month paycheck divider: 2px dash / 4px gap, color matches row lines (border/60). */
+function PayColumnSameMonthDivider({
+  kind,
+}: {
+  kind: "month" | "same" | undefined
+}) {
+  if (kind !== "same") return null
+  return (
+    <span
+      aria-hidden
+      className="pointer-events-none absolute inset-y-0 right-0 z-[1] w-px"
+      style={{
+        background:
+          "repeating-linear-gradient(to bottom, color-mix(in oklch, var(--border) 60%, transparent) 0 2px, transparent 2px 6px)",
+      }}
+    />
+  )
 }
 
 /** Group divider: 1px black (same weight as month lines). Drop target uses an overlay so layout does not jump. */
@@ -722,19 +747,23 @@ export function BudgetGrid({
                           !isUpcoming &&
                           (p.completed ||
                             (upcomingIndex >= 0 && i < upcomingIndex))
+                        const edgeKind = isUpcoming
+                          ? undefined
+                          : payColumnBorderClass(paychecks, i)
                         return (
                           <PayDateHeader
                             key={p.id}
                             paycheck={p}
+                            edgeKind={edgeKind}
                             className={cn(
-                              "border-b-2 border-b-neutral-900 px-1 py-3 text-center font-medium",
+                              "relative border-b-2 border-b-neutral-900 px-1 py-3 text-center font-medium",
                               isUpcoming
                                 ? upcomingColumnClass({
                                     active: true,
                                     top: true,
                                   })
                                 : cn(
-                                    payColumnBorderClass(paychecks, i),
+                                    payColumnMonthBorderClass(edgeKind),
                                     headerBg,
                                     isPast
                                       ? "text-[#969696]"
@@ -995,6 +1024,9 @@ export function BudgetGrid({
                             const cellGray = isPast
                             const canMarkDone =
                               hasAmount && (p.date <= today || isUpcoming)
+                            const edgeKind = isUpcoming
+                              ? undefined
+                              : payColumnBorderClass(paychecks, i)
 
                             return (
                               <td
@@ -1006,13 +1038,13 @@ export function BudgetGrid({
                                     : isUpcoming
                                       ? upcomingColumnClass({ active: true })
                                       : paneBg,
-                                  !isUpcoming &&
-                                    payColumnBorderClass(paychecks, i),
+                                  payColumnMonthBorderClass(edgeKind),
                                   topBorder,
                                   bottomBorder,
                                 )}
                                 style={{ width: W.pay, minWidth: W.pay }}
                               >
+                                <PayColumnSameMonthDivider kind={edgeKind} />
                                 <DropLine show={showTopLine} edge="top" />
                                 <DropLine show={showBottomLine} edge="bottom" />
                                 <AmountCell
@@ -1277,6 +1309,9 @@ export function BudgetGrid({
                                     (upcomingIndex >= 0 && i < upcomingIndex)
                                   const upcomingActive =
                                     isUpcoming && !isPast
+                                  const edgeKind = upcomingActive
+                                    ? undefined
+                                    : payColumnBorderClass(paychecks, i)
                                   return (
                                     <td
                                       key={p.id}
@@ -1290,9 +1325,8 @@ export function BudgetGrid({
                                           : cn(
                                               totalsBg,
                                               "text-muted-foreground",
-                                              payColumnBorderClass(
-                                                paychecks,
-                                                i,
+                                              payColumnMonthBorderClass(
+                                                edgeKind,
                                               ),
                                             ),
                                         topBorder,
@@ -1303,6 +1337,9 @@ export function BudgetGrid({
                                         minWidth: W.pay,
                                       }}
                                     >
+                                      <PayColumnSameMonthDivider
+                                        kind={edgeKind}
+                                      />
                                       <div className="flex h-9 items-center justify-end px-2">
                                         <span className="text-sm tabular-nums">
                                           {hasInput
@@ -1533,10 +1570,12 @@ function PayDateCalendar({
 function PayDateHeader({
   paycheck,
   className,
+  edgeKind,
   onDateChange,
 }: {
   paycheck: Paycheck
   className?: string
+  edgeKind?: "month" | "same"
   onDateChange: (date: string) => void
 }) {
   const [open, setOpen] = useState(false)
@@ -1595,6 +1634,7 @@ function PayDateHeader({
       className={className}
       style={{ width: W.pay, minWidth: W.pay }}
     >
+      <PayColumnSameMonthDivider kind={edgeKind} />
       <button
         type="button"
         className="w-full rounded-sm px-0.5 py-0.5 transition-colors hover:bg-black/5"
