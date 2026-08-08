@@ -260,10 +260,10 @@ export function CategoryDrawer({
 
         <div className="mt-6 space-y-6">
           {isSavings ? (
-            <dl className="grid grid-cols-2 gap-x-3 gap-y-3 text-sm">
+            <dl className="grid grid-cols-3 gap-x-3 text-sm">
               <div>
                 <dt className="text-muted-foreground">Goal</dt>
-                <dd className="mt-2 font-medium">
+                <dd className="mt-2 font-medium tabular-nums">
                   {formatMoney(category.goal)}
                 </dd>
               </div>
@@ -282,7 +282,7 @@ export function CategoryDrawer({
               </div>
               <div>
                 <dt className="text-muted-foreground">Balance left</dt>
-                <dd className="mt-2 font-medium">
+                <dd className="mt-2 font-medium tabular-nums">
                   {formatMoney(
                     savingsBalanceLeft(
                       category.goal,
