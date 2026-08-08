@@ -98,7 +98,7 @@ export function transferRowsForPaycheck(
 
 /**
  * Paychecks with Liz-checked put-away amounts waiting on Ji.
- * Future-dated paychecks are excluded.
+ * Includes past + upcoming; paychecks after the upcoming column are excluded.
  */
 export function pendingTransferPaychecks(
   paychecks: Paycheck[],
@@ -108,8 +108,19 @@ export function pendingTransferPaychecks(
   log: JiTransferLog[] | undefined,
   today = new Date().toISOString().slice(0, 10),
 ): Paycheck[] {
+  const upcomingIndex = paychecks.findIndex(
+    (p) => !p.completed && p.date >= today,
+  )
+  const fallbackIndex = paychecks.findIndex((p) => !p.completed)
+  const cutoff =
+    upcomingIndex >= 0
+      ? upcomingIndex
+      : fallbackIndex >= 0
+        ? fallbackIndex
+        : paychecks.length - 1
+
   return paychecks
-    .filter((p) => p.date <= today)
+    .filter((_, i) => i <= cutoff)
     .filter(
       (p) =>
         transferRowsForPaycheck(buckets, p, doneKeys, sources, log).length > 0,

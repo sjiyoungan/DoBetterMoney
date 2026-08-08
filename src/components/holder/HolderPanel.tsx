@@ -183,9 +183,11 @@ export function HolderPanel({
               </button>
             </div>
           </div>
+        </div>
 
-          {pendingPaychecks.length === 0 ? null : (
-            <div className="mt-3 flex flex-wrap gap-2">
+        <div className="flex min-h-0 flex-1 flex-col px-4">
+          {pendingPaychecks.length > 0 ? (
+            <div className="flex flex-wrap gap-2 pt-4">
               {pendingPaychecks.map((p) => {
                 const selected = p.id === selectedPaycheck?.id
                 return (
@@ -205,10 +207,8 @@ export function HolderPanel({
                 )
               })}
             </div>
-          )}
-        </div>
+          ) : null}
 
-        <div className="flex min-h-0 flex-1 flex-col px-4">
           {selectedPaycheck && rows.length > 0 ? (
             <>
               <ul className="flex-1 space-y-3 py-4">
