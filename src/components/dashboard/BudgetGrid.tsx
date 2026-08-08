@@ -41,10 +41,10 @@ function PayScrollArrow({ dir }: { dir: "left" | "right" }) {
   return (
     <svg
       viewBox="0 0 24 24"
-      className="size-4"
+      className="size-5"
       fill="none"
       stroke="currentColor"
-      strokeWidth="1.5"
+      strokeWidth="1.75"
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden
@@ -104,6 +104,35 @@ type Props = {
 
 const W = { bucket: 118, category: 168, goal: 110, balance: 96, pay: 130 } as const
 const LEFT_WIDTH = W.bucket + W.category + W.goal + W.balance
+
+/** One paycheck column step, snapped to W.pay boundaries (clamped). */
+function payColumnScrollTarget(
+  scrollLeft: number,
+  direction: -1 | 1,
+  maxScroll: number,
+) {
+  const step = W.pay
+  const nearest = Math.round(scrollLeft / step) * step
+  const aligned = Math.abs(scrollLeft - nearest) <= 1
+
+  let next: number
+  if (aligned) {
+    // Fully aligned: step exactly one column.
+    next = Math.round((scrollLeft + direction * step) / step) * step
+  } else if (direction > 0) {
+    // Misaligned: first click snaps to the next column boundary.
+    next = Math.ceil(scrollLeft / step) * step
+  } else {
+    next = Math.floor(scrollLeft / step) * step
+  }
+
+  return Math.max(0, Math.min(maxScroll, next))
+}
+
+function snapPayScrollLeft(scrollLeft: number, maxScroll: number) {
+  const snapped = Math.round(scrollLeft / W.pay) * W.pay
+  return Math.max(0, Math.min(maxScroll, snapped))
+}
 
 /** Solid pane fill — header/body/footer must fully cover scrolling rows */
 const paneBg = "bg-white dark:bg-neutral-950"
@@ -634,10 +663,12 @@ export function BudgetGrid({
     setDropBeforeId(bucketId)
   }
 
-  function scrollPayBy(delta: number) {
+  function scrollPayByColumn(direction: -1 | 1) {
     const el = scrollRef.current
     if (!el) return
-    el.scrollBy({ left: delta, behavior: "smooth" })
+    const maxScroll = Math.max(0, el.scrollWidth - el.clientWidth)
+    const next = payColumnScrollTarget(el.scrollLeft, direction, maxScroll)
+    el.scrollTo({ left: next, behavior: "smooth" })
   }
 
   function onPayPanPointerDown(e: ReactPointerEvent<HTMLDivElement>) {
@@ -680,8 +711,13 @@ export function BudgetGrid({
       e.currentTarget.releasePointerCapture(e.pointerId)
     }
     // After a real pan, swallow the synthetic click so date/check buttons
-    // don't fire from a drag that started on them.
+    // don't fire from a drag that started on them. Snap to a column edge.
     if (didPan) {
+      const el = scrollRef.current
+      if (el) {
+        const maxScroll = Math.max(0, el.scrollWidth - el.clientWidth)
+        el.scrollLeft = snapPayScrollLeft(el.scrollLeft, maxScroll)
+      }
       const swallow = (ev: Event) => {
         ev.preventDefault()
         ev.stopPropagation()
@@ -742,8 +778,8 @@ export function BudgetGrid({
           title="Scroll paychecks left"
           aria-label="Scroll paychecks left"
           disabled={!canScrollPayLeft}
-          onClick={() => scrollPayBy(-W.pay)}
-          className="inline-flex size-7 items-center justify-center text-muted-foreground transition-colors hover:text-foreground disabled:pointer-events-none disabled:opacity-30"
+          onClick={() => scrollPayByColumn(-1)}
+          className="inline-flex size-9 items-center justify-center text-muted-foreground transition-colors hover:text-foreground disabled:pointer-events-none disabled:opacity-30"
         >
           <PayScrollArrow dir="left" />
         </button>
@@ -752,8 +788,8 @@ export function BudgetGrid({
           title="Scroll paychecks right"
           aria-label="Scroll paychecks right"
           disabled={!canScrollPayRight}
-          onClick={() => scrollPayBy(W.pay)}
-          className="inline-flex size-7 items-center justify-center text-muted-foreground transition-colors hover:text-foreground disabled:pointer-events-none disabled:opacity-30"
+          onClick={() => scrollPayByColumn(1)}
+          className="inline-flex size-9 items-center justify-center text-muted-foreground transition-colors hover:text-foreground disabled:pointer-events-none disabled:opacity-30"
         >
           <PayScrollArrow dir="right" />
         </button>
