@@ -7,6 +7,7 @@ import {
 import type { SavingsBucketTotal } from "@/lib/budget-summary"
 import { COMPOSITION_COLORS } from "@/lib/budget-summary"
 import { formatMoney } from "@/lib/format"
+import { cn } from "@/lib/utils"
 
 type Props = {
   open: boolean
@@ -50,7 +51,14 @@ export function SavingsDetailDrawer({
                     <h3 className="min-w-0 truncate text-base font-semibold text-foreground">
                       {group.bucketName}
                     </h3>
-                    <span className="shrink-0 text-base tabular-nums text-foreground">
+                    <span
+                      className={cn(
+                        "shrink-0 text-base tabular-nums",
+                        group.amount === 0
+                          ? "text-neutral-400"
+                          : "text-foreground",
+                      )}
+                    >
                       {formatMoney(group.amount)}
                     </span>
                   </div>
@@ -74,7 +82,14 @@ export function SavingsDetailDrawer({
                             {cat.categoryName}
                           </span>
                           <div className="ml-auto flex shrink-0 items-center gap-2">
-                            <span className="tabular-nums text-foreground">
+                            <span
+                              className={cn(
+                                "tabular-nums",
+                                cat.amount === 0
+                                  ? "text-neutral-400"
+                                  : "text-foreground",
+                              )}
+                            >
                               {formatMoney(cat.amount)}
                             </span>
                             <div className="h-2 w-16 overflow-hidden rounded-full bg-neutral-200 sm:w-20">
