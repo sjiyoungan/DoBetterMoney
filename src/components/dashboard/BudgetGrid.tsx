@@ -8,7 +8,14 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react"
 import { createPortal } from "react-dom"
-import { Check, CirclePlus, Menu, MessageSquare } from "lucide-react"
+import {
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  CirclePlus,
+  Menu,
+  MessageSquare,
+} from "lucide-react"
 import { AddBucketDialog } from "@/components/dashboard/AddBucketDialog"
 import { CategoryDrawer } from "@/components/dashboard/CategoryDrawer"
 import { OnboardingFlow } from "@/components/dashboard/OnboardingFlow"
@@ -1351,6 +1358,175 @@ export function BudgetGrid({
   )
 }
 
+const MONTH_NAMES = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+] as const
+
+const MONTH_SHORT = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+] as const
+
+const WEEKDAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"] as const
+
+function pad2(n: number) {
+  return String(n).padStart(2, "0")
+}
+
+function toISODate(year: number, monthIndex: number, day: number) {
+  return `${year}-${pad2(monthIndex + 1)}-${pad2(day)}`
+}
+
+function parseISODateParts(iso: string) {
+  const [y, m, d] = iso.split("-").map(Number)
+  return { year: y, monthIndex: m - 1, day: d }
+}
+
+function PayDateCalendar({
+  value,
+  year,
+  onSelect,
+}: {
+  value: string
+  year: number
+  onSelect: (date: string) => void
+}) {
+  const selected = parseISODateParts(value)
+  const [viewMonth, setViewMonth] = useState(selected.monthIndex)
+  const [monthMenuOpen, setMonthMenuOpen] = useState(false)
+
+  const daysInView = new Date(year, viewMonth + 1, 0).getDate()
+  const startOffset = new Date(year, viewMonth, 1).getDay()
+
+  function shiftMonth(delta: number) {
+    setMonthMenuOpen(false)
+    setViewMonth((m) => (m + delta + 12) % 12)
+  }
+
+  return (
+    <div className="w-[232px] select-none p-1 text-foreground">
+      <div className="mb-1 flex items-center gap-0.5">
+        <button
+          type="button"
+          className="inline-flex size-7 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-black/5 hover:text-foreground dark:hover:bg-white/10"
+          aria-label="Previous month"
+          onClick={() => shiftMonth(-1)}
+        >
+          <ChevronLeft className="size-4" strokeWidth={2} />
+        </button>
+        <button
+          type="button"
+          className="min-w-0 flex-1 rounded-sm px-1 py-1 text-center text-sm font-medium transition-colors hover:bg-black/5 dark:hover:bg-white/10"
+          aria-haspopup="listbox"
+          aria-expanded={monthMenuOpen}
+          onClick={() => setMonthMenuOpen((v) => !v)}
+        >
+          {MONTH_NAMES[viewMonth]}
+        </button>
+        <button
+          type="button"
+          className="inline-flex size-7 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-black/5 hover:text-foreground dark:hover:bg-white/10"
+          aria-label="Next month"
+          onClick={() => shiftMonth(1)}
+        >
+          <ChevronRight className="size-4" strokeWidth={2} />
+        </button>
+      </div>
+
+      {monthMenuOpen ? (
+        <div
+          role="listbox"
+          aria-label="Select month"
+          className="grid grid-cols-3 gap-1"
+        >
+          {MONTH_SHORT.map((label, monthIndex) => {
+            const isViewed = monthIndex === viewMonth
+            return (
+              <button
+                key={label}
+                type="button"
+                role="option"
+                aria-selected={isViewed}
+                className={cn(
+                  "rounded-sm px-1 py-2 text-sm transition-colors hover:bg-black/5 dark:hover:bg-white/10",
+                  isViewed && "bg-neutral-900 font-medium text-white dark:bg-neutral-100 dark:text-neutral-900",
+                )}
+                onClick={() => {
+                  setViewMonth(monthIndex)
+                  setMonthMenuOpen(false)
+                }}
+              >
+                {label}
+              </button>
+            )
+          })}
+        </div>
+      ) : (
+        <>
+          <div className="mb-0.5 grid grid-cols-7 gap-0.5">
+            {WEEKDAYS.map((d) => (
+              <div
+                key={d}
+                className="py-1 text-center text-[11px] font-medium text-muted-foreground"
+              >
+                {d}
+              </div>
+            ))}
+          </div>
+          <div className="grid grid-cols-7 gap-0.5">
+            {Array.from({ length: startOffset }, (_, i) => (
+              <div key={`pad-${i}`} className="size-7" />
+            ))}
+            {Array.from({ length: daysInView }, (_, i) => {
+              const day = i + 1
+              const iso = toISODate(year, viewMonth, day)
+              const isSelected =
+                selected.year === year &&
+                selected.monthIndex === viewMonth &&
+                selected.day === day
+              return (
+                <button
+                  key={iso}
+                  type="button"
+                  className={cn(
+                    "inline-flex size-7 items-center justify-center rounded-sm text-sm tabular-nums transition-colors hover:bg-black/5 dark:hover:bg-white/10",
+                    isSelected &&
+                      "bg-neutral-900 font-medium text-white hover:bg-neutral-900 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-100",
+                  )}
+                  onClick={() => onSelect(iso)}
+                >
+                  {day}
+                </button>
+              )
+            })}
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
 function PayDateHeader({
   paycheck,
   className,
@@ -1366,8 +1542,7 @@ function PayDateHeader({
   )
   const wrapRef = useRef<HTMLTableCellElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
-  const year = paycheck.date.slice(0, 4)
+  const year = Number(paycheck.date.slice(0, 4))
 
   const updatePanelPos = () => {
     const cell = wrapRef.current
@@ -1411,18 +1586,6 @@ function PayDateHeader({
     }
   }, [open])
 
-  useEffect(() => {
-    if (!open || !panelPos) return
-    const input = inputRef.current
-    if (!input) return
-    input.focus()
-    try {
-      input.showPicker?.()
-    } catch {
-      // Older browsers: visible date field in the panel is enough
-    }
-  }, [open, panelPos])
-
   return (
     <th
       ref={wrapRef}
@@ -1445,24 +1608,16 @@ function PayDateHeader({
               ref={panelRef}
               role="dialog"
               aria-label="Change paycheck date"
-              className="fixed z-[100] rounded-md border border-neutral-400 bg-white p-2 shadow-md dark:border-neutral-600 dark:bg-neutral-900"
+              className="fixed z-[100] rounded-md border border-neutral-400 bg-white shadow-md dark:border-neutral-600 dark:bg-neutral-900"
               style={{ top: panelPos.top, left: panelPos.left }}
             >
-              <input
-                ref={inputRef}
-                type="date"
+              <PayDateCalendar
+                key={paycheck.date}
                 value={paycheck.date}
-                min={`${year}-01-01`}
-                max={`${year}-12-31`}
-                className="rounded border border-neutral-300 bg-white px-1.5 py-1 text-sm text-foreground outline-none dark:border-neutral-600 dark:bg-neutral-950"
-                onChange={(e) => {
-                  const next = e.target.value
-                  if (!next || next === paycheck.date) return
-                  onDateChange(next)
+                year={year}
+                onSelect={(date) => {
+                  if (date !== paycheck.date) onDateChange(date)
                   setOpen(false)
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Escape") setOpen(false)
                 }}
               />
             </div>,
