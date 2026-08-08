@@ -299,7 +299,7 @@ export function HolderPanel({
 
           {selectedPaycheck && rows.length > 0 ? (
             <>
-              <ul className="flex-1 space-y-0 pt-4">
+              <ul className="space-y-0 pt-4">
                 {rows.map((row) => (
                   <li key={row.categoryId}>
                     <div
@@ -318,7 +318,7 @@ export function HolderPanel({
                   </li>
                 ))}
               </ul>
-              <div className="flex items-center justify-between border-t border-neutral-200 py-3 text-sm font-semibold">
+              <div className="flex items-center justify-between border-t border-neutral-200 py-2 text-sm font-semibold">
                 <span>Total</span>
                 <span className="tabular-nums">
                   {formatMoney(transferTotal)}
@@ -385,7 +385,7 @@ export function HolderPanel({
               No savings categories yet.
             </p>
           ) : (
-            <ul className="flex-1 space-y-0 pt-3">
+            <ul className="space-y-0 pt-3">
               {accountRows.map((row) => (
                 <li key={row.id}>
                   <button
@@ -414,7 +414,7 @@ export function HolderPanel({
               ))}
             </ul>
           )}
-          <div className="flex items-center justify-between border-t border-neutral-200 py-3 text-sm font-semibold">
+          <div className="flex items-center justify-between border-t border-neutral-200 py-2 text-sm font-semibold">
             <span>Total</span>
             <span className="tabular-nums">{formatMoney(accountTotal)}</span>
           </div>
