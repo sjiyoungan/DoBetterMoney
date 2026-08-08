@@ -1,11 +1,13 @@
-import { useMemo } from "react"
+import { useMemo, useState } from "react"
 import {
   computeComposition,
+  savingsAllocatedByBucket,
   totalSavingsAllocated,
   type CompositionSegment,
 } from "@/lib/budget-summary"
 import { formatMoney } from "@/lib/format"
 import type { Bucket, Paycheck } from "@/types/budget"
+import { SavingsDetailDrawer } from "./SavingsDetailDrawer"
 
 type Props = {
   buckets: Bucket[]
@@ -14,8 +16,15 @@ type Props = {
 }
 
 export function BudgetSummaryCards({ buckets, paychecks }: Props) {
+  const [savingsOpen, setSavingsOpen] = useState(false)
+
   const totalSavings = useMemo(
     () => totalSavingsAllocated(buckets, paychecks),
+    [buckets, paychecks],
+  )
+
+  const savingsByBucket = useMemo(
+    () => savingsAllocatedByBucket(buckets, paychecks),
     [buckets, paychecks],
   )
 
@@ -26,12 +35,24 @@ export function BudgetSummaryCards({ buckets, paychecks }: Props) {
 
   return (
     <div className="flex shrink-0 flex-wrap items-stretch gap-4">
-      <div className="flex h-auto min-h-full w-[calc(11.5rem+48px)] min-w-[calc(11.5rem+48px)] shrink-0 flex-col justify-between rounded-[8px] border border-neutral-500 bg-white p-4">
+      <button
+        type="button"
+        aria-label="View total savings by group"
+        onClick={() => setSavingsOpen(true)}
+        className="flex h-auto min-h-full w-[calc(11.5rem+48px)] min-w-[calc(11.5rem+48px)] shrink-0 cursor-pointer flex-col justify-between rounded-[8px] border border-neutral-500 bg-white p-4 text-left transition-[background] duration-150 hover:bg-[linear-gradient(160deg,#FDF9FA_0%,#FFFFFF_72%)]"
+      >
         <p className="mb-6 text-sm text-neutral-600">Total savings</p>
         <p className="mt-auto text-4xl font-light tracking-tight tabular-nums text-foreground">
           {formatMoney(totalSavings)}
         </p>
-      </div>
+      </button>
+
+      <SavingsDetailDrawer
+        open={savingsOpen}
+        onOpenChange={setSavingsOpen}
+        rows={savingsByBucket}
+        total={totalSavings}
+      />
 
       <div className="flex h-auto min-h-full w-fit shrink-0 flex-col rounded-[8px] border border-neutral-500 bg-white p-4">
         <p className="mb-6 text-sm text-neutral-600">Expenses & savings</p>
