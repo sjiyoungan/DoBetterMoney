@@ -26,7 +26,7 @@ export function SavingsDetailDrawer({
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="overflow-y-auto">
-        <SheetHeader className="py-2">
+        <SheetHeader>
           <SheetTitle>Total savings</SheetTitle>
         </SheetHeader>
 
@@ -44,9 +44,9 @@ export function SavingsDetailDrawer({
               {groups.map((group) => (
                 <section
                   key={group.bucketId}
-                  className="rounded-xl border border-neutral-200 bg-white px-4 py-3"
+                  className="rounded-xl border border-neutral-200 bg-white px-4"
                 >
-                  <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center justify-between gap-3 py-5">
                     <h3 className="min-w-0 truncate text-sm font-semibold text-foreground">
                       {group.bucketName}
                     </h3>
@@ -54,8 +54,8 @@ export function SavingsDetailDrawer({
                       {formatMoney(group.amount)}
                     </span>
                   </div>
-                  <div className="mt-2 border-t border-neutral-200" />
-                  <ul className="mt-2 space-y-2">
+                  <div className="border-t border-neutral-200" />
+                  <ul className="space-y-2 py-2">
                     {group.categories.map((cat) => {
                       const pct =
                         total > 0
