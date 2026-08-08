@@ -17,7 +17,7 @@ export function CaretDownIcon({
       className={cn("size-2.5 shrink-0", className)}
       {...props}
     >
-      <path d="M4.55.45c.25-.4.65-.4.9 0l4.05 5.35c.28.37.02.95-.45.95H.95c-.47 0-.73-.58-.45-.95z" />
+      <path d="M.95.75c-.47 0-.73.58-.45.95l4.05 5.35c.25.4.65.4.9 0l4.05-5.35c.28-.37.02-.95-.45-.95H.95z" />
     </svg>
   )
 }
