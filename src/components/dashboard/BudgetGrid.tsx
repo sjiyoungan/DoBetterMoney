@@ -33,7 +33,7 @@ import {
   hasBudgetCalcInputsForDate,
   hasTotalInputsForDate,
 } from "@/lib/totals"
-import { blushHoverClass, cn } from "@/lib/utils"
+import { blushHoverClass, cn, stickyBlushHoverClass } from "@/lib/utils"
 import type { Bucket, Category, Paycheck } from "@/types/budget"
 
 /** Slim ← / → (horizontal line + arrow head) for paycheck column pan controls. */
@@ -138,9 +138,9 @@ function snapPayScrollLeft(scrollLeft: number, maxScroll: number) {
 const paneBg = "bg-white dark:bg-neutral-950"
 /** Locked header fill — opaque white (matches body paneBg) */
 const headerBg = "bg-white dark:bg-neutral-950"
-/** Totals footer rows — opaque white (matches body paneBg) */
-const totalsBg = "bg-white dark:bg-neutral-950"
-/** Top edge of Totals footer — black so it reads clearly on the white fill */
+/** Totals footer rows — grey-pink so they read as summary, not editable cells */
+const totalsBg = "bg-[#F3EBED] dark:bg-neutral-900"
+/** Top edge of Totals footer — black so it reads clearly on the grey-pink fill */
 const totalsDividerTop = "border-t-2 border-t-black"
 /** Upcoming paycheck column tint — opaque so panes never show rows through */
 const upcomingFill =
@@ -1384,7 +1384,7 @@ export function BudgetGrid({
                                       }
                                       className={cn(
                                         "absolute inset-0 flex cursor-pointer items-center justify-start px-2 text-left transition-[background] duration-150 hover:text-foreground",
-                                        blushHoverClass,
+                                        stickyBlushHoverClass,
                                       )}
                                     >
                                       <span className="block w-full min-w-0 text-left line-clamp-3 break-words">
@@ -1412,7 +1412,7 @@ export function BudgetGrid({
                                     }
                                     className={cn(
                                       "flex h-9 w-full cursor-pointer items-center px-3 text-left text-sm text-foreground transition-[background] duration-150",
-                                      blushHoverClass,
+                                      stickyBlushHoverClass,
                                     )}
                                   >
                                     {category.name}
