@@ -294,9 +294,9 @@ export function CategoryDrawer({
             </dl>
           )}
 
-          <section className="rounded-xl border border-neutral-200 bg-[#F9F3F5] px-4">
+          <section className="rounded-xl bg-[#FCF9FA] px-4">
             <div className="pt-4 pb-2">
-              <h3 className="text-sm font-semibold text-foreground">
+              <h3 className="text-sm font-medium text-[#3A121C]">
                 Comments
               </h3>
             </div>
@@ -304,7 +304,7 @@ export function CategoryDrawer({
               value={noteDraft}
               placeholder="Add a comment…"
               rows={2}
-              className="min-h-[calc(2*1.625em)] w-full resize-none border-0 bg-transparent pb-4 pt-0 text-sm leading-relaxed text-foreground outline-none ring-0 placeholder:text-[#C9A8AE] focus:border-0 focus:outline-none focus:ring-0"
+              className="min-h-[calc(2*1.625em)] w-full resize-none border-0 bg-transparent pb-4 pt-0 text-sm leading-relaxed text-foreground outline-none ring-0 placeholder:text-[#B5AEB0] focus:border-0 focus:outline-none focus:ring-0"
               onChange={(e) => {
                 const next = e.target.value
                 setNoteDraft(next)
@@ -314,7 +314,7 @@ export function CategoryDrawer({
           </section>
 
           {isSavings ? (
-            <section className="overflow-hidden rounded-xl border border-neutral-200 bg-white px-4">
+            <section className="overflow-hidden px-0">
               <div className="flex items-center justify-between gap-3 py-4">
                 <h3 className="min-w-0 truncate text-base font-semibold text-foreground">
                   Planned savings
@@ -346,10 +346,10 @@ export function CategoryDrawer({
                     ))}
                   </ul>
                   {hasMorePlanned ? (
-                    <div className="-mx-4 border-t border-neutral-200/80 bg-neutral-100/70 backdrop-blur-md">
+                    <div className="border-t border-neutral-200/80">
                       <button
                         type="button"
-                        className="flex w-full items-center justify-center gap-2 px-4 py-3 text-sm font-medium text-foreground transition-colors hover:text-neutral-700"
+                        className="flex w-full items-center justify-center gap-2 py-3 text-sm font-medium text-foreground transition-colors hover:text-neutral-700"
                         onClick={() => setPlannedExpanded((v) => !v)}
                       >
                         {plannedExpanded ? "View less" : "View more"}

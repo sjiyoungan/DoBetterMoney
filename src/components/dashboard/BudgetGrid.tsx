@@ -954,7 +954,7 @@ export function BudgetGrid({
                                       active: true,
                                       top: true,
                                     }),
-                                    "font-medium text-foreground",
+                                    "font-medium",
                                   )
                                 : cn(
                                     payColumnMonthBorderClass(edgeKind),
