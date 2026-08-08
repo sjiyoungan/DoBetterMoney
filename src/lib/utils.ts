@@ -9,6 +9,6 @@ export function cn(...inputs: ClassValue[]) {
 export const blushHoverClass =
   "hover:bg-[linear-gradient(160deg,#F7EBEE_0%,#FFFFFF_72%)]"
 
-/** Darker blush hover for sticky footer rows (fill #F3EBED — not toward white) */
+/** Sticky footer label hover: white → grey-pink fill (#F3EBED) */
 export const stickyBlushHoverClass =
-  "hover:bg-[linear-gradient(160deg,#E8DCE0_0%,#F3EBED_72%)]"
+  "hover:bg-[linear-gradient(160deg,#FFFFFF_0%,#F3EBED_72%)]"
