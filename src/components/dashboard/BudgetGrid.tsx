@@ -119,7 +119,7 @@ function PayColumnSameMonthDivider({
       className="pointer-events-none absolute inset-y-0 right-0 z-[1] w-px"
       style={{
         background:
-          "repeating-linear-gradient(to bottom, color-mix(in oklch, var(--border) 38%, transparent) 0 2px, transparent 2px 6px)",
+          "repeating-linear-gradient(to bottom, color-mix(in oklch, var(--border) 50%, transparent) 0 2px, transparent 2px 6px)",
       }}
     />
   )
