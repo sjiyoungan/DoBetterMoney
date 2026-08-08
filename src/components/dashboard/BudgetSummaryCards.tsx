@@ -27,14 +27,14 @@ export function BudgetSummaryCards({ buckets, paychecks }: Props) {
   return (
     <div className="flex shrink-0 flex-wrap items-stretch gap-3">
       <div className="flex h-auto min-h-full w-[calc(11.5rem+48px)] min-w-[calc(11.5rem+48px)] shrink-0 flex-col justify-between rounded-[8px] border border-neutral-500 bg-white p-4">
-        <p className="mb-4 text-sm text-muted-foreground">Total savings</p>
-        <p className="mt-auto text-xl font-semibold tracking-tight tabular-nums text-foreground">
+        <p className="mb-4 text-sm text-foreground">Total savings</p>
+        <p className="mt-auto text-3xl font-medium tracking-tight tabular-nums text-foreground">
           {formatMoney(totalSavings)}
         </p>
       </div>
 
       <div className="flex h-auto min-h-full w-fit shrink-0 flex-col rounded-[8px] border border-neutral-500 bg-white p-4">
-        <p className="mb-4 text-sm text-muted-foreground">Expenses & savings</p>
+        <p className="mb-4 text-sm text-foreground">Expenses & savings</p>
 
         <div className="flex w-fit items-center gap-3">
           <CompositionDonut segments={segments} total={total} />
@@ -52,11 +52,11 @@ export function BudgetSummaryCards({ buckets, paychecks }: Props) {
                     className="size-2 shrink-0 rounded-full"
                     style={{ backgroundColor: seg.color }}
                   />
-                  <span className="min-w-0 truncate text-muted-foreground">
+                  <span className="min-w-0 truncate text-foreground">
                     {seg.label}
                   </span>
                   <span className="ml-auto shrink-0 tabular-nums text-foreground">
-                    {pct}%
+                    {formatMoney(seg.amount)}&nbsp;&nbsp;{pct}%
                   </span>
                 </li>
               )
