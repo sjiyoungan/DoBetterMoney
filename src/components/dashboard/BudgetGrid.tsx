@@ -880,7 +880,7 @@ export function BudgetGrid({
                                   bucket: fullBucket,
                                 })
                               }
-                              className="absolute inset-0 flex items-center justify-start px-2 text-left transition-colors hover:bg-neutral-100 hover:text-foreground"
+                              className="absolute inset-0 flex cursor-pointer items-center justify-start px-2 text-left transition-[background] duration-150 hover:bg-[linear-gradient(160deg,#FDF9FA_0%,#FFFFFF_72%)] hover:text-foreground"
                             >
                               <span className="block w-full min-w-0 text-left break-words">
                                 {bucket.name}
@@ -902,7 +902,7 @@ export function BudgetGrid({
                           <button
                             type="button"
                             onClick={() => setSelected({ category, bucket })}
-                            className="h-9 w-full px-3 text-left text-sm transition-colors hover:bg-neutral-100 hover:text-foreground"
+                            className="h-9 w-full cursor-pointer px-3 text-left text-sm transition-[background] duration-150 hover:bg-[linear-gradient(160deg,#FDF9FA_0%,#FFFFFF_72%)] hover:text-foreground"
                           >
                             {category.name}
                           </button>
@@ -1189,7 +1189,7 @@ export function BudgetGrid({
                                           bucket: fullBucket,
                                         })
                                       }
-                                      className="absolute inset-0 flex items-center justify-start px-2 text-left transition-colors hover:bg-neutral-200 hover:text-foreground"
+                                      className="absolute inset-0 flex cursor-pointer items-center justify-start px-2 text-left transition-[background] duration-150 hover:bg-[linear-gradient(160deg,#FDF9FA_0%,#FFFFFF_72%)] hover:text-foreground"
                                     >
                                       <span className="block w-full min-w-0 text-left line-clamp-3 break-words">
                                         {bucket.name}
@@ -1214,7 +1214,7 @@ export function BudgetGrid({
                                         bucket: fullBucket,
                                       })
                                     }
-                                    className="flex h-9 w-full items-center px-3 text-left text-sm text-foreground transition-colors hover:bg-neutral-200"
+                                    className="flex h-9 w-full cursor-pointer items-center px-3 text-left text-sm text-foreground transition-[background] duration-150 hover:bg-[linear-gradient(160deg,#FDF9FA_0%,#FFFFFF_72%)]"
                                   >
                                     {category.name}
                                   </button>
