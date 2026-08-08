@@ -228,7 +228,18 @@ export function CategoryDrawer({
                 </dd>
               </div>
             </dl>
-          ) : isIncome ? null : (
+          ) : isIncome ? (
+            <dl className="grid grid-cols-2 gap-x-3 gap-y-3 text-sm">
+              <div>
+                <dt className="text-muted-foreground">Income</dt>
+                <dd className="mt-2 font-medium tabular-nums">
+                  {formatMoney(
+                    category.amount ?? category.recurringAmount,
+                  )}
+                </dd>
+              </div>
+            </dl>
+          ) : (
             <dl className="grid grid-cols-2 gap-x-3 gap-y-3 text-sm">
               <div>
                 <dt className="text-muted-foreground">Due date</dt>
