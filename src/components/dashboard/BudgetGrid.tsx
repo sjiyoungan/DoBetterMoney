@@ -771,15 +771,16 @@ export function BudgetGrid({
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <div className="mb-1.5 flex shrink-0 items-center justify-end gap-0.5">
+    <div className="relative flex min-h-0 flex-1 flex-col">
+      {/* Sit in App gap-6 (24px) above the table card — out of flow so cards→table = 24px */}
+      <div className="absolute -top-6 right-0 z-10 flex h-6 items-center justify-end gap-0.5">
         <button
           type="button"
           title="Scroll paychecks left"
           aria-label="Scroll paychecks left"
           disabled={!canScrollPayLeft}
           onClick={() => scrollPayByColumn(-1)}
-          className="inline-flex size-9 items-center justify-center text-muted-foreground transition-colors hover:text-foreground disabled:pointer-events-none disabled:opacity-30"
+          className="inline-flex size-6 items-center justify-center text-muted-foreground transition-colors hover:text-foreground disabled:pointer-events-none disabled:opacity-30"
         >
           <PayScrollArrow dir="left" />
         </button>
@@ -789,7 +790,7 @@ export function BudgetGrid({
           aria-label="Scroll paychecks right"
           disabled={!canScrollPayRight}
           onClick={() => scrollPayByColumn(1)}
-          className="inline-flex size-9 items-center justify-center text-muted-foreground transition-colors hover:text-foreground disabled:pointer-events-none disabled:opacity-30"
+          className="inline-flex size-6 items-center justify-center text-muted-foreground transition-colors hover:text-foreground disabled:pointer-events-none disabled:opacity-30"
         >
           <PayScrollArrow dir="right" />
         </button>
