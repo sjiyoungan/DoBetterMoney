@@ -6,6 +6,7 @@ import { HolderPanel } from "@/components/holder/HolderPanel"
 import { AppHeader } from "@/components/layout/AppHeader"
 import { createEmptyWorkspace, emptyWorkspace } from "@/data/empty"
 import { applyAmountToFuture } from "@/lib/apply-to-future"
+import { allocationKey } from "@/lib/format"
 import { renamePaycheckDate } from "@/lib/paycheck-date"
 import { reorderById } from "@/lib/reorder"
 import {
@@ -648,21 +649,16 @@ export default function App() {
     )
   }
 
-  function onToggleHolderFlag(
-    paycheckId: string,
-    field: "received" | "boaMoved" | "sofiMoved",
-  ) {
+  function onConfirmTransfer(paycheckId: string, categoryIds: string[]) {
+    if (categoryIds.length === 0) return
     recordHistory()
-    patchWorkspace((prev) =>
-      updateActiveYearBudget(prev, (year) => ({
-        ...year,
-        holderSplits: year.holderSplits.map((split) =>
-          split.paycheckId === paycheckId
-            ? { ...split, [field]: !split[field] }
-            : split,
-        ),
-      })),
-    )
+    patchDoneKeys((prev) => {
+      const next = new Set(prev)
+      for (const categoryId of categoryIds) {
+        next.add(allocationKey(categoryId, paycheckId))
+      }
+      return next
+    })
   }
 
   if (loadingWorkspace) {
@@ -744,9 +740,10 @@ export default function App() {
             <div className="mx-auto max-w-7xl space-y-4">
               <HolderPanel
                 workspace={yearBudget}
+                doneKeys={doneKeys}
                 selectedPaycheckId={selectedPaycheckId}
                 onSelectedPaycheckChange={setSelectedPaycheckId}
-                onToggleHolderFlag={onToggleHolderFlag}
+                onConfirmTransfer={onConfirmTransfer}
               />
             </div>
           </div>

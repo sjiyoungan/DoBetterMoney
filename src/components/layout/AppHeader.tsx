@@ -9,6 +9,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import type { UserRole } from "@/types/budget"
+import { cn } from "@/lib/utils"
 
 type Props = {
   user: UserRole
@@ -27,7 +28,7 @@ export function AppHeader({
   user,
   onUserChange,
   onSignOut,
-  username,
+  username: _username,
   activeYear,
   years,
   nextYearLabel,
@@ -35,8 +36,12 @@ export function AppHeader({
   onCreateYear,
   canCreateYear,
 }: Props) {
-  const label = username?.trim() ? username : "Profile"
-  const initial = (username?.trim()?.[0] ?? "P").toUpperCase()
+  const label = user === "liz" ? "Liz" : "Ji"
+  const initial = label[0]!
+  const avatarClass =
+    user === "liz"
+      ? "bg-[#C43B6E] text-white"
+      : "bg-neutral-950 text-white"
 
   return (
     <header className="z-50 shrink-0 border-b bg-page">
@@ -84,7 +89,12 @@ export function AppHeader({
               variant="outline"
               className="h-9 gap-2 rounded-full border-neutral-200 bg-white px-2.5 pr-3 shadow-none"
             >
-              <span className="flex size-6 items-center justify-center rounded-full bg-neutral-950 text-[11px] font-semibold text-white">
+              <span
+                className={cn(
+                  "flex size-6 items-center justify-center rounded-full text-[11px] font-semibold",
+                  avatarClass,
+                )}
+              >
                 {initial}
               </span>
               <span className="max-w-[8rem] truncate text-sm font-medium">
