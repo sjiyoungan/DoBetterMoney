@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useAuth } from "@/auth/AuthProvider"
 import { BudgetGrid } from "@/components/dashboard/BudgetGrid"
+import { BudgetSummaryCards } from "@/components/dashboard/BudgetSummaryCards"
 import { HolderPanel } from "@/components/holder/HolderPanel"
 import { AppHeader } from "@/components/layout/AppHeader"
 import { createEmptyWorkspace, emptyWorkspace } from "@/data/empty"
@@ -689,23 +690,30 @@ export default function App() {
       {/* Budget grid fills remaining height; body scrolls inside the card */}
       <main className="flex min-h-0 flex-1 flex-col overflow-hidden px-[60px] py-4">
         {role === "liz" ? (
-          <BudgetGrid
-            buckets={yearBudget.buckets}
-            paychecks={yearBudget.paychecks}
-            doneKeys={doneKeys}
-            onToggleDone={toggleDone}
-            onAmountChange={onAmountChange}
-            onAmountApplyToFuture={onAmountApplyToFuture}
-            onAmountCommit={onAmountCommit}
-            onCommentChange={onCommentChange}
-            onCommentCommit={onAmountCommit}
-            onCategoryFieldChange={onCategoryFieldChange}
-            onAddBucket={onAddBucket}
-            onUpdateBucket={onUpdateBucket}
-            onReorderBuckets={onReorderBuckets}
-            onSetupIncome={onSetupIncome}
-            onPaycheckDateChange={onPaycheckDateChange}
-          />
+          <div className="flex min-h-0 flex-1 flex-col gap-3">
+            <BudgetSummaryCards
+              buckets={yearBudget.buckets}
+              paychecks={yearBudget.paychecks}
+              activeYear={workspace.activeYear}
+            />
+            <BudgetGrid
+              buckets={yearBudget.buckets}
+              paychecks={yearBudget.paychecks}
+              doneKeys={doneKeys}
+              onToggleDone={toggleDone}
+              onAmountChange={onAmountChange}
+              onAmountApplyToFuture={onAmountApplyToFuture}
+              onAmountCommit={onAmountCommit}
+              onCommentChange={onCommentChange}
+              onCommentCommit={onAmountCommit}
+              onCategoryFieldChange={onCategoryFieldChange}
+              onAddBucket={onAddBucket}
+              onUpdateBucket={onUpdateBucket}
+              onReorderBuckets={onReorderBuckets}
+              onSetupIncome={onSetupIncome}
+              onPaycheckDateChange={onPaycheckDateChange}
+            />
+          </div>
         ) : (
           <div className="min-h-0 flex-1 overflow-y-auto">
             <div className="mx-auto max-w-7xl space-y-4">

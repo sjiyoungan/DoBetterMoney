@@ -1493,7 +1493,7 @@ function AmountCell({
   const startValueRef = useRef(value)
   const rootRef = useRef<HTMLDivElement>(null)
   const commentBtnRef = useRef<HTMLButtonElement>(null)
-  const commentBoxRef = useRef<HTMLDivElement>(null)
+  const commentBoxRef = useRef<HTMLTextAreaElement>(null)
   const draftCommentRef = useRef(draftComment)
   const hintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const suppressApplyUntilRef = useRef(0)
@@ -1646,20 +1646,16 @@ function AmountCell({
       </button>
 
       {commentOpen ? (
-        <div
+        <textarea
           ref={commentBoxRef}
-          className="absolute left-5 top-full z-40 mt-0.5 w-[168px] rounded-md border border-neutral-400 bg-white p-2 shadow-md dark:border-neutral-500 dark:bg-neutral-900"
+          autoFocus
+          rows={3}
+          value={draftComment}
+          onChange={(e) => setDraftComment(e.target.value)}
           onClick={(e) => e.stopPropagation()}
-        >
-          <textarea
-            autoFocus
-            rows={3}
-            value={draftComment}
-            onChange={(e) => setDraftComment(e.target.value)}
-            placeholder="Add a note…"
-            className="w-full resize-none rounded border border-neutral-200 bg-transparent px-1.5 py-1 text-xs leading-snug outline-none focus:border-neutral-400 dark:border-neutral-700"
-          />
-        </div>
+          placeholder="Add a note..."
+          className="absolute left-5 top-full z-40 mt-0.5 w-[168px] resize-none rounded-md border border-neutral-400 bg-white px-3 py-2.5 text-xs leading-snug shadow-md outline-none placeholder:text-neutral-400 dark:border-neutral-500 dark:bg-neutral-900 dark:placeholder:text-neutral-500"
+        />
       ) : null}
 
       <div
@@ -1733,7 +1729,14 @@ function AmountCell({
             title="Has comment"
             className="pointer-events-none absolute top-1/2 right-0 flex -translate-y-1/2 translate-x-full pr-0.5"
           >
-            <span className="ml-0.5 size-1.5 shrink-0 rounded-full bg-neutral-500 dark:bg-neutral-400" />
+            <span
+              className={cn(
+                "ml-0.5 size-1.5 shrink-0 rounded-full",
+                accent
+                  ? "bg-[#C9A8AE]"
+                  : "bg-neutral-500 dark:bg-neutral-400",
+              )}
+            />
           </span>
         ) : null}
       </div>
