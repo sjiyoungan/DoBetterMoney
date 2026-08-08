@@ -117,11 +117,14 @@ export function CategoryDrawer({
   const hasMorePlanned = plannedRows.length > PLANNED_PREVIEW
 
   const isSavings = bucket?.kind === "savings"
+  const isIncome = bucket?.kind === "income"
 
   const historyItems = useMemo((): HistoryItem[] => {
     if (!category || !bucket) return []
     const items: HistoryItem[] = []
     const savings = bucket.kind === "savings"
+    const income = bucket.kind === "income"
+    const asDeposit = savings || income
 
     if (savings) {
       const year = yearFromPaychecks(paychecks)
@@ -145,7 +148,7 @@ export function CategoryDrawer({
       const amount = allocationNumber(category.allocations, p.date)
       if (checked && amount !== null) {
         items.push(
-          savings
+          asDeposit
             ? {
                 id: `deposit-${p.id}`,
                 date: p.date,
@@ -178,7 +181,9 @@ export function CategoryDrawer({
 
   const historyEmptyCopy = isSavings
     ? "No carry-over, deposits, or comments yet. Withdrawals will show up here later."
-    : "No payments or comments yet."
+    : isIncome
+      ? "No deposits or comments yet."
+      : "No payments or comments yet."
 
   return (
     <Sheet
@@ -215,6 +220,8 @@ export function CategoryDrawer({
                 </dd>
               </div>
             </dl>
+          ) : isIncome ? (
+            <p className="text-sm font-medium text-foreground">Income</p>
           ) : (
             <dl className="grid grid-cols-2 gap-x-3 gap-y-3 text-sm">
               <div>
