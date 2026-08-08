@@ -46,16 +46,16 @@ export function SavingsDetailDrawer({
                   key={group.bucketId}
                   className="rounded-xl border border-neutral-200 bg-white px-4"
                 >
-                  <div className="flex items-center justify-between gap-3 py-5">
-                    <h3 className="min-w-0 truncate text-sm font-semibold text-foreground">
+                  <div className="flex items-center justify-between gap-3 py-6">
+                    <h3 className="min-w-0 truncate text-base font-semibold text-foreground">
                       {group.bucketName}
                     </h3>
-                    <span className="shrink-0 text-sm tabular-nums text-foreground">
+                    <span className="shrink-0 text-base tabular-nums text-foreground">
                       {formatMoney(group.amount)}
                     </span>
                   </div>
                   <div className="border-t border-neutral-200" />
-                  <ul className="space-y-2 py-2">
+                  <ul className="space-y-4 py-4">
                     {group.categories.map((cat) => {
                       const pct =
                         total > 0
