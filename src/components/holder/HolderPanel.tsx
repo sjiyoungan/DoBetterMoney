@@ -34,7 +34,7 @@ import {
   transferRowsForPaycheck,
 } from "@/lib/ji-transfer"
 import { formatMoney, formatPayDate } from "@/lib/format"
-import { cn } from "@/lib/utils"
+import { blushHoverClass, cn } from "@/lib/utils"
 import type {
   Bucket,
   Category,
@@ -299,18 +299,22 @@ export function HolderPanel({
 
           {selectedPaycheck && rows.length > 0 ? (
             <>
-              <ul className="flex-1 space-y-3 py-4">
+              <ul className="flex-1 space-y-0 py-4">
                 {rows.map((row) => (
-                  <li
-                    key={row.categoryId}
-                    className="flex items-center justify-between gap-3 text-sm"
-                  >
-                    <span className="min-w-0 truncate text-foreground">
-                      {row.categoryName}
-                    </span>
-                    <span className="shrink-0 tabular-nums text-foreground">
-                      {formatMoney(row.amount)}
-                    </span>
+                  <li key={row.categoryId}>
+                    <div
+                      className={cn(
+                        "flex items-center justify-between gap-3 rounded-md px-2 py-2 text-sm transition-[background] duration-150",
+                        blushHoverClass,
+                      )}
+                    >
+                      <span className="min-w-0 truncate text-foreground">
+                        {row.categoryName}
+                      </span>
+                      <span className="shrink-0 tabular-nums text-foreground">
+                        {formatMoney(row.amount)}
+                      </span>
+                    </div>
                   </li>
                 ))}
               </ul>
@@ -381,12 +385,15 @@ export function HolderPanel({
               No savings categories yet.
             </p>
           ) : (
-            <ul className="flex-1 space-y-3 py-4">
+            <ul className="flex-1 space-y-0 py-3">
               {accountRows.map((row) => (
                 <li key={row.id}>
                   <button
                     type="button"
-                    className="flex w-full items-center justify-between gap-3 rounded-md text-left text-sm transition-colors hover:bg-neutral-50"
+                    className={cn(
+                      "flex w-full items-center justify-between gap-3 rounded-md px-2 py-2.5 text-left text-sm transition-[background] duration-150",
+                      blushHoverClass,
+                    )}
                     onClick={() => setSelectedCategoryId(row.id)}
                   >
                     <span className="min-w-0 truncate text-foreground">
