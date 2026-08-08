@@ -247,7 +247,7 @@ export function HolderPanel({
   return (
     <div className="grid gap-4 lg:grid-cols-2">
       <section className="flex flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white">
-        <div className="border-b border-neutral-200 px-4 py-3">
+        <div className="border-b border-neutral-200 px-6 py-3">
           <div className="flex h-8 items-center justify-between gap-3">
             <h2 className="text-base font-semibold text-foreground">
               Transfer
@@ -273,7 +273,7 @@ export function HolderPanel({
           </div>
         </div>
 
-        <div className="flex min-h-0 flex-1 flex-col px-4">
+        <div className="flex min-h-0 flex-1 flex-col px-6">
           {pendingPaychecks.length > 0 ? (
             <div className="flex flex-wrap gap-2 pt-4">
               {pendingPaychecks.map((p) => {
@@ -299,12 +299,12 @@ export function HolderPanel({
 
           {selectedPaycheck && rows.length > 0 ? (
             <>
-              <ul className="flex-1 space-y-0 py-4">
+              <ul className="flex-1 space-y-0 pt-4">
                 {rows.map((row) => (
                   <li key={row.categoryId}>
                     <div
                       className={cn(
-                        "flex items-center justify-between gap-3 rounded-md px-2 py-2 text-sm transition-[background] duration-150",
+                        "flex items-center justify-between gap-3 rounded-md py-2 text-sm transition-[background] duration-150",
                         blushHoverClass,
                       )}
                     >
@@ -318,7 +318,7 @@ export function HolderPanel({
                   </li>
                 ))}
               </ul>
-              <div className="flex items-center justify-between py-3 text-sm font-semibold">
+              <div className="flex items-center justify-between border-t border-neutral-200 py-3 text-sm font-semibold">
                 <span>Total</span>
                 <span className="tabular-nums">
                   {formatMoney(transferTotal)}
@@ -333,7 +333,7 @@ export function HolderPanel({
           )}
         </div>
 
-        <div className="flex justify-end border-t border-neutral-200 px-4 py-3">
+        <div className="flex justify-end px-6 py-3">
           <Button
             type="button"
             disabled={!selectedPaycheck || rows.length === 0}
@@ -353,7 +353,7 @@ export function HolderPanel({
       </section>
 
       <section className="flex flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white">
-        <div className="border-b border-neutral-200 px-4 py-3">
+        <div className="border-b border-neutral-200 px-6 py-3">
           <div className="flex h-8 items-center justify-between gap-3">
             <h2 className="text-base font-semibold text-foreground">
               Account balance
@@ -374,24 +374,24 @@ export function HolderPanel({
                 className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
                 onClick={openWithdraw}
               >
-                <BanknoteArrowDown className="size-4" />
+                <BanknoteArrowDown className="size-[18px]" strokeWidth={1.75} />
               </button>
             </div>
           </div>
         </div>
-        <div className="flex min-h-0 flex-1 flex-col px-4">
+        <div className="flex min-h-0 flex-1 flex-col px-6">
           {accountRows.length === 0 ? (
             <p className="py-4 text-sm text-muted-foreground">
               No savings categories yet.
             </p>
           ) : (
-            <ul className="flex-1 space-y-0 py-3">
+            <ul className="flex-1 space-y-0 pt-3">
               {accountRows.map((row) => (
                 <li key={row.id}>
                   <button
                     type="button"
                     className={cn(
-                      "flex w-full items-center justify-between gap-3 rounded-md px-2 py-2.5 text-left text-sm transition-[background] duration-150",
+                      "flex w-full items-center justify-between gap-3 rounded-md py-2.5 text-left text-sm transition-[background] duration-150",
                       blushHoverClass,
                     )}
                     onClick={() => setSelectedCategoryId(row.id)}
