@@ -64,16 +64,6 @@ function PayScrollArrow({ dir }: { dir: "left" | "right" }) {
   )
 }
 
-/** Interactive / editable targets — never start a pan from these. */
-function isPayPanBlockedTarget(target: EventTarget | null) {
-  if (!(target instanceof Element)) return false
-  return Boolean(
-    target.closest(
-      "input, textarea, select, button, [data-pay-no-pan], [contenteditable]:not([contenteditable='false'])",
-    ),
-  )
-}
-
 const PAY_PAN_SLOP_PX = 4
 
 type Props = {
@@ -255,12 +245,12 @@ type GridRow = {
  * Split-pane budget grid.
  *
  * Left pane (Group → Balance) does not scroll horizontally.
- * Right pane (paycheck columns) pans horizontally via click-drag on the Totals
- * footer paycheck surface, or via the arrow controls; mouse wheel over
- * paychecks scrolls the body vertically (not horizontally). Vertical scroll
- * lives only in the body pane: locked header and Totals sit outside that
- * scroller so the Group header never moves and Totals stay flush to the
- * card/viewport bottom. Right header/footer sync via translateX with the
+ * Right pane (paycheck columns) pans horizontally via click-drag anywhere in
+ * the paycheck area (header, body, Totals), including starting on inputs —
+ * a press without drag still focuses/edits; past slop it pans. Arrow controls
+ * also scroll. Mouse wheel over paychecks scrolls the body vertically.
+ * Vertical scroll lives only in the body pane: locked header and Totals sit
+ * outside that scroller. Right header/footer sync via translateX with the
  * paycheck scroller. Left pane owns the H-scroll shadow.
  */
 export function BudgetGrid({
@@ -674,9 +664,8 @@ export function BudgetGrid({
 
   function onPayPanPointerDown(e: ReactPointerEvent<HTMLDivElement>) {
     if (e.button !== 0) return
-    // Don't steal clicks from fields, buttons, or explicit no-pan regions.
-    // Pan is attached only on the Totals footer paycheck surface.
-    if (isPayPanBlockedTarget(e.target)) return
+    // Track from anywhere (including inputs). Click without drag still edits;
+    // past slop we capture + pan and swallow the click.
     const el = scrollRef.current
     if (!el) return
     payPanRef.current = {
@@ -685,7 +674,6 @@ export function BudgetGrid({
       startScroll: el.scrollLeft,
       moved: false,
     }
-    e.currentTarget.setPointerCapture(e.pointerId)
   }
 
   function onPayPanPointerMove(e: ReactPointerEvent<HTMLDivElement>) {
@@ -698,7 +686,13 @@ export function BudgetGrid({
       if (Math.abs(dx) < PAY_PAN_SLOP_PX) return
       pan.moved = true
       setPayPanning(true)
+      e.currentTarget.setPointerCapture(e.pointerId)
+      // Leave focused inputs so a drag that started on a field becomes a pan.
+      const active = document.activeElement
+      if (active instanceof HTMLElement) active.blur()
+      window.getSelection()?.removeAllRanges()
     }
+    e.preventDefault()
     el.scrollLeft = pan.startScroll - dx
   }
 
@@ -712,7 +706,7 @@ export function BudgetGrid({
       e.currentTarget.releasePointerCapture(e.pointerId)
     }
     // After a real pan, swallow the synthetic click so date/check buttons
-    // don't fire from a drag that started on them. Snap to a column edge.
+    // and inputs don't activate from a drag. Snap to a column edge.
     if (didPan) {
       const el = scrollRef.current
       if (el) {
@@ -731,8 +725,8 @@ export function BudgetGrid({
   }
 
   const payPanSurfaceClass = cn(
-    "select-none",
-    payPanning ? "cursor-grabbing" : "cursor-grab",
+    "touch-pan-y",
+    payPanning && "select-none",
   )
   const canScrollPayLeft = scrollLeft > 1
   const canScrollPayRight = scrollLeft < scrollMax - 1
@@ -914,7 +908,15 @@ export function BudgetGrid({
             </div>
             <div
               ref={headerScrollSurfaceRef}
-              className={cn("min-w-0 flex-1 overflow-hidden", headerBg)}
+              className={cn(
+                "min-w-0 flex-1 overflow-hidden",
+                headerBg,
+                payPanSurfaceClass,
+              )}
+              onPointerDown={onPayPanPointerDown}
+              onPointerMove={onPayPanPointerMove}
+              onPointerUp={onPayPanPointerUp}
+              onPointerCancel={onPayPanPointerUp}
             >
               <div
                 className={cn("w-max min-w-full", headerBg)}
@@ -1167,10 +1169,17 @@ export function BudgetGrid({
             </table>
           </div>
 
-          {/* Right pane: amount cells + vertical scroll only (no click-drag pan) */}
+          {/* Right pane: paycheck columns — click-drag pans horizontally */}
           <div
             ref={scrollRef}
-            className="min-w-0 flex-1 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            className={cn(
+              "min-w-0 flex-1 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+              payPanSurfaceClass,
+            )}
+            onPointerDown={onPayPanPointerDown}
+            onPointerMove={onPayPanPointerMove}
+            onPointerUp={onPayPanPointerUp}
+            onPointerCancel={onPayPanPointerUp}
           >
             <div className="relative w-max min-w-full">
               <table
@@ -2053,7 +2062,6 @@ function AmountCell({
   return (
     <div
       ref={rootRef}
-      data-pay-no-pan
       className="group/cell relative flex h-9 items-center gap-0.5 pl-1 pr-1.5"
     >
       {showFutureHint ? (
