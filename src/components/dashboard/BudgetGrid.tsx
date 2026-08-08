@@ -1494,11 +1494,14 @@ function AmountCell({
   const rootRef = useRef<HTMLDivElement>(null)
   const commentBtnRef = useRef<HTMLButtonElement>(null)
   const commentBoxRef = useRef<HTMLDivElement>(null)
+  const draftCommentRef = useRef(draftComment)
   const hintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const suppressApplyUntilRef = useRef(0)
   const hasAmount = value !== "" && Number(value) !== 0
   const canCheck = hasAmount && (showCheck || done)
   const hasComment = comment !== ""
+
+  draftCommentRef.current = draftComment
 
   useEffect(() => {
     return () => {
@@ -1519,6 +1522,14 @@ function AmountCell({
 
   useEffect(() => {
     if (!commentOpen) return
+    function commitAndClose() {
+      const next = draftCommentRef.current.trim()
+      if (next !== comment) {
+        onCommentChange(next)
+        window.setTimeout(() => onCommentCommit?.(), 0)
+      }
+      setCommentOpen(false)
+    }
     function onPointerDown(e: PointerEvent) {
       const target = e.target as Node
       if (
@@ -1527,14 +1538,12 @@ function AmountCell({
       ) {
         return
       }
-      setCommentOpen(false)
-      setDraftComment(comment)
+      commitAndClose()
     }
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === "Escape") {
         e.stopPropagation()
-        setCommentOpen(false)
-        setDraftComment(comment)
+        commitAndClose()
       }
     }
     document.addEventListener("pointerdown", onPointerDown)
@@ -1543,7 +1552,7 @@ function AmountCell({
       document.removeEventListener("pointerdown", onPointerDown)
       document.removeEventListener("keydown", onKeyDown)
     }
-  }, [commentOpen, comment])
+  }, [commentOpen, comment, onCommentChange, onCommentCommit])
 
   function clearHintTimer() {
     if (hintTimerRef.current) {
@@ -1569,20 +1578,6 @@ function AmountCell({
     setCommentOpen(true)
     setShowFutureHint(false)
     clearHintTimer()
-  }
-
-  function cancelComment() {
-    setCommentOpen(false)
-    setDraftComment(comment)
-  }
-
-  function saveComment() {
-    const next = draftComment.trim()
-    if (next !== comment) {
-      onCommentChange(next)
-      window.setTimeout(() => onCommentCommit?.(), 0)
-    }
-    setCommentOpen(false)
   }
 
   return (
@@ -1664,22 +1659,6 @@ function AmountCell({
             placeholder="Add a note…"
             className="w-full resize-none rounded border border-neutral-200 bg-transparent px-1.5 py-1 text-xs leading-snug outline-none focus:border-neutral-400 dark:border-neutral-700"
           />
-          <div className="mt-1.5 flex justify-end gap-1">
-            <button
-              type="button"
-              onClick={cancelComment}
-              className="rounded px-1.5 py-0.5 text-[10px] text-neutral-600 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={saveComment}
-              className="rounded bg-neutral-900 px-1.5 py-0.5 text-[10px] text-white hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white"
-            >
-              Save
-            </button>
-          </div>
         </div>
       ) : null}
 
