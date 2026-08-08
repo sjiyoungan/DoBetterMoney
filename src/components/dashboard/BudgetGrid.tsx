@@ -1,11 +1,13 @@
 import {
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
 } from "react"
+import { createPortal } from "react-dom"
 import { Check, CirclePlus, Menu, MessageSquare } from "lucide-react"
 import { AddBucketDialog } from "@/components/dashboard/AddBucketDialog"
 import { CategoryDrawer } from "@/components/dashboard/CategoryDrawer"
@@ -1359,66 +1361,114 @@ function PayDateHeader({
   onDateChange: (date: string) => void
 }) {
   const [open, setOpen] = useState(false)
+  const [panelPos, setPanelPos] = useState<{ top: number; left: number } | null>(
+    null,
+  )
   const wrapRef = useRef<HTMLTableCellElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const year = paycheck.date.slice(0, 4)
 
-  useEffect(() => {
-    if (!open) return
-    function onPointerDown(e: PointerEvent) {
-      if (!wrapRef.current?.contains(e.target as Node)) setOpen(false)
+  const updatePanelPos = () => {
+    const cell = wrapRef.current
+    if (!cell) return
+    const rect = cell.getBoundingClientRect()
+    setPanelPos({ top: rect.bottom + 4, left: rect.left })
+  }
+
+  useLayoutEffect(() => {
+    if (!open) {
+      setPanelPos(null)
+      return
     }
-    document.addEventListener("pointerdown", onPointerDown)
-    return () => document.removeEventListener("pointerdown", onPointerDown)
+    updatePanelPos()
   }, [open])
 
   useEffect(() => {
     if (!open) return
+    function onPointerDown(e: PointerEvent) {
+      const target = e.target as Node
+      if (wrapRef.current?.contains(target)) return
+      if (panelRef.current?.contains(target)) return
+      setOpen(false)
+    }
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false)
+    }
+    function onReposition() {
+      updatePanelPos()
+    }
+    document.addEventListener("pointerdown", onPointerDown)
+    document.addEventListener("keydown", onKeyDown)
+    window.addEventListener("resize", onReposition)
+    // Header uses translateX for horizontal sync — listen to scroll on ancestors too
+    window.addEventListener("scroll", onReposition, true)
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown)
+      document.removeEventListener("keydown", onKeyDown)
+      window.removeEventListener("resize", onReposition)
+      window.removeEventListener("scroll", onReposition, true)
+    }
+  }, [open])
+
+  useEffect(() => {
+    if (!open || !panelPos) return
     const input = inputRef.current
     if (!input) return
     input.focus()
     try {
       input.showPicker?.()
     } catch {
-      // Older browsers: visible date field is enough
+      // Older browsers: visible date field in the panel is enough
     }
-  }, [open])
+  }, [open, panelPos])
 
   return (
     <th
       ref={wrapRef}
-      className={cn("relative", className)}
+      className={className}
       style={{ width: W.pay, minWidth: W.pay }}
     >
       <button
         type="button"
         className="w-full rounded-sm px-0.5 py-0.5 transition-colors hover:bg-black/5"
         title="Change paycheck date"
+        aria-haspopup="dialog"
+        aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
       >
         {formatPayDate(paycheck.date)}
       </button>
-      {open ? (
-        <div className="absolute left-1/2 top-full z-50 mt-1 -translate-x-1/2 rounded-md border border-neutral-400 bg-white p-2 shadow-md dark:border-neutral-600 dark:bg-neutral-900">
-          <input
-            ref={inputRef}
-            type="date"
-            value={paycheck.date}
-            min={`${year}-01-01`}
-            max={`${year}-12-31`}
-            className="rounded border border-neutral-300 bg-white px-1.5 py-1 text-sm text-foreground outline-none dark:border-neutral-600 dark:bg-neutral-950"
-            onChange={(e) => {
-              const next = e.target.value
-              if (!next || next === paycheck.date) return
-              onDateChange(next)
-              setOpen(false)
-            }}
-            onKeyDown={(e) => {
-              if (e.key === "Escape") setOpen(false)
-            }}
-          />
-        </div>
-      ) : null}
+      {open && panelPos
+        ? createPortal(
+            <div
+              ref={panelRef}
+              role="dialog"
+              aria-label="Change paycheck date"
+              className="fixed z-[100] rounded-md border border-neutral-400 bg-white p-2 shadow-md dark:border-neutral-600 dark:bg-neutral-900"
+              style={{ top: panelPos.top, left: panelPos.left }}
+            >
+              <input
+                ref={inputRef}
+                type="date"
+                value={paycheck.date}
+                min={`${year}-01-01`}
+                max={`${year}-12-31`}
+                className="rounded border border-neutral-300 bg-white px-1.5 py-1 text-sm text-foreground outline-none dark:border-neutral-600 dark:bg-neutral-950"
+                onChange={(e) => {
+                  const next = e.target.value
+                  if (!next || next === paycheck.date) return
+                  onDateChange(next)
+                  setOpen(false)
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") setOpen(false)
+                }}
+              />
+            </div>,
+            document.body,
+          )
+        : null}
     </th>
   )
 }
