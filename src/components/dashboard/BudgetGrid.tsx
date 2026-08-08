@@ -97,6 +97,20 @@ type Props = {
 const W = { bucket: 118, category: 168, goal: 110, balance: 96, pay: 130 } as const
 const LEFT_WIDTH = W.bucket + W.category + W.goal + W.balance
 
+/** Ideal paycheck scroll: keep upcoming in view; if the tail is short, pin end flush so more past columns fill the pane. */
+function idealPayScrollLeft(
+  upcomingIndex: number,
+  payCount: number,
+  clientWidth: number,
+): number {
+  const contentWidth = payCount * W.pay
+  const maxScroll = Math.max(0, contentWidth - clientWidth)
+  if (maxScroll === 0 || upcomingIndex < 0) return 0
+  const preferred = Math.max(0, (upcomingIndex - 1) * W.pay)
+  if (contentWidth - preferred < clientWidth) return maxScroll
+  return Math.min(preferred, maxScroll)
+}
+
 /** One paycheck column step, snapped to W.pay boundaries (clamped). */
 function payColumnScrollTarget(
   scrollLeft: number,
@@ -286,10 +300,12 @@ export function BudgetGrid({
   const rightRowRefs = useRef(new Map<string, HTMLTableRowElement>())
   const bucketBodyRefs = useRef(new Map<string, HTMLTableSectionElement>())
   const gridFrameRef = useRef<HTMLDivElement>(null)
+  const gridMeasureRef = useRef<HTMLDivElement>(null)
 
   const [scrolled, setScrolled] = useState(false)
   const [scrollLeft, setScrollLeft] = useState(0)
   const [scrollMax, setScrollMax] = useState(0)
+  const [availWidth, setAvailWidth] = useState(0)
   const [payPanning, setPayPanning] = useState(false)
   const [bodyScrolledPastTop, setBodyScrolledPastTop] = useState(false)
   const [bodyCanScrollUnderFooter, setBodyCanScrollUnderFooter] =
@@ -406,14 +422,34 @@ export function BudgetGrid({
     [paychecks, currentPaycheckId],
   )
 
-  // Scroll right pane so the upcoming paycheck is visible
-  useEffect(() => {
+  const tableNaturalWidth = LEFT_WIDTH + paychecks.length * W.pay
+  const shouldHugTable =
+    availWidth > 0 && tableNaturalWidth < availWidth - 1
+
+  useLayoutEffect(() => {
+    const el = gridMeasureRef.current
+    if (!el) return
+    const update = () => setAvailWidth(el.clientWidth)
+    update()
+    const ro = new ResizeObserver(update)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+
+  // Scroll right pane: upcoming visible; fill width with past when the year tail is short.
+  useLayoutEffect(() => {
     const el = scrollRef.current
     if (!el || upcomingIndex < 0) return
-    el.scrollLeft = Math.max(0, upcomingIndex - 1) * W.pay
-    setScrolled(el.scrollLeft > 1)
-    setScrollLeft(el.scrollLeft)
-  }, [upcomingIndex])
+    const next = idealPayScrollLeft(
+      upcomingIndex,
+      paychecks.length,
+      el.clientWidth,
+    )
+    el.scrollLeft = next
+    setScrolled(next > 1)
+    setScrollLeft(next)
+    setScrollMax(Math.max(0, el.scrollWidth - el.clientWidth))
+  }, [upcomingIndex, paychecks.length, availWidth, shouldHugTable])
 
   // Track horizontal scroll; keep header/footer translateX in sync.
   // Wheel over paycheck columns must NOT hijack to scrollLeft — vertical wheel
@@ -426,6 +462,22 @@ export function BudgetGrid({
       setScrollLeft(el.scrollLeft)
       setScrollMax(Math.max(0, el.scrollWidth - el.clientWidth))
     }
+    const fillEmptyPaySpace = () => {
+      // If the viewport grew and the current position leaves empty room after
+      // the last column, pull more past columns into view.
+      const contentWidth = paychecks.length * W.pay
+      const maxScroll = Math.max(0, contentWidth - el.clientWidth)
+      if (maxScroll === 0) return
+      if (el.scrollLeft + el.clientWidth > contentWidth + 1) {
+        el.scrollLeft = maxScroll
+      } else if (
+        contentWidth - el.scrollLeft < el.clientWidth &&
+        el.scrollLeft < maxScroll
+      ) {
+        el.scrollLeft = maxScroll
+      }
+      syncScroll()
+    }
     const forwardWheelToBody = (e: WheelEvent) => {
       if (Math.abs(e.deltaY) < Math.abs(e.deltaX)) return
       const body = bodyScrollRef.current
@@ -435,7 +487,10 @@ export function BudgetGrid({
     }
     syncScroll()
     el.addEventListener("scroll", syncScroll, { passive: true })
-    const ro = new ResizeObserver(syncScroll)
+    const ro = new ResizeObserver(() => {
+      fillEmptyPaySpace()
+      syncScroll()
+    })
     ro.observe(el)
     const headerSurface = headerScrollSurfaceRef.current
     const footerSurface = footerScrollSurfaceRef.current
@@ -452,7 +507,7 @@ export function BudgetGrid({
       headerSurface?.removeEventListener("wheel", forwardWheelToBody)
       footerSurface?.removeEventListener("wheel", forwardWheelToBody)
     }
-  }, [hasTotalsFooter])
+  }, [hasTotalsFooter, paychecks.length])
 
   // Soft edge shadows when body content can scroll under header / Totals
   useEffect(() => {
@@ -770,7 +825,18 @@ export function BudgetGrid({
   }
 
   return (
-    <div className="relative flex min-h-0 flex-1 flex-col">
+    <div ref={gridMeasureRef} className="flex min-h-0 min-w-0 flex-1 flex-col">
+      <div
+        className={cn(
+          "relative flex min-h-0 flex-1 flex-col",
+          shouldHugTable && "mx-auto",
+        )}
+        style={
+          shouldHugTable
+            ? { width: tableNaturalWidth, maxWidth: "100%" }
+            : undefined
+        }
+      >
       {/* Sit in App gap-6 (24px) above the table card — out of flow so cards→table = 24px */}
       <div className="absolute -top-6 right-0 z-10 flex h-6 items-center justify-end gap-0.5">
         <button
@@ -923,7 +989,7 @@ export function BudgetGrid({
               onPointerCancel={onPayPanPointerUp}
             >
               <div
-                className={cn("w-max min-w-full", headerBg)}
+                className={cn("w-max", headerBg)}
                 style={{ transform: `translateX(-${scrollLeft}px)` }}
               >
                 <table className="border-separate border-spacing-0 text-sm">
@@ -1186,7 +1252,7 @@ export function BudgetGrid({
             onPointerUp={onPayPanPointerUp}
             onPointerCancel={onPayPanPointerUp}
           >
-            <div className="relative w-max min-w-full">
+            <div className="relative w-max">
               <table
                 ref={rightTableRef}
                 className="border-separate border-spacing-0 text-sm"
@@ -1472,7 +1538,7 @@ export function BudgetGrid({
                   onPointerCancel={onPayPanPointerUp}
                 >
                   <div
-                    className={cn("w-max min-w-full", totalsBg)}
+                    className={cn("w-max", totalsBg)}
                     style={{ transform: `translateX(-${scrollLeft}px)` }}
                   >
                     <table className="border-separate border-spacing-0 text-sm">
@@ -1599,6 +1665,7 @@ export function BudgetGrid({
           ) : null}
         </div>
 
+      </div>
       </div>
 
       <AddBucketDialog
