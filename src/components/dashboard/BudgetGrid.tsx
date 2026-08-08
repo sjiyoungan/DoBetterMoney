@@ -755,7 +755,7 @@ export function BudgetGrid({
           <div
             ref={bodyScrollRef}
             className={cn(
-              "relative z-0 min-h-0 flex-1 overflow-x-hidden overflow-y-auto border-x",
+              "relative z-0 min-h-0 flex-1 overflow-x-hidden overflow-y-auto border-x [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
               cardStroke,
               !hasTotalsFooter && "rounded-b-[8px] border-b",
             )}
