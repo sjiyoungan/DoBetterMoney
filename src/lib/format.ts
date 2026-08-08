@@ -48,6 +48,16 @@ export function formatPayDate(iso: string) {
   })
 }
 
+/** History log date — includes year (e.g. "Aug 15, 2026"). */
+export function formatHistoryDate(iso: string) {
+  const d = new Date(`${iso}T12:00:00`)
+  return d.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  })
+}
+
 export function allocationKey(categoryId: string, paycheckId: string) {
   return `${categoryId}::${paycheckId}`
 }

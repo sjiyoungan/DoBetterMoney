@@ -7,6 +7,7 @@ import {
 } from "@/components/ui/sheet"
 import {
   allocationKey,
+  formatHistoryDate,
   formatMoney,
   formatPayDate,
   savingsBalanceLeft,
@@ -30,7 +31,7 @@ type PlannedRow = {
 type HistoryItem = {
   id: string
   date: string
-  kind: "added" | "comment"
+  kind: "added" | "comment" | "carryover"
   amount?: number
   comment?: string
 }
@@ -45,6 +46,15 @@ function allocationNumber(
   if (raw === "" || raw === undefined) return null
   const n = Number(raw)
   return Number.isFinite(n) && n !== 0 ? n : null
+}
+
+function yearFromPaychecks(paychecks: Paycheck[]): number {
+  const first = paychecks[0]?.date
+  if (first) {
+    const y = Number(first.slice(0, 4))
+    if (Number.isFinite(y)) return y
+  }
+  return new Date().getFullYear()
 }
 
 export function CategoryDrawer({
@@ -96,6 +106,19 @@ export function CategoryDrawer({
   const historyItems = useMemo((): HistoryItem[] => {
     if (!category) return []
     const items: HistoryItem[] = []
+    const year = yearFromPaychecks(paychecks)
+    const carry =
+      typeof category.balance === "number" && Number.isFinite(category.balance)
+        ? category.balance
+        : 0
+    if (carry !== 0) {
+      items.push({
+        id: "carryover",
+        date: `${year}-01-01`,
+        kind: "carryover",
+        amount: carry,
+      })
+    }
 
     for (const p of paychecks) {
       const key = allocationKey(category.id, p.id)
@@ -232,30 +255,37 @@ export function CategoryDrawer({
                 <div className="border-t border-neutral-200" />
                 {historyItems.length === 0 ? (
                   <p className="py-4 text-sm text-muted-foreground">
-                    No additions or comments yet. Withdrawals will show up here
-                    later.
+                    No carry-over, additions, or comments yet. Withdrawals will
+                    show up here later.
                   </p>
                 ) : (
                   <ul className="space-y-4 py-4">
                     {historyItems.map((item) => (
                       <li key={item.id} className="text-sm">
                         <div className="flex items-baseline justify-between gap-3">
-                          <span className="text-muted-foreground">
-                            {formatPayDate(item.date)}
-                          </span>
-                          {item.kind === "added" ? (
+                          <time
+                            dateTime={item.date}
+                            className="tabular-nums text-muted-foreground"
+                          >
+                            {formatHistoryDate(item.date)}
+                          </time>
+                          {item.kind === "comment" ? (
+                            <span className="text-muted-foreground">
+                              Comment
+                            </span>
+                          ) : (
                             <span className="tabular-nums text-foreground">
                               +{formatMoney(item.amount)}
                             </span>
-                          ) : (
-                            <span className="text-muted-foreground">Comment</span>
                           )}
                         </div>
-                        {item.kind === "added" ? (
-                          <p className="mt-1 text-foreground">Added to savings</p>
-                        ) : (
-                          <p className="mt-1 text-foreground">{item.comment}</p>
-                        )}
+                        <p className="mt-1 text-foreground">
+                          {item.kind === "carryover"
+                            ? "Carry over"
+                            : item.kind === "added"
+                              ? "Added to savings"
+                              : item.comment}
+                        </p>
                       </li>
                     ))}
                   </ul>
