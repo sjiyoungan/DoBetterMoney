@@ -119,7 +119,7 @@ function PayColumnSameMonthDivider({
       className="pointer-events-none absolute inset-y-0 right-0 z-[1] w-px"
       style={{
         background:
-          "repeating-linear-gradient(to bottom, color-mix(in oklch, var(--border) 58%, transparent) 0 2px, transparent 2px 6px)",
+          "repeating-linear-gradient(to bottom, color-mix(in oklch, var(--border) 65%, transparent) 0 2px, transparent 2px 6px)",
       }}
     />
   )
@@ -1351,7 +1351,15 @@ export function BudgetGrid({
                                         kind={edgeKind}
                                       />
                                       <div className="flex h-9 items-center justify-end px-2">
-                                        <span className="text-sm tabular-nums">
+                                        <span
+                                          className={cn(
+                                            "text-sm tabular-nums",
+                                            isBudgetCalc &&
+                                              hasInput &&
+                                              value < 0 &&
+                                              "text-[#9F3A3A]",
+                                          )}
+                                        >
                                           {hasInput
                                             ? formatMoney(value)
                                             : ""}
