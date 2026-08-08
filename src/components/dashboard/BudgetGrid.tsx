@@ -877,9 +877,11 @@ export function BudgetGrid({
                                   bucket: fullBucket,
                                 })
                               }
-                              className="absolute inset-0 flex items-center justify-start px-2 transition-colors hover:bg-neutral-100 hover:text-foreground"
+                              className="absolute inset-0 flex items-center justify-start px-2 text-left transition-colors hover:bg-neutral-100 hover:text-foreground"
                             >
-                              {bucket.name}
+                              <span className="w-full min-w-0 text-left">
+                                {bucket.name}
+                              </span>
                             </button>
                           </td>
                         ) : null}
@@ -1184,9 +1186,9 @@ export function BudgetGrid({
                                           bucket: fullBucket,
                                         })
                                       }
-                                      className="absolute inset-0 flex items-center justify-start px-2 transition-colors hover:bg-neutral-200 hover:text-foreground"
+                                      className="absolute inset-0 flex items-center justify-start px-2 text-left transition-colors hover:bg-neutral-200 hover:text-foreground"
                                     >
-                                      <span className="line-clamp-3 break-words">
+                                      <span className="w-full min-w-0 text-left line-clamp-3 break-words">
                                         {bucket.name}
                                       </span>
                                     </button>
