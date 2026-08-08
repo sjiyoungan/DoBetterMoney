@@ -350,7 +350,7 @@ export function CategoryDrawer({
                     <div className="-mx-4 border-t border-neutral-200/80 bg-neutral-100/70 backdrop-blur-md">
                       <button
                         type="button"
-                        className="flex w-full items-center justify-center gap-2 px-4 py-3 text-sm font-medium text-neutral-500 transition-colors hover:text-neutral-700"
+                        className="flex w-full items-center justify-center gap-2 px-4 py-3 text-sm font-medium text-foreground transition-colors hover:text-neutral-700"
                         onClick={() => setPlannedExpanded((v) => !v)}
                       >
                         {plannedExpanded ? "View less" : "View more"}
