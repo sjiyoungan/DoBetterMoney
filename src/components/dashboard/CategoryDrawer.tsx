@@ -179,6 +179,13 @@ export function CategoryDrawer({
 
   if (!category || !bucket) return null
 
+  const typeLabel =
+    bucket.kind === "savings"
+      ? "Savings"
+      : bucket.kind === "income"
+        ? "Income"
+        : "Expense"
+
   const historyEmptyCopy = isSavings
     ? "No carry-over, deposits, or comments yet. Withdrawals will show up here later."
     : isIncome
@@ -196,6 +203,7 @@ export function CategoryDrawer({
       <SheetContent className="overflow-y-auto">
         <SheetHeader>
           <SheetTitle>{category.name}</SheetTitle>
+          <p className="text-xs text-neutral-400">{typeLabel}</p>
         </SheetHeader>
 
         <div className="mt-6 space-y-6">
@@ -220,9 +228,7 @@ export function CategoryDrawer({
                 </dd>
               </div>
             </dl>
-          ) : isIncome ? (
-            <p className="text-sm font-medium text-foreground">Income</p>
-          ) : (
+          ) : isIncome ? null : (
             <dl className="grid grid-cols-2 gap-x-3 gap-y-3 text-sm">
               <div>
                 <dt className="text-muted-foreground">Due date</dt>
