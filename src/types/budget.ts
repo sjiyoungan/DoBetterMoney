@@ -112,6 +112,23 @@ export type Withdrawal = {
   note?: string
 }
 
+/** Ji “To put away” — which groups/categories appear in the transfer list. */
+export type JiTransferSource = TotalSource
+
+/** One Done confirmation (or later undo) on Ji’s transfer card. */
+export type JiTransferLog = {
+  id: string
+  paycheckId: string
+  /** Paycheck ISO date (for display). */
+  paycheckDate: string
+  total: number
+  categoryIds: string[]
+  /** When Ji clicked Done (ISO datetime). */
+  confirmedAt: string
+  /** When an undo was saved (ISO datetime); entry stays in history. */
+  undoneAt?: string
+}
+
 /** One calendar year's budget grid data */
 export type YearBudget = {
   paychecks: Paycheck[]
@@ -121,6 +138,10 @@ export type YearBudget = {
   /** categoryId -> cash still held for Liz */
   holderBalances: Record<string, number>
   doneKeys: string[]
+  /** Groups/categories Ji tracks for put-away (Totals-style sources). */
+  jiTransferSources?: JiTransferSource[]
+  /** Ji Done / undo history for put-away confirmations. */
+  jiTransferLog?: JiTransferLog[]
 }
 
 /**

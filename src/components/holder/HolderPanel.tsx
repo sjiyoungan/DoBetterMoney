@@ -1,72 +1,43 @@
-import { useEffect, useMemo } from "react"
+import { useEffect, useMemo, useState } from "react"
+import { History, Settings, Undo2 } from "lucide-react"
+import { TotalsSourcesEditor } from "@/components/dashboard/TotalsSourcesEditor"
 import { Button } from "@/components/ui/button"
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet"
 import {
   savingsActualForCategory,
   totalSavingsAllocated,
 } from "@/lib/budget-summary"
-import { allocationKey, formatMoney, formatPayDate } from "@/lib/format"
+import { formatMoney, formatPayDate } from "@/lib/format"
+import {
+  pendingTransferPaychecks,
+  sourceBucketsForJi,
+  transferRowsForPaycheck,
+} from "@/lib/ji-transfer"
 import { cn } from "@/lib/utils"
-import type { Bucket, Category, Paycheck, YearBudget } from "@/types/budget"
+import type {
+  JiTransferLog,
+  JiTransferSource,
+  YearBudget,
+} from "@/types/budget"
 
 type Props = {
   workspace: YearBudget
   doneKeys: Set<string>
   selectedPaycheckId: string
   onSelectedPaycheckChange: (id: string) => void
-  onConfirmTransfer: (paycheckId: string, categoryIds: string[]) => void
-}
-
-type TransferRow = {
-  categoryId: string
-  categoryName: string
-  amount: number
-}
-
-function allocationAmount(cat: Category, date: string): number {
-  const raw = cat.allocations[date]
-  if (raw === "" || raw === undefined) return 0
-  const n = Number(raw)
-  return Number.isFinite(n) ? n : 0
-}
-
-function transferBuckets(buckets: Bucket[]) {
-  return buckets.filter(
-    (b) => b.kind === "spending" || b.kind === "savings",
-  )
-}
-
-function transferRowsForPaycheck(
-  buckets: Bucket[],
-  paycheck: Paycheck,
-  doneKeys: Set<string>,
-  pendingOnly: boolean,
-): TransferRow[] {
-  const rows: TransferRow[] = []
-  for (const bucket of transferBuckets(buckets)) {
-    for (const cat of bucket.categories) {
-      if (cat.hidden) continue
-      const amount = allocationAmount(cat, paycheck.date)
-      if (amount === 0) continue
-      const key = allocationKey(cat.id, paycheck.id)
-      if (pendingOnly && doneKeys.has(key)) continue
-      rows.push({
-        categoryId: cat.id,
-        categoryName: cat.name,
-        amount,
-      })
-    }
-  }
-  return rows
-}
-
-function isPaycheckPending(
-  paycheck: Paycheck,
-  buckets: Bucket[],
-  doneKeys: Set<string>,
-): boolean {
-  return (
-    transferRowsForPaycheck(buckets, paycheck, doneKeys, true).length > 0
-  )
+  onConfirmTransfer: (input: {
+    paycheckId: string
+    paycheckDate: string
+    total: number
+    categoryIds: string[]
+  }) => void
+  onSaveTransferSources: (sources: JiTransferSource[]) => void
+  onSaveTransferLog: (log: JiTransferLog[]) => void
 }
 
 export function HolderPanel({
@@ -75,13 +46,26 @@ export function HolderPanel({
   selectedPaycheckId,
   onSelectedPaycheckChange,
   onConfirmTransfer,
+  onSaveTransferSources,
+  onSaveTransferLog,
 }: Props) {
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [historyOpen, setHistoryOpen] = useState(false)
+  const [undoDraftIds, setUndoDraftIds] = useState<Set<string>>(new Set())
+
+  const sources = workspace.jiTransferSources
+  const log = workspace.jiTransferLog ?? []
+
   const pendingPaychecks = useMemo(
     () =>
-      workspace.paychecks
-        .filter((p) => isPaycheckPending(p, workspace.buckets, doneKeys))
-        .sort((a, b) => a.date.localeCompare(b.date)),
-    [workspace.paychecks, workspace.buckets, doneKeys],
+      pendingTransferPaychecks(
+        workspace.paychecks,
+        workspace.buckets,
+        doneKeys,
+        sources,
+        log,
+      ),
+    [workspace.paychecks, workspace.buckets, doneKeys, sources, log],
   )
 
   useEffect(() => {
@@ -94,6 +78,10 @@ export function HolderPanel({
     }
   }, [pendingPaychecks, selectedPaycheckId, onSelectedPaycheckChange])
 
+  useEffect(() => {
+    if (!historyOpen) setUndoDraftIds(new Set())
+  }, [historyOpen])
+
   const selectedPaycheck =
     pendingPaychecks.find((p) => p.id === selectedPaycheckId) ??
     pendingPaychecks[0] ??
@@ -104,11 +92,20 @@ export function HolderPanel({
         workspace.buckets,
         selectedPaycheck,
         doneKeys,
-        true,
+        sources,
+        log,
       )
     : []
 
   const transferTotal = rows.reduce((sum, row) => sum + row.amount, 0)
+
+  const historyRows = useMemo(() => {
+    return [...log].sort((a, b) => {
+      const aKey = a.undoneAt ?? a.confirmedAt
+      const bKey = b.undoneAt ?? b.confirmedAt
+      return bKey.localeCompare(aKey)
+    })
+  }, [log])
 
   const accountRows = useMemo(() => {
     const list: { id: string; name: string; amount: number }[] = []
@@ -133,15 +130,61 @@ export function HolderPanel({
     doneKeys,
   )
 
+  const jiSourceBuckets = sourceBucketsForJi(workspace.buckets)
+
+  function toggleUndoDraft(id: string) {
+    setUndoDraftIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  function saveHistoryDraft() {
+    if (undoDraftIds.size === 0) {
+      setHistoryOpen(false)
+      return
+    }
+    const now = new Date().toISOString()
+    const next = log.map((entry) => {
+      if (!undoDraftIds.has(entry.id) || entry.undoneAt) return entry
+      return { ...entry, undoneAt: now }
+    })
+    onSaveTransferLog(next)
+    setUndoDraftIds(new Set())
+    setHistoryOpen(false)
+  }
+
   return (
     <div className="grid gap-4 lg:grid-cols-2">
       <section className="flex flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white">
         <div className="border-b border-neutral-200 px-4 py-3">
-          {pendingPaychecks.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              No pending paychecks to transfer.
-            </p>
-          ) : (
+          <div className="mb-3 flex items-start justify-between gap-3">
+            <h2 className="text-base font-semibold text-foreground">
+              To put away
+            </h2>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                title="Transfer history"
+                className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                onClick={() => setHistoryOpen(true)}
+              >
+                <History className="size-4" />
+              </button>
+              <button
+                type="button"
+                title="Choose groups and categories"
+                className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                onClick={() => setSettingsOpen(true)}
+              >
+                <Settings className="size-4" />
+              </button>
+            </div>
+          </div>
+
+          {pendingPaychecks.length === 0 ? null : (
             <div className="flex flex-wrap gap-2">
               {pendingPaychecks.map((p) => {
                 const selected = p.id === selectedPaycheck?.id
@@ -167,35 +210,35 @@ export function HolderPanel({
 
         <div className="flex min-h-0 flex-1 flex-col px-4">
           {selectedPaycheck && rows.length > 0 ? (
-            <ul className="flex-1 space-y-3 py-4">
-              {rows.map((row) => (
-                <li
-                  key={row.categoryId}
-                  className="flex items-center justify-between gap-3 text-sm"
-                >
-                  <span className="min-w-0 truncate text-foreground">
-                    {row.categoryName}
-                  </span>
-                  <span className="shrink-0 tabular-nums text-foreground">
-                    {formatMoney(row.amount)}
-                  </span>
-                </li>
-              ))}
-            </ul>
+            <>
+              <ul className="flex-1 space-y-3 py-4">
+                {rows.map((row) => (
+                  <li
+                    key={row.categoryId}
+                    className="flex items-center justify-between gap-3 text-sm"
+                  >
+                    <span className="min-w-0 truncate text-foreground">
+                      {row.categoryName}
+                    </span>
+                    <span className="shrink-0 tabular-nums text-foreground">
+                      {formatMoney(row.amount)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <div className="flex items-center justify-between py-3 text-sm font-semibold">
+                <span>Total</span>
+                <span className="tabular-nums">
+                  {formatMoney(transferTotal)}
+                </span>
+              </div>
+            </>
           ) : (
-            <p className="flex-1 py-4 text-sm text-muted-foreground">
-              {pendingPaychecks.length === 0
-                ? "You’re caught up."
-                : "Nothing left to put away for this paycheck."}
+            <p className="flex-1 py-8 text-sm text-muted-foreground">
+              There isn’t any money ready to put away yet. Once Liz checks off
+              allocations, they’ll show up here.
             </p>
           )}
-
-          {rows.length > 0 ? (
-            <div className="flex items-center justify-between border-t border-neutral-200 py-3 text-sm font-semibold">
-              <span>Total</span>
-              <span className="tabular-nums">{formatMoney(transferTotal)}</span>
-            </div>
-          ) : null}
         </div>
 
         <div className="flex justify-end border-t border-neutral-200 px-4 py-3">
@@ -204,10 +247,12 @@ export function HolderPanel({
             disabled={!selectedPaycheck || rows.length === 0}
             onClick={() => {
               if (!selectedPaycheck) return
-              onConfirmTransfer(
-                selectedPaycheck.id,
-                rows.map((r) => r.categoryId),
-              )
+              onConfirmTransfer({
+                paycheckId: selectedPaycheck.id,
+                paycheckDate: selectedPaycheck.date,
+                total: transferTotal,
+                categoryIds: rows.map((r) => r.categoryId),
+              })
             }}
           >
             Done
@@ -259,6 +304,113 @@ export function HolderPanel({
           </div>
         </div>
       </section>
+
+      <Sheet open={settingsOpen} onOpenChange={setSettingsOpen}>
+        <SheetContent className="overflow-y-auto">
+          <TotalsSourcesEditor
+            value={sources}
+            sourceBuckets={jiSourceBuckets}
+            onCancel={() => setSettingsOpen(false)}
+            onSave={(next) => {
+              onSaveTransferSources(next)
+              setSettingsOpen(false)
+            }}
+          />
+        </SheetContent>
+      </Sheet>
+
+      <Sheet
+        open={historyOpen}
+        onOpenChange={setHistoryOpen}
+      >
+        <SheetContent className="flex flex-col overflow-hidden p-0">
+          <div className="flex min-h-0 flex-1 flex-col p-8 pb-0">
+            <SheetHeader className="mb-6">
+              <SheetTitle>Transfer history</SheetTitle>
+            </SheetHeader>
+
+            {historyRows.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                Confirmed put-aways will show up here.
+              </p>
+            ) : (
+              <ul className="min-h-0 flex-1 space-y-4 overflow-y-auto pb-6">
+                {historyRows.map((entry) => {
+                  const markedUndo =
+                    Boolean(entry.undoneAt) || undoDraftIds.has(entry.id)
+                  return (
+                    <li key={entry.id} className="text-sm">
+                      <div className="flex items-center gap-3">
+                        <span className="min-w-0 flex-1 tabular-nums text-foreground">
+                          {formatPayDate(entry.paycheckDate)}
+                        </span>
+                        <span
+                          className={cn(
+                            "w-20 shrink-0 text-right tabular-nums",
+                            markedUndo
+                              ? "text-muted-foreground line-through"
+                              : "text-foreground",
+                          )}
+                        >
+                          {formatMoney(entry.total)}
+                        </span>
+                        <button
+                          type="button"
+                          title={
+                            entry.undoneAt
+                              ? "Already undone"
+                              : markedUndo
+                                ? "Keep this confirmation"
+                                : "Undo this confirmation"
+                          }
+                          disabled={Boolean(entry.undoneAt)}
+                          className={cn(
+                            "inline-flex size-8 shrink-0 items-center justify-center rounded-md transition-colors",
+                            entry.undoneAt
+                              ? "cursor-default text-neutral-300"
+                              : markedUndo
+                                ? "bg-neutral-100 text-foreground"
+                                : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                          )}
+                          onClick={() => {
+                            if (entry.undoneAt) return
+                            toggleUndoDraft(entry.id)
+                          }}
+                        >
+                          <Undo2 className="size-4" />
+                        </button>
+                      </div>
+                      {entry.undoneAt ? (
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          Undone {formatPayDate(entry.undoneAt.slice(0, 10))}
+                        </p>
+                      ) : undoDraftIds.has(entry.id) ? (
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          Will undo on save
+                        </p>
+                      ) : null}
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+          </div>
+
+          <div className="flex items-center justify-end gap-3 border-t bg-muted/50 px-8 py-4">
+            <Button
+              type="button"
+              variant="ghost"
+              className="text-muted-foreground hover:bg-transparent hover:text-foreground"
+              onClick={() => setHistoryOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button type="button" onClick={saveHistoryDraft}>
+              Save
+            </Button>
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   )
 }

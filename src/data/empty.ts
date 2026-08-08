@@ -8,6 +8,8 @@ export function emptyYearBudget(): YearBudget {
     withdrawals: [],
     holderBalances: {},
     doneKeys: [],
+    jiTransferSources: [],
+    jiTransferLog: [],
   }
 }
 

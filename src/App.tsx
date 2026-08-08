@@ -6,7 +6,6 @@ import { HolderPanel } from "@/components/holder/HolderPanel"
 import { AppHeader } from "@/components/layout/AppHeader"
 import { createEmptyWorkspace, emptyWorkspace } from "@/data/empty"
 import { applyAmountToFuture } from "@/lib/apply-to-future"
-import { allocationKey } from "@/lib/format"
 import { renamePaycheckDate } from "@/lib/paycheck-date"
 import { reorderById } from "@/lib/reorder"
 import {
@@ -35,6 +34,7 @@ import {
   updateActiveYearBudget,
 } from "@/lib/year-workspace"
 import type { Bucket, BudgetWorkspace, UserRole } from "@/types/budget"
+import type { JiTransferLog, JiTransferSource } from "@/types/budget"
 
 export default function App() {
   const { user, profile, setPreferredRole, signOut } = useAuth()
@@ -649,16 +649,50 @@ export default function App() {
     )
   }
 
-  function onConfirmTransfer(paycheckId: string, categoryIds: string[]) {
-    if (categoryIds.length === 0) return
+  function onConfirmTransfer(input: {
+    paycheckId: string
+    paycheckDate: string
+    total: number
+    categoryIds: string[]
+  }) {
+    if (input.categoryIds.length === 0) return
     recordHistory()
-    patchDoneKeys((prev) => {
-      const next = new Set(prev)
-      for (const categoryId of categoryIds) {
-        next.add(allocationKey(categoryId, paycheckId))
-      }
-      return next
-    })
+    patchWorkspace((prev) =>
+      updateActiveYearBudget(prev, (year) => ({
+        ...year,
+        jiTransferLog: [
+          ...(year.jiTransferLog ?? []),
+          {
+            id: crypto.randomUUID(),
+            paycheckId: input.paycheckId,
+            paycheckDate: input.paycheckDate,
+            total: input.total,
+            categoryIds: input.categoryIds,
+            confirmedAt: new Date().toISOString(),
+          },
+        ],
+      })),
+    )
+  }
+
+  function onSaveTransferSources(sources: JiTransferSource[]) {
+    recordHistory()
+    patchWorkspace((prev) =>
+      updateActiveYearBudget(prev, (year) => ({
+        ...year,
+        jiTransferSources: sources,
+      })),
+    )
+  }
+
+  function onSaveTransferLog(log: JiTransferLog[]) {
+    recordHistory()
+    patchWorkspace((prev) =>
+      updateActiveYearBudget(prev, (year) => ({
+        ...year,
+        jiTransferLog: log,
+      })),
+    )
   }
 
   if (loadingWorkspace) {
@@ -744,6 +778,8 @@ export default function App() {
                 selectedPaycheckId={selectedPaycheckId}
                 onSelectedPaycheckChange={setSelectedPaycheckId}
                 onConfirmTransfer={onConfirmTransfer}
+                onSaveTransferSources={onSaveTransferSources}
+                onSaveTransferLog={onSaveTransferLog}
               />
             </div>
           </div>

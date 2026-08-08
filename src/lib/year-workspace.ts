@@ -51,6 +51,8 @@ export function normalizeWorkspace(
         ...emptyYearBudget(),
         ...years[key],
         doneKeys: years[key]?.doneKeys ?? [],
+        jiTransferLog: years[key]?.jiTransferLog ?? [],
+        jiTransferSources: years[key]?.jiTransferSources ?? [],
       }
     }
     const yearNums = Object.keys(years)
@@ -397,6 +399,10 @@ export function createNextYear(workspace: BudgetWorkspace): BudgetWorkspace {
     withdrawals: [],
     holderBalances: { ...source.holderBalances },
     doneKeys: [],
+    jiTransferSources: source.jiTransferSources
+      ? source.jiTransferSources.map((s) => ({ ...s }))
+      : [],
+    jiTransferLog: [],
   }
 
   return {
