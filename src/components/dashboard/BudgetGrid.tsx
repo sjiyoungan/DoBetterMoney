@@ -53,7 +53,7 @@ type Props = {
   onPaycheckDateChange?: (paycheckId: string, date: string) => void
 }
 
-const W = { bucket: 118, category: 168, goal: 110, balance: 96, pay: 128 } as const
+const W = { bucket: 118, category: 168, goal: 110, balance: 96, pay: 130 } as const
 const LEFT_WIDTH = W.bucket + W.category + W.goal + W.balance
 
 /** Solid pane fill — header/body/footer must fully cover scrolling rows */
@@ -1586,7 +1586,7 @@ function AmountCell({
   }
 
   return (
-    <div ref={rootRef} className="group/cell relative flex h-9 items-center gap-0.5 px-1">
+    <div ref={rootRef} className="group/cell relative flex h-9 items-center gap-0.5 pl-1 pr-1.5">
       {showFutureHint ? (
         <div className="absolute -top-1 right-0 z-30 flex translate-y-[-100%] items-center rounded-md border border-neutral-400 bg-white shadow-sm dark:border-neutral-500 dark:bg-neutral-900">
           <button
@@ -1685,7 +1685,7 @@ function AmountCell({
 
       <div
         className={cn(
-          "relative ml-auto flex h-7 w-[3.25rem] shrink-0 cursor-text items-center justify-end rounded-md border border-transparent px-0.5",
+          "relative ml-auto flex h-7 w-[3.75rem] shrink-0 cursor-text items-center justify-end rounded-md border border-transparent px-0.5",
           "hover:border-input focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/30",
         )}
         onClick={() => {
@@ -1752,8 +1752,10 @@ function AmountCell({
           <span
             aria-hidden
             title="Has comment"
-            className="pointer-events-none absolute top-1/2 right-0 size-1.5 -translate-y-1/2 translate-x-[calc(100%+2px)] rounded-full bg-neutral-500 dark:bg-neutral-400"
-          />
+            className="pointer-events-none absolute top-1/2 right-0 flex -translate-y-1/2 translate-x-full pr-0.5"
+          >
+            <span className="ml-0.5 size-1.5 shrink-0 rounded-full bg-neutral-500 dark:bg-neutral-400" />
+          </span>
         ) : null}
       </div>
     </div>
