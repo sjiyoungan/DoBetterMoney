@@ -314,7 +314,7 @@ export function CategoryDrawer({
           </section>
 
           {isSavings ? (
-            <section className="overflow-hidden px-0">
+            <section className="overflow-hidden rounded-xl border border-neutral-200 px-4">
               <div className="flex items-center justify-between gap-3 py-4">
                 <h3 className="min-w-0 truncate text-base font-semibold text-foreground">
                   Planned savings
@@ -346,21 +346,19 @@ export function CategoryDrawer({
                     ))}
                   </ul>
                   {hasMorePlanned ? (
-                    <div className="border-t border-neutral-200/80">
-                      <button
-                        type="button"
-                        className="flex w-full items-center justify-center gap-2 py-3 text-sm font-medium text-foreground transition-colors hover:text-neutral-700"
-                        onClick={() => setPlannedExpanded((v) => !v)}
-                      >
-                        {plannedExpanded ? "View less" : "View more"}
-                        <CaretDownIcon
-                          className={cn(
-                            "size-2 text-current transition-transform",
-                            plannedExpanded && "rotate-180",
-                          )}
-                        />
-                      </button>
-                    </div>
+                    <button
+                      type="button"
+                      className="flex w-full items-center justify-center gap-2 py-3 text-sm font-medium text-foreground transition-colors hover:text-neutral-700"
+                      onClick={() => setPlannedExpanded((v) => !v)}
+                    >
+                      {plannedExpanded ? "View less" : "View more"}
+                      <CaretDownIcon
+                        className={cn(
+                          "size-2 text-current transition-transform",
+                          plannedExpanded && "rotate-180",
+                        )}
+                      />
+                    </button>
                   ) : null}
                 </div>
               )}
