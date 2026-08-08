@@ -67,9 +67,9 @@ const LEFT_WIDTH = W.bucket + W.category + W.goal + W.balance
 
 /** Solid pane fill — header/body/footer must fully cover scrolling rows */
 const paneBg = "bg-white dark:bg-neutral-950"
-/** Sticky header fill — opaque darker grey (matches Totals footer) */
-const headerBg = "bg-neutral-100 dark:bg-neutral-900"
-/** Totals footer rows — same darker grey as header */
+/** Sticky header fill — opaque white (matches body paneBg) */
+const headerBg = "bg-white dark:bg-neutral-950"
+/** Totals footer rows — opaque darker grey */
 const totalsBg = "bg-neutral-100 dark:bg-neutral-900"
 /** Top edge of Totals footer — black so it reads clearly on the grey fill */
 const totalsDividerTop = "border-t-2 border-t-black"
