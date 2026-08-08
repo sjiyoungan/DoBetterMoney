@@ -106,7 +106,7 @@ function payColumnMonthBorderClass(kind: "month" | "same" | undefined) {
   return kind === "month" ? "border-r border-r-neutral-300" : undefined
 }
 
-/** Same-month paycheck divider: 2px dash / 4px gap, color matches row lines (border/60). */
+/** Same-month paycheck divider: 2px dash / 4px gap, softer than month borders. */
 function PayColumnSameMonthDivider({
   kind,
 }: {
@@ -119,7 +119,7 @@ function PayColumnSameMonthDivider({
       className="pointer-events-none absolute inset-y-0 right-0 z-[1] w-px"
       style={{
         background:
-          "repeating-linear-gradient(to bottom, color-mix(in oklch, var(--border) 60%, transparent) 0 2px, transparent 2px 6px)",
+          "repeating-linear-gradient(to bottom, color-mix(in oklch, var(--border) 38%, transparent) 0 2px, transparent 2px 6px)",
       }}
     />
   )
@@ -877,9 +877,9 @@ export function BudgetGrid({
                                   bucket: fullBucket,
                                 })
                               }
-                              className="absolute inset-0 flex items-center justify-start px-2 text-left transition-colors hover:bg-neutral-100 hover:text-foreground"
+                              className="absolute inset-0 flex items-start justify-start px-2 pt-2 text-left transition-colors hover:bg-neutral-100 hover:text-foreground"
                             >
-                              <span className="w-full min-w-0 text-left">
+                              <span className="block w-full min-w-0 text-left break-words">
                                 {bucket.name}
                               </span>
                             </button>
@@ -1186,9 +1186,9 @@ export function BudgetGrid({
                                           bucket: fullBucket,
                                         })
                                       }
-                                      className="absolute inset-0 flex items-center justify-start px-2 text-left transition-colors hover:bg-neutral-200 hover:text-foreground"
+                                      className="absolute inset-0 flex items-start justify-start px-2 pt-2 text-left transition-colors hover:bg-neutral-200 hover:text-foreground"
                                     >
-                                      <span className="w-full min-w-0 text-left line-clamp-3 break-words">
+                                      <span className="block w-full min-w-0 text-left line-clamp-3 break-words">
                                         {bucket.name}
                                       </span>
                                     </button>
