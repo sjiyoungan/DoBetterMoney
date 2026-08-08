@@ -321,7 +321,7 @@ export function CategoryDrawer({
             </dl>
           )}
 
-          <section className="rounded-xl border border-neutral-200 bg-[#FCF9FA] px-4">
+          <section className="rounded-xl border border-neutral-200 bg-[#FCF9FA] px-4 pb-4">
             <div className="pt-4 pb-2">
               <h3 className="text-sm font-medium text-foreground">
                 Comments
@@ -330,12 +330,30 @@ export function CategoryDrawer({
             <textarea
               value={noteDraft}
               placeholder="Add a comment…"
-              rows={2}
-              className="min-h-[calc(2*1.625em)] w-full resize-none border-0 bg-transparent pb-4 pt-0 text-sm leading-relaxed text-foreground outline-none ring-0 placeholder:text-[#B5AEB0] focus:border-0 focus:outline-none focus:ring-0"
+              rows={1}
+              className="max-h-[calc(5*1.625em)] min-h-[1.625em] w-full resize-none overflow-y-auto border-0 bg-transparent p-0 text-sm leading-relaxed text-foreground outline-none ring-0 placeholder:text-[#B5AEB0] focus:border-0 focus:outline-none focus:ring-0"
+              ref={(el) => {
+                if (!el) return
+                el.style.height = "0px"
+                const line = Number.parseFloat(
+                  getComputedStyle(el).lineHeight || "0",
+                )
+                const maxPx =
+                  Number.isFinite(line) && line > 0 ? line * 5 : 5 * 1.625 * 16
+                el.style.height = `${Math.min(el.scrollHeight, maxPx)}px`
+              }}
               onChange={(e) => {
                 const next = e.target.value
                 setNoteDraft(next)
                 onCategoryNoteChange(category.id, next)
+                const el = e.currentTarget
+                el.style.height = "0px"
+                const line = Number.parseFloat(
+                  getComputedStyle(el).lineHeight || "0",
+                )
+                const maxPx =
+                  Number.isFinite(line) && line > 0 ? line * 5 : 5 * 1.625 * 16
+                el.style.height = `${Math.min(el.scrollHeight, maxPx)}px`
               }}
             />
           </section>
