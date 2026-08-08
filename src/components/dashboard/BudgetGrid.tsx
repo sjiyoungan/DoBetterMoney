@@ -963,7 +963,7 @@ export function BudgetGrid({
                                     headerBg,
                                     isPast
                                       ? "font-medium text-[#969696]"
-                                      : "font-light text-foreground",
+                                      : "font-medium text-foreground",
                                   ),
                             )}
                             onDateChange={(date) =>
