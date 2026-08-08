@@ -294,7 +294,7 @@ export function CategoryDrawer({
             </dl>
           )}
 
-          <section className="rounded-xl border border-neutral-200 bg-[#F3EBED] px-4">
+          <section className="rounded-xl border border-neutral-200 bg-[#F9F3F5] px-4">
             <div className="pt-4 pb-2">
               <h3 className="text-sm font-semibold text-foreground">
                 Comments
@@ -304,7 +304,7 @@ export function CategoryDrawer({
               value={noteDraft}
               placeholder="Add a comment…"
               rows={2}
-              className="min-h-[calc(2*1.625em)] w-full resize-none border-0 bg-transparent pb-4 pt-0 text-sm leading-relaxed text-foreground outline-none ring-0 placeholder:text-neutral-400 focus:border-0 focus:outline-none focus:ring-0"
+              className="min-h-[calc(2*1.625em)] w-full resize-none border-0 bg-transparent pb-4 pt-0 text-sm leading-relaxed text-foreground outline-none ring-0 placeholder:text-[#C9A8AE] focus:border-0 focus:outline-none focus:ring-0"
               onChange={(e) => {
                 const next = e.target.value
                 setNoteDraft(next)
