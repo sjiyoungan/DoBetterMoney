@@ -318,7 +318,7 @@ export function HolderPanel({
                   </li>
                 ))}
               </ul>
-              <div className="flex items-center justify-between border-t border-neutral-200 py-2 text-sm font-semibold">
+              <div className="flex items-center justify-between border-t border-neutral-200 py-4 text-sm font-semibold">
                 <span>Total</span>
                 <span className="tabular-nums">
                   {formatMoney(transferTotal)}
@@ -414,7 +414,7 @@ export function HolderPanel({
               ))}
             </ul>
           )}
-          <div className="flex items-center justify-between border-t border-neutral-200 py-2 text-sm font-semibold">
+          <div className="flex items-center justify-between border-t border-neutral-200 py-4 text-sm font-semibold">
             <span>Total</span>
             <span className="tabular-nums">{formatMoney(accountTotal)}</span>
           </div>
