@@ -48,7 +48,7 @@ export function AppHeader({
               className="inline-flex items-center gap-3 rounded-md px-2 py-1.5 text-lg font-semibold tracking-tight text-foreground transition-colors hover:bg-muted"
             >
               {activeYear}
-              <CaretDownIcon className="size-1.5 text-muted-foreground" />
+              <CaretDownIcon className="size-2 text-muted-foreground" />
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="min-w-40">
