@@ -15,12 +15,12 @@ export type CompositionSegment = {
   color: string
 }
 
-/** Segment colors — muted neutrals + brand pink accent (matches upcoming column). */
+/** Segment colors — distinct palette for Income / Fixed / Variable / Savings. */
 export const COMPOSITION_COLORS: Record<CompositionSegmentKey, string> = {
-  income: "#3A121C",
-  fixed: "#8A8A8A",
-  variable: "#7A5C62",
-  savings: "#C9A8AE",
+  income: "#A02C5B",
+  fixed: "#70B8AC",
+  variable: "#50468B",
+  savings: "#4592D0",
 }
 
 function allocationAt(cat: Category, date: string): number {
