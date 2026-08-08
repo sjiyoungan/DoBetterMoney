@@ -245,7 +245,7 @@ export function HolderPanel({
   }
 
   return (
-    <div className="grid gap-4 lg:grid-cols-2">
+    <div className="grid items-start gap-4 lg:grid-cols-2">
       <section className="flex flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white">
         <div className="border-b border-neutral-200 px-6 py-3">
           <div className="flex h-8 items-center justify-between gap-3">
@@ -273,7 +273,7 @@ export function HolderPanel({
           </div>
         </div>
 
-        <div className="flex min-h-0 flex-1 flex-col px-6">
+        <div className="flex flex-col px-6">
           {pendingPaychecks.length > 0 ? (
             <div className="flex flex-wrap gap-2 pt-4">
               {pendingPaychecks.map((p) => {
@@ -322,7 +322,7 @@ export function HolderPanel({
               </div>
             </>
           ) : (
-            <p className="flex-1 py-8 text-sm text-muted-foreground">
+            <p className="py-8 text-sm text-muted-foreground">
               There isn’t anything ready to transfer yet. Once Liz checks off
               allocations, they’ll show up here.
             </p>
@@ -375,7 +375,7 @@ export function HolderPanel({
             </div>
           </div>
         </div>
-        <div className="flex min-h-0 flex-1 flex-col">
+        <div className="flex flex-col">
           {accountRows.length === 0 ? (
             <p className="px-6 py-4 text-sm text-muted-foreground">
               No savings categories yet.
@@ -387,7 +387,7 @@ export function HolderPanel({
                   <button
                     type="button"
                     className={cn(
-                      "flex w-full items-center justify-between gap-3 px-4 py-2.5 text-left text-sm transition-[background] duration-150",
+                      "flex w-full items-center justify-between gap-3 px-6 py-2.5 text-left text-sm transition-[background] duration-150",
                       blushHoverClass,
                     )}
                     onClick={() => setSelectedCategoryId(row.id)}
@@ -410,7 +410,7 @@ export function HolderPanel({
               ))}
             </ul>
           )}
-          <div className="flex items-center justify-between border-t border-neutral-200 px-4 py-4 text-sm font-semibold">
+          <div className="flex items-center justify-between border-t border-neutral-200 px-6 py-4 text-sm font-semibold">
             <span>Total</span>
             <span className="tabular-nums">{formatMoney(accountTotal)}</span>
           </div>
