@@ -38,7 +38,7 @@ export function BudgetSummaryCards({ buckets, paychecks }: Props) {
 
         <div className="flex w-fit items-center gap-3">
           <CompositionDonut segments={segments} total={total} />
-          <ul className="flex min-w-[9.5rem] flex-col gap-3.5">
+          <ul className="flex min-w-[9.5rem] flex-col gap-3">
             {segments.map((seg) => {
               const pct =
                 total > 0 ? Math.round((seg.amount / total) * 100) : 0
