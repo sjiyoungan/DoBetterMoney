@@ -67,6 +67,8 @@ const LEFT_WIDTH = W.bucket + W.category + W.goal + W.balance
 
 /** Solid pane fill — header/body/footer must fully cover scrolling rows */
 const paneBg = "bg-white dark:bg-neutral-950"
+/** Sticky header fill — opaque, one step lighter than past paycheck columns (neutral-100) */
+const headerBg = "bg-neutral-50 dark:bg-neutral-900"
 /** Totals footer rows — light grey so they read as summary, not editable cells */
 const totalsBg = "bg-neutral-100 dark:bg-neutral-900"
 /** Top edge of Totals footer — black so it reads clearly on the grey fill */
@@ -624,14 +626,14 @@ export function BudgetGrid({
             className={cn(
               "relative z-40 flex shrink-0 overflow-hidden rounded-t-[8px] border border-b-0",
               cardStroke,
-              paneBg,
+              headerBg,
             )}
             style={{
               boxShadow: bodyScrolledPastTop ? stickyEdgeShadowDown : "none",
             }}
           >
             <div
-              className={cn("relative z-10 shrink-0", paneBg)}
+              className={cn("relative z-10 shrink-0", headerBg)}
               style={{
                 width: LEFT_WIDTH,
                 minWidth: LEFT_WIDTH,
@@ -653,7 +655,7 @@ export function BudgetGrid({
                     <th
                       className={cn(
                         "border-b-2 border-b-neutral-900 border-r border-r-neutral-900 px-2 py-3 text-center font-medium",
-                        paneBg,
+                        headerBg,
                       )}
                     >
                       <div className="flex items-center justify-center gap-2">
@@ -672,7 +674,7 @@ export function BudgetGrid({
                     <th
                       className={cn(
                         "border-b-2 border-b-neutral-900 border-r border-r-border/60 px-3 py-3 text-left font-medium",
-                        paneBg,
+                        headerBg,
                       )}
                     >
                       Category
@@ -680,7 +682,7 @@ export function BudgetGrid({
                     <th
                       className={cn(
                         "border-b-2 border-b-neutral-900 border-r border-r-border/60 px-3 py-3 text-right font-medium",
-                        paneBg,
+                        headerBg,
                       )}
                     >
                       Goal/payment
@@ -688,7 +690,7 @@ export function BudgetGrid({
                     <th
                       className={cn(
                         "border-b-2 border-b-neutral-900 px-3 py-3 text-right font-medium",
-                        paneBg,
+                        headerBg,
                         balanceEdge,
                       )}
                     >
@@ -700,10 +702,10 @@ export function BudgetGrid({
             </div>
             <div
               ref={headerScrollSurfaceRef}
-              className={cn("min-w-0 flex-1 overflow-hidden", paneBg)}
+              className={cn("min-w-0 flex-1 overflow-hidden", headerBg)}
             >
               <div
-                className={cn("w-max min-w-full", paneBg)}
+                className={cn("w-max min-w-full", headerBg)}
                 style={{ transform: `translateX(-${scrollLeft}px)` }}
               >
                 <table className="border-separate border-spacing-0 text-sm">
@@ -733,9 +735,10 @@ export function BudgetGrid({
                                   })
                                 : cn(
                                     payColumnBorderClass(paychecks, i),
+                                    headerBg,
                                     isPast
-                                      ? "bg-neutral-100 text-[#969696] dark:bg-neutral-900"
-                                      : cn(paneBg, "text-muted-foreground"),
+                                      ? "text-[#969696]"
+                                      : "text-muted-foreground",
                                   ),
                             )}
                             onDateChange={(date) =>
