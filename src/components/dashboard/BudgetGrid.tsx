@@ -255,12 +255,13 @@ type GridRow = {
  * Split-pane budget grid.
  *
  * Left pane (Group → Balance) does not scroll horizontally.
- * Right pane (paycheck columns) pans horizontally via drag / arrow controls;
- * mouse wheel over paychecks scrolls the body vertically (not horizontally).
- * Vertical scroll lives only in the body pane: locked header and Totals sit
- * outside that scroller so the Group header never moves and Totals stay flush
- * to the card/viewport bottom. Right header/footer sync via translateX with
- * the paycheck scroller. Left pane owns the H-scroll shadow.
+ * Right pane (paycheck columns) pans horizontally via click-drag on the Totals
+ * footer paycheck surface, or via the arrow controls; mouse wheel over
+ * paychecks scrolls the body vertically (not horizontally). Vertical scroll
+ * lives only in the body pane: locked header and Totals sit outside that
+ * scroller so the Group header never moves and Totals stay flush to the
+ * card/viewport bottom. Right header/footer sync via translateX with the
+ * paycheck scroller. Left pane owns the H-scroll shadow.
  */
 export function BudgetGrid({
   buckets,
@@ -673,8 +674,8 @@ export function BudgetGrid({
 
   function onPayPanPointerDown(e: ReactPointerEvent<HTMLDivElement>) {
     if (e.button !== 0) return
-    // Don't steal clicks from fields, buttons (e.g. date headers), or
-    // explicit no-pan regions. Pan still works from empty header/footer chrome.
+    // Don't steal clicks from fields, buttons, or explicit no-pan regions.
+    // Pan is attached only on the Totals footer paycheck surface.
     if (isPayPanBlockedTarget(e.target)) return
     const el = scrollRef.current
     if (!el) return
@@ -913,15 +914,7 @@ export function BudgetGrid({
             </div>
             <div
               ref={headerScrollSurfaceRef}
-              className={cn(
-                "min-w-0 flex-1 overflow-hidden",
-                headerBg,
-                payPanSurfaceClass,
-              )}
-              onPointerDown={onPayPanPointerDown}
-              onPointerMove={onPayPanPointerMove}
-              onPointerUp={onPayPanPointerUp}
-              onPointerCancel={onPayPanPointerUp}
+              className={cn("min-w-0 flex-1 overflow-hidden", headerBg)}
             >
               <div
                 className={cn("w-max min-w-full", headerBg)}
