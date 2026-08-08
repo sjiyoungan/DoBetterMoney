@@ -290,7 +290,7 @@ export function CategoryDrawer({
             </dl>
           )}
 
-          <section className="rounded-xl bg-[#FCF9FA] px-4">
+          <section className="rounded-xl border border-neutral-200 bg-[#FCF9FA] px-4">
             <div className="pt-4 pb-2">
               <h3 className="text-sm font-medium text-foreground">
                 Comments
