@@ -85,6 +85,7 @@ type Props = {
     field: "goal" | "amount",
     value: string,
   ) => void
+  onCategoryNoteChange: (categoryId: string, note: string) => void
   onAddBucket: (bucket: Bucket) => void
   onUpdateBucket: (bucket: Bucket) => void
   onReorderBuckets: (fromId: string, beforeId: string | null) => void
@@ -264,6 +265,7 @@ export function BudgetGrid({
   onCommentChange,
   onCommentCommit,
   onCategoryFieldChange,
+  onCategoryNoteChange,
   onAddBucket,
   onUpdateBucket,
   onReorderBuckets,
@@ -1625,6 +1627,7 @@ export function BudgetGrid({
         bucket={selected?.bucket ?? null}
         paychecks={paychecks}
         doneKeys={doneKeys}
+        onCategoryNoteChange={onCategoryNoteChange}
       />
     </div>
   )

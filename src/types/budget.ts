@@ -72,6 +72,8 @@ export type Category = {
   allocations: Record<string, number | "">
   /** Optional note per paycheck date (ISO date -> comment); same keys as allocations */
   comments?: Record<string, string>
+  /** Freeform category comments (detail drawer) */
+  note?: string
   /** Totals rows: which groups/categories to include in the per-paycheck sum */
   totalSources?: TotalSource[]
 }

@@ -426,6 +426,27 @@ export default function App() {
     )
   }
 
+  function onCategoryNoteChange(categoryId: string, note: string) {
+    recordHistory(`note:${categoryId}`)
+    patchWorkspace((prev) =>
+      updateActiveYearBudget(prev, (year) => ({
+        ...year,
+        buckets: year.buckets.map((bucket) => ({
+          ...bucket,
+          categories: bucket.categories.map((cat) => {
+            if (cat.id !== categoryId) return cat
+            if (note.trim() === "") {
+              const next = { ...cat }
+              delete next.note
+              return next
+            }
+            return { ...cat, note }
+          }),
+        })),
+      })),
+    )
+  }
+
   function onAmountApplyToFuture(
     categoryId: string,
     fromDate: string,
@@ -710,6 +731,7 @@ export default function App() {
               onCommentChange={onCommentChange}
               onCommentCommit={onAmountCommit}
               onCategoryFieldChange={onCategoryFieldChange}
+              onCategoryNoteChange={onCategoryNoteChange}
               onAddBucket={onAddBucket}
               onUpdateBucket={onUpdateBucket}
               onReorderBuckets={onReorderBuckets}

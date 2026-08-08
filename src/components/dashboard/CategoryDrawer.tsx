@@ -21,6 +21,7 @@ type Props = {
   bucket: Bucket | null
   paychecks: Paycheck[]
   doneKeys: Set<string>
+  onCategoryNoteChange: (categoryId: string, note: string) => void
 }
 
 type PlannedRow = {
@@ -107,13 +108,16 @@ export function CategoryDrawer({
   bucket,
   paychecks,
   doneKeys,
+  onCategoryNoteChange,
 }: Props) {
   const [plannedExpanded, setPlannedExpanded] = useState(false)
+  const [noteDraft, setNoteDraft] = useState("")
 
   const today = useMemo(() => new Date().toISOString().slice(0, 10), [])
 
   useEffect(() => {
     setPlannedExpanded(false)
+    setNoteDraft(category?.note ?? "")
   }, [category?.id, open])
 
   const upcomingIndex = useMemo(() => {
@@ -285,6 +289,26 @@ export function CategoryDrawer({
               </div>
             </dl>
           )}
+
+          <section className="rounded-xl border border-neutral-200 bg-white px-4">
+            <div className="py-4">
+              <h3 className="text-base font-semibold text-foreground">
+                Comments
+              </h3>
+            </div>
+            <div className="border-t border-neutral-200" />
+            <textarea
+              value={noteDraft}
+              placeholder="Add a comment…"
+              rows={5}
+              className="w-full resize-none border-0 bg-transparent py-4 text-sm leading-relaxed text-foreground outline-none ring-0 placeholder:text-neutral-400 focus:border-0 focus:outline-none focus:ring-0"
+              onChange={(e) => {
+                const next = e.target.value
+                setNoteDraft(next)
+                onCategoryNoteChange(category.id, next)
+              }}
+            />
+          </section>
 
           {isSavings ? (
             <section className="rounded-xl border border-neutral-200 bg-white px-4">
