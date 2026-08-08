@@ -31,7 +31,7 @@ type PlannedRow = {
 type HistoryItem = {
   id: string
   date: string
-  kind: "added" | "comment" | "carryover"
+  kind: "deposit" | "payment" | "comment" | "carryover"
   amount?: number
   comment?: string
 }
@@ -55,6 +55,19 @@ function yearFromPaychecks(paychecks: Paycheck[]): number {
     if (Number.isFinite(y)) return y
   }
   return new Date().getFullYear()
+}
+
+function historyLabel(item: HistoryItem): string {
+  if (item.kind === "carryover") return "Carry over"
+  if (item.kind === "deposit") return "Deposit"
+  if (item.kind === "payment") return "Payment"
+  return item.comment ?? "Comment"
+}
+
+function historyAmountText(item: HistoryItem): string {
+  if (item.kind === "comment" || item.amount === undefined) return "—"
+  if (item.amount < 0) return `-${formatMoney(Math.abs(item.amount))}`
+  return `+${formatMoney(item.amount)}`
 }
 
 export function CategoryDrawer({
@@ -103,21 +116,27 @@ export function CategoryDrawer({
     : plannedRows.slice(0, PLANNED_PREVIEW)
   const hasMorePlanned = plannedRows.length > PLANNED_PREVIEW
 
+  const isSavings = bucket?.kind === "savings"
+
   const historyItems = useMemo((): HistoryItem[] => {
-    if (!category) return []
+    if (!category || !bucket) return []
     const items: HistoryItem[] = []
-    const year = yearFromPaychecks(paychecks)
-    const carry =
-      typeof category.balance === "number" && Number.isFinite(category.balance)
-        ? category.balance
-        : 0
-    if (carry !== 0) {
-      items.push({
-        id: "carryover",
-        date: `${year}-01-01`,
-        kind: "carryover",
-        amount: carry,
-      })
+    const savings = bucket.kind === "savings"
+
+    if (savings) {
+      const year = yearFromPaychecks(paychecks)
+      const carry =
+        typeof category.balance === "number" && Number.isFinite(category.balance)
+          ? category.balance
+          : 0
+      if (carry !== 0) {
+        items.push({
+          id: "carryover",
+          date: `${year}-01-01`,
+          kind: "carryover",
+          amount: carry,
+        })
+      }
     }
 
     for (const p of paychecks) {
@@ -125,12 +144,21 @@ export function CategoryDrawer({
       const checked = doneKeys.has(key)
       const amount = allocationNumber(category.allocations, p.date)
       if (checked && amount !== null) {
-        items.push({
-          id: `added-${p.id}`,
-          date: p.date,
-          kind: "added",
-          amount,
-        })
+        items.push(
+          savings
+            ? {
+                id: `deposit-${p.id}`,
+                date: p.date,
+                kind: "deposit",
+                amount,
+              }
+            : {
+                id: `payment-${p.id}`,
+                date: p.date,
+                kind: "payment",
+                amount: -Math.abs(amount),
+              },
+        )
       }
       const comment = category.comments?.[p.date]?.trim()
       if (comment) {
@@ -144,11 +172,13 @@ export function CategoryDrawer({
     }
 
     return items.sort((a, b) => b.date.localeCompare(a.date))
-  }, [category, paychecks, doneKeys])
+  }, [category, bucket, paychecks, doneKeys])
 
   if (!category || !bucket) return null
 
-  const isSavings = bucket.kind === "savings"
+  const historyEmptyCopy = isSavings
+    ? "No carry-over, deposits, or comments yet. Withdrawals will show up here later."
+    : "No payments or comments yet."
 
   return (
     <Sheet
@@ -201,110 +231,93 @@ export function CategoryDrawer({
           )}
 
           {isSavings ? (
-            <>
-              <section className="rounded-xl border border-neutral-200 bg-white px-4">
-                <div className="flex items-center justify-between gap-3 py-4">
-                  <h3 className="min-w-0 truncate text-base font-semibold text-foreground">
-                    Planned savings
-                  </h3>
-                  <span className="shrink-0 text-base tabular-nums text-foreground">
-                    {formatMoney(totalPlanned)}
-                  </span>
-                </div>
-                <div className="border-t border-neutral-200" />
-                {plannedRows.length === 0 ? (
-                  <p className="py-4 text-sm text-muted-foreground">
-                    No upcoming or future plans yet.
-                  </p>
-                ) : (
-                  <div className="py-4">
-                    <ul className="space-y-4">
-                      {visiblePlanned.map(({ paycheck, amount }) => (
-                        <li
-                          key={paycheck.id}
-                          className="flex items-center justify-between gap-3 text-sm"
-                        >
-                          <span className="text-foreground">
-                            {formatPayDate(paycheck.date)}
-                          </span>
-                          <span className="tabular-nums text-foreground">
-                            {formatMoney(amount)}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                    {hasMorePlanned ? (
-                      <button
-                        type="button"
-                        className="mt-4 text-sm font-medium text-foreground underline-offset-2 hover:underline"
-                        onClick={() => setPlannedExpanded((v) => !v)}
+            <section className="rounded-xl border border-neutral-200 bg-white px-4">
+              <div className="flex items-center justify-between gap-3 py-4">
+                <h3 className="min-w-0 truncate text-base font-semibold text-foreground">
+                  Planned savings
+                </h3>
+                <span className="shrink-0 text-base tabular-nums text-foreground">
+                  {formatMoney(totalPlanned)}
+                </span>
+              </div>
+              <div className="border-t border-neutral-200" />
+              {plannedRows.length === 0 ? (
+                <p className="py-4 text-sm text-muted-foreground">
+                  No upcoming or future plans yet.
+                </p>
+              ) : (
+                <div className="py-4">
+                  <ul className="space-y-4">
+                    {visiblePlanned.map(({ paycheck, amount }) => (
+                      <li
+                        key={paycheck.id}
+                        className="flex items-center justify-between gap-3 text-sm"
                       >
-                        {plannedExpanded ? "View less" : "View more"}
-                      </button>
-                    ) : null}
-                  </div>
-                )}
-              </section>
-
-              <section className="rounded-xl border border-neutral-200 bg-white px-4">
-                <div className="flex items-center justify-between gap-3 py-4">
-                  <h3 className="min-w-0 truncate text-base font-semibold text-foreground">
-                    History
-                  </h3>
-                </div>
-                <div className="border-t border-neutral-200" />
-                {historyItems.length === 0 ? (
-                  <p className="py-4 text-sm text-muted-foreground">
-                    No carry-over, deposits, or comments yet. Withdrawals will
-                    show up here later.
-                  </p>
-                ) : (
-                  <ul className="space-y-4 py-4">
-                    {historyItems.map((item) => {
-                      const label =
-                        item.kind === "carryover"
-                          ? "Carry over"
-                          : item.kind === "added"
-                            ? "Deposit"
-                            : (item.comment ?? "Comment")
-                      const amountText =
-                        item.kind === "comment" || item.amount === undefined
-                          ? "—"
-                          : item.amount < 0
-                            ? `-${formatMoney(Math.abs(item.amount))}`
-                            : `+${formatMoney(item.amount)}`
-                      return (
-                        <li
-                          key={item.id}
-                          className="flex items-center gap-3 text-sm"
-                        >
-                          <span className="min-w-0 flex-1 truncate text-foreground">
-                            {label}
-                          </span>
-                          <span
-                            className={cn(
-                              "w-20 shrink-0 text-right tabular-nums",
-                              item.kind === "comment"
-                                ? "text-muted-foreground"
-                                : "text-foreground",
-                            )}
-                          >
-                            {amountText}
-                          </span>
-                          <time
-                            dateTime={item.date}
-                            className="w-14 shrink-0 text-right tabular-nums text-muted-foreground"
-                          >
-                            {formatPayDate(item.date)}
-                          </time>
-                        </li>
-                      )
-                    })}
+                        <span className="text-foreground">
+                          {formatPayDate(paycheck.date)}
+                        </span>
+                        <span className="tabular-nums text-foreground">
+                          {formatMoney(amount)}
+                        </span>
+                      </li>
+                    ))}
                   </ul>
-                )}
-              </section>
-            </>
+                  {hasMorePlanned ? (
+                    <button
+                      type="button"
+                      className="mt-4 text-sm font-medium text-foreground underline-offset-2 hover:underline"
+                      onClick={() => setPlannedExpanded((v) => !v)}
+                    >
+                      {plannedExpanded ? "View less" : "View more"}
+                    </button>
+                  ) : null}
+                </div>
+              )}
+            </section>
           ) : null}
+
+          <section className="rounded-xl border border-neutral-200 bg-white px-4">
+            <div className="flex items-center justify-between gap-3 py-4">
+              <h3 className="min-w-0 truncate text-base font-semibold text-foreground">
+                History
+              </h3>
+            </div>
+            <div className="border-t border-neutral-200" />
+            {historyItems.length === 0 ? (
+              <p className="py-4 text-sm text-muted-foreground">
+                {historyEmptyCopy}
+              </p>
+            ) : (
+              <ul className="space-y-4 py-4">
+                {historyItems.map((item) => (
+                  <li
+                    key={item.id}
+                    className="flex items-center gap-3 text-sm"
+                  >
+                    <span className="min-w-0 flex-1 truncate text-foreground">
+                      {historyLabel(item)}
+                    </span>
+                    <span
+                      className={cn(
+                        "w-20 shrink-0 text-right tabular-nums",
+                        item.kind === "comment"
+                          ? "text-muted-foreground"
+                          : "text-foreground",
+                      )}
+                    >
+                      {historyAmountText(item)}
+                    </span>
+                    <time
+                      dateTime={item.date}
+                      className="w-14 shrink-0 text-right tabular-nums text-muted-foreground"
+                    >
+                      {formatPayDate(item.date)}
+                    </time>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
         </div>
       </SheetContent>
     </Sheet>
