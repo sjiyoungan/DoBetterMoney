@@ -46,7 +46,7 @@ export function SavingsDetailDrawer({
                   key={group.bucketId}
                   className="rounded-xl border border-neutral-200 bg-white px-4"
                 >
-                  <div className="flex items-center justify-between gap-3 py-6">
+                  <div className="flex items-center justify-between gap-3 py-4">
                     <h3 className="min-w-0 truncate text-base font-semibold text-foreground">
                       {group.bucketName}
                     </h3>
