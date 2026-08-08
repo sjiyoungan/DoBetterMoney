@@ -141,3 +141,58 @@ export function normalizeJiSources(
 ): JiTransferSource[] {
   return sources ? sources.map((s) => ({ ...s })) : []
 }
+
+function carryOverAt(cat: Category): number {
+  const n = cat.balance
+  return typeof n === "number" && Number.isFinite(n) ? n : 0
+}
+
+/**
+ * Money in the account per savings category:
+ * carry-over + amounts Ji has confirmed with Done (not Liz checkmarks).
+ */
+export function accountCategoryBalances(
+  buckets: Bucket[],
+  log: JiTransferLog[] | undefined,
+): { id: string; name: string; amount: number }[] {
+  const confirmedByCategory = new Map<string, number>()
+  for (const entry of activeConfirmations(log)) {
+    for (const categoryId of entry.categoryIds) {
+      let cat: Category | undefined
+      for (const bucket of buckets) {
+        cat = bucket.categories.find((c) => c.id === categoryId)
+        if (cat) break
+      }
+      if (!cat) continue
+      const amt = allocationAmount(cat, entry.paycheckDate)
+      confirmedByCategory.set(
+        categoryId,
+        (confirmedByCategory.get(categoryId) ?? 0) + amt,
+      )
+    }
+  }
+
+  const rows: { id: string; name: string; amount: number }[] = []
+  for (const bucket of buckets) {
+    if (bucket.kind !== "savings") continue
+    for (const cat of bucket.categories) {
+      if (cat.hidden) continue
+      rows.push({
+        id: cat.id,
+        name: cat.name,
+        amount: carryOverAt(cat) + (confirmedByCategory.get(cat.id) ?? 0),
+      })
+    }
+  }
+  return rows
+}
+
+export function accountTotalBalance(
+  buckets: Bucket[],
+  log: JiTransferLog[] | undefined,
+): number {
+  return accountCategoryBalances(buckets, log).reduce(
+    (sum, row) => sum + row.amount,
+    0,
+  )
+}

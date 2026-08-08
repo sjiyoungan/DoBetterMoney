@@ -9,11 +9,8 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet"
 import {
-  savingsActualForCategory,
-  totalSavingsAllocated,
-} from "@/lib/budget-summary"
-import { formatMoney, formatPayDate } from "@/lib/format"
-import {
+  accountCategoryBalances,
+  accountTotalBalance,
   pendingTransferPaychecks,
   sourceBucketsForJi,
   transferRowsForPaycheck,
@@ -107,27 +104,14 @@ export function HolderPanel({
     })
   }, [log])
 
-  const accountRows = useMemo(() => {
-    const list: { id: string; name: string; amount: number }[] = []
-    for (const bucket of workspace.buckets) {
-      if (bucket.kind !== "savings") continue
-      for (const cat of bucket.categories) {
-        if (cat.hidden) continue
-        const amount = savingsActualForCategory(
-          cat,
-          workspace.paychecks,
-          doneKeys,
-        )
-        list.push({ id: cat.id, name: cat.name, amount })
-      }
-    }
-    return list
-  }, [workspace.buckets, workspace.paychecks, doneKeys])
+  const accountRows = useMemo(
+    () => accountCategoryBalances(workspace.buckets, log),
+    [workspace.buckets, log],
+  )
 
-  const accountTotal = totalSavingsAllocated(
-    workspace.buckets,
-    workspace.paychecks,
-    doneKeys,
+  const accountTotal = useMemo(
+    () => accountTotalBalance(workspace.buckets, log),
+    [workspace.buckets, log],
   )
 
   const jiSourceBuckets = sourceBucketsForJi(workspace.buckets)
