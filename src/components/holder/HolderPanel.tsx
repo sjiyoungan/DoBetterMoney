@@ -228,7 +228,7 @@ export function HolderPanel({
             </>
           ) : (
             <p className="flex-1 py-8 text-sm text-muted-foreground">
-              There isn’t any money ready to put away yet. Once Liz checks off
+              There isn’t anything ready to transfer yet. Once Liz checks off
               allocations, they’ll show up here.
             </p>
           )}
