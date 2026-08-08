@@ -688,7 +688,7 @@ export default function App() {
       ) : null}
 
       {/* Summary + grid fill remaining height; only the table body scrolls */}
-      <main className="flex min-h-0 flex-1 flex-col overflow-hidden px-[60px] pt-4 pb-0">
+      <main className="flex min-h-0 flex-1 flex-col overflow-hidden px-[60px] pt-4 pb-10">
         {role === "liz" ? (
           <div className="flex min-h-0 flex-1 flex-col gap-6">
             <div className="shrink-0">
