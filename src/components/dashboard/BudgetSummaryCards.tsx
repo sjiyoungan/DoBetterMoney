@@ -1,12 +1,10 @@
-import { useMemo, useState } from "react"
+import { useMemo } from "react"
 import {
   computeComposition,
   totalSavingsAllocated,
-  type CompositionPeriod,
   type CompositionSegment,
 } from "@/lib/budget-summary"
 import { formatMoney } from "@/lib/format"
-import { cn } from "@/lib/utils"
 import type { Bucket, Paycheck } from "@/types/budget"
 
 type Props = {
@@ -15,64 +13,35 @@ type Props = {
   activeYear: number
 }
 
-export function BudgetSummaryCards({
-  buckets,
-  paychecks,
-  activeYear,
-}: Props) {
-  const [period, setPeriod] = useState<CompositionPeriod>("year")
-
+export function BudgetSummaryCards({ buckets, paychecks }: Props) {
   const totalSavings = useMemo(
     () => totalSavingsAllocated(buckets, paychecks),
     [buckets, paychecks],
   )
 
-  const segments = useMemo(
-    () => computeComposition(buckets, paychecks, period, activeYear),
-    [buckets, paychecks, period, activeYear],
+  const { income, segments } = useMemo(
+    () => computeComposition(buckets, paychecks),
+    [buckets, paychecks],
   )
 
-  const total = segments.reduce((s, x) => s + x.amount, 0)
-
   return (
-    <div className="flex shrink-0 flex-wrap items-start gap-3">
-      <div className="w-fit shrink-0 rounded-[8px] border border-neutral-500 bg-white px-3.5 py-2.5">
+    <div className="flex shrink-0 flex-wrap items-stretch gap-3">
+      <div className="flex h-auto min-h-full w-fit shrink-0 flex-col justify-center rounded-[8px] border border-neutral-500 bg-white px-[26px] py-2.5">
         <p className="text-[11px] text-muted-foreground">Total savings</p>
         <p className="mt-1 text-xl font-semibold tracking-tight tabular-nums text-foreground">
           {formatMoney(totalSavings)}
         </p>
       </div>
 
-      <div className="w-fit shrink-0 rounded-[8px] border border-neutral-500 bg-white px-3.5 py-2.5">
-        <div className="inline-flex rounded-[9px] border border-neutral-200 bg-white p-0.5">
-          {(
-            [
-              ["year", "This year"],
-              ["month", "This month"],
-            ] as const
-          ).map(([value, label]) => (
-            <button
-              key={value}
-              type="button"
-              onClick={() => setPeriod(value)}
-              className={cn(
-                "rounded-md px-2.5 py-1 text-[11px] transition-colors",
-                period === value
-                  ? "border border-neutral-200 bg-white font-medium text-foreground shadow-sm"
-                  : "border border-transparent text-muted-foreground hover:text-foreground",
-              )}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+      <div className="flex h-auto min-h-full w-fit shrink-0 flex-col rounded-[8px] border border-neutral-500 bg-white px-3.5 py-2.5">
+        <p className="text-[11px] text-muted-foreground">Income allocation</p>
 
-        <div className="mt-2.5 flex items-center gap-4">
-          <CompositionDonut segments={segments} />
+        <div className="mt-2.5 flex items-center gap-3">
+          <CompositionDonut segments={segments} income={income} />
           <ul className="flex min-w-[9.5rem] flex-col gap-1">
             {segments.map((seg) => {
               const pct =
-                total > 0 ? ((seg.amount / total) * 100).toFixed(1) : "0.0"
+                income > 0 ? Math.round((seg.amount / income) * 100) : 0
               return (
                 <li
                   key={seg.key}
@@ -101,25 +70,27 @@ export function BudgetSummaryCards({
 
 function CompositionDonut({
   segments,
+  income,
 }: {
   segments: CompositionSegment[]
+  income: number
 }) {
   const size = 72
   const stroke = 10
   const gap = 3.5
   const r = (size - stroke) / 2
   const c = 2 * Math.PI * r
-  const total = segments.reduce((s, x) => s + x.amount, 0)
   const visible = segments.filter((s) => s.amount > 0)
   const gapTotal = visible.length > 1 ? visible.length * gap : 0
   const usable = Math.max(c - gapTotal, 0)
 
   let offset = 0
   const arcs =
-    total <= 0
+    income <= 0
       ? null
       : visible.map((seg) => {
-          const len = (seg.amount / total) * usable
+          // Arc length as fraction of income (full circle), not renormalized to segment sum
+          const len = (seg.amount / income) * usable
           const dash = `${Math.max(len, 0)} ${c - Math.max(len, 0)}`
           const el = (
             <circle
@@ -147,16 +118,14 @@ function CompositionDonut({
       className="shrink-0 -rotate-90"
       aria-hidden
     >
-      {total <= 0 ? (
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={r}
-          fill="none"
-          stroke="#E8E8E8"
-          strokeWidth={stroke}
-        />
-      ) : null}
+      <circle
+        cx={size / 2}
+        cy={size / 2}
+        r={r}
+        fill="none"
+        stroke="#E8E8E8"
+        strokeWidth={stroke}
+      />
       {arcs}
     </svg>
   )
