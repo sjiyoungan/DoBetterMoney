@@ -83,6 +83,7 @@ export function CategoryDrawer({
                       savingsBalanceLeft(
                         category.goal,
                         category.allocations,
+                        paychecks.map((p) => p.date),
                       ),
                     )}
                   </dd>

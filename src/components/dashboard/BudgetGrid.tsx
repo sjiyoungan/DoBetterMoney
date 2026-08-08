@@ -1034,6 +1034,7 @@ export function BudgetGrid({
                       ? savingsBalanceLeft(
                           category.goal,
                           category.allocations,
+                          paychecks.map((p) => p.date),
                         )
                       : undefined
                     const paymentAmount =

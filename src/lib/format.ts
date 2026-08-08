@@ -9,13 +9,20 @@ export function formatMoney(value: number | "" | undefined) {
   }).format(Number(value))
 }
 
-/** Sum of paycheck allocation cells for a category. */
+/** Sum of paycheck allocation cells for a category.
+ * When `dates` is provided, only those ISO keys count (matches the grid columns).
+ */
 export function sumAllocations(
   allocations: Record<string, number | ""> | undefined,
+  dates?: ReadonlySet<string> | readonly string[],
 ): number {
   if (!allocations) return 0
   let total = 0
-  for (const value of Object.values(allocations)) {
+  const keys = dates
+    ? dates
+    : (Object.keys(allocations) as readonly string[])
+  for (const date of keys) {
+    const value = allocations[date]
     if (value === "" || value === undefined) continue
     const n = Number(value)
     if (Number.isFinite(n)) total += n
@@ -23,13 +30,14 @@ export function sumAllocations(
   return total
 }
 
-/** Savings balance left = goal − sum of allocation cells. */
+/** Savings balance left = goal − planned amounts on the active paycheck columns. */
 export function savingsBalanceLeft(
   goal: number | undefined,
   allocations: Record<string, number | ""> | undefined,
+  dates?: ReadonlySet<string> | readonly string[],
 ): number | undefined {
   if (goal === undefined) return undefined
-  return goal - sumAllocations(allocations)
+  return goal - sumAllocations(allocations, dates)
 }
 
 export function formatPayDate(iso: string) {
