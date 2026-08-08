@@ -301,20 +301,16 @@ export function HolderPanel({
             <>
               <ul className="space-y-0 pt-4">
                 {rows.map((row) => (
-                  <li key={row.categoryId}>
-                    <div
-                      className={cn(
-                        "flex items-center justify-between gap-3 rounded-md py-2 text-sm transition-[background] duration-150",
-                        blushHoverClass,
-                      )}
-                    >
-                      <span className="min-w-0 truncate text-foreground">
-                        {row.categoryName}
-                      </span>
-                      <span className="shrink-0 tabular-nums text-foreground">
-                        {formatMoney(row.amount)}
-                      </span>
-                    </div>
+                  <li
+                    key={row.categoryId}
+                    className="flex items-center justify-between gap-3 py-2 text-sm"
+                  >
+                    <span className="min-w-0 truncate text-foreground">
+                      {row.categoryName}
+                    </span>
+                    <span className="shrink-0 tabular-nums text-foreground">
+                      {formatMoney(row.amount)}
+                    </span>
                   </li>
                 ))}
               </ul>
@@ -379,9 +375,9 @@ export function HolderPanel({
             </div>
           </div>
         </div>
-        <div className="flex min-h-0 flex-1 flex-col px-6">
+        <div className="flex min-h-0 flex-1 flex-col">
           {accountRows.length === 0 ? (
-            <p className="py-4 text-sm text-muted-foreground">
+            <p className="px-6 py-4 text-sm text-muted-foreground">
               No savings categories yet.
             </p>
           ) : (
@@ -391,7 +387,7 @@ export function HolderPanel({
                   <button
                     type="button"
                     className={cn(
-                      "flex w-full items-center justify-between gap-3 rounded-md py-2.5 text-left text-sm transition-[background] duration-150",
+                      "flex w-full items-center justify-between gap-3 px-4 py-2.5 text-left text-sm transition-[background] duration-150",
                       blushHoverClass,
                     )}
                     onClick={() => setSelectedCategoryId(row.id)}
@@ -414,7 +410,7 @@ export function HolderPanel({
               ))}
             </ul>
           )}
-          <div className="flex items-center justify-between border-t border-neutral-200 py-4 text-sm font-semibold">
+          <div className="flex items-center justify-between border-t border-neutral-200 px-4 py-4 text-sm font-semibold">
             <span>Total</span>
             <span className="tabular-nums">{formatMoney(accountTotal)}</span>
           </div>
