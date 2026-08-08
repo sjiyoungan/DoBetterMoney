@@ -696,6 +696,7 @@ export default function App() {
                 buckets={yearBudget.buckets}
                 paychecks={yearBudget.paychecks}
                 activeYear={workspace.activeYear}
+                doneKeys={doneKeys}
               />
             </div>
             <BudgetGrid

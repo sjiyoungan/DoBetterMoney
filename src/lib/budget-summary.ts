@@ -1,4 +1,5 @@
 import type { Bucket, Category, Paycheck } from "@/types/budget"
+import { allocationKey } from "@/lib/format"
 
 export type CompositionPeriod = "month" | "year"
 
@@ -34,6 +35,11 @@ function allocationAt(cat: Category, date: string): number {
   return Number.isFinite(n) ? n : 0
 }
 
+function carryOverAt(cat: Category): number {
+  const n = cat.balance
+  return typeof n === "number" && Number.isFinite(n) ? n : 0
+}
+
 /** Sum category allocations whose keys are in `dates` (paycheck ISO dates). */
 export function sumAllocationsForDates(
   categories: Category[],
@@ -47,6 +53,24 @@ export function sumAllocationsForDates(
     }
   }
   return total
+}
+
+/**
+ * Money actually in this savings category:
+ * carry-over (`Category.balance`) + allocations marked moved (`doneKeys`).
+ * Unchecked planned cells do not count — they are not in the bank yet.
+ */
+export function savingsActualForCategory(
+  cat: Category,
+  paychecks: Paycheck[],
+  doneKeys: ReadonlySet<string>,
+): number {
+  let checked = 0
+  for (const p of paychecks) {
+    if (!doneKeys.has(allocationKey(cat.id, p.id))) continue
+    checked += allocationAt(cat, p.date)
+  }
+  return carryOverAt(cat) + checked
 }
 
 export type SavingsCategoryTotal = {
@@ -63,15 +87,14 @@ export type SavingsBucketTotal = {
 }
 
 /**
- * Per-bucket savings totals for the active year (same allocation basis as
- * {@link totalSavingsAllocated}). Only `kind === "savings"` buckets.
- * Each bucket includes a per-category breakdown of visible categories.
+ * Per-bucket savings actuals (carry-over + checked allocations).
+ * Only `kind === "savings"` buckets; hidden categories excluded.
  */
 export function savingsAllocatedByBucket(
   buckets: Bucket[],
   paychecks: Paycheck[],
+  doneKeys: ReadonlySet<string>,
 ): SavingsBucketTotal[] {
-  const dates = new Set(paychecks.map((p) => p.date))
   return buckets
     .filter((bucket) => bucket.kind === "savings")
     .map((bucket) => {
@@ -80,7 +103,7 @@ export function savingsAllocatedByBucket(
         .map((cat) => ({
           categoryId: cat.id,
           categoryName: cat.name,
-          amount: sumAllocationsForDates([cat], dates),
+          amount: savingsActualForCategory(cat, paychecks, doneKeys),
         }))
       const amount = categories.reduce((sum, cat) => sum + cat.amount, 0)
       return {
@@ -93,15 +116,15 @@ export function savingsAllocatedByBucket(
 }
 
 /**
- * Total savings for the active year:
- * sum of all visible savings-category allocations across paycheck dates in that year
- * (money put into savings YTD / year-to-date for the viewed year).
+ * Total money actually in savings accounts for the active year:
+ * Σ (carry-over + checked-off allocations) across visible savings categories.
  */
 export function totalSavingsAllocated(
   buckets: Bucket[],
   paychecks: Paycheck[],
+  doneKeys: ReadonlySet<string>,
 ): number {
-  return savingsAllocatedByBucket(buckets, paychecks).reduce(
+  return savingsAllocatedByBucket(buckets, paychecks, doneKeys).reduce(
     (sum, row) => sum + row.amount,
     0,
   )
@@ -149,6 +172,8 @@ export function paycheckDatesForPeriod(
  * Budget composition for Fixed / Variable / Savings (no income).
  * Percentages renormalize to the sum of those three segments.
  * Spending with missing variability is treated as fixed.
+ * Savings here is still planned allocations (period slice), not bank actuals —
+ * bank actuals are {@link totalSavingsAllocated}.
  */
 export function computeComposition(
   buckets: Bucket[],

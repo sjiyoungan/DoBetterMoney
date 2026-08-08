@@ -48,6 +48,10 @@ export type Category = {
   dueDay?: number
   /** @deprecated prefer dueDay */
   dueDate?: string
+  /**
+   * Savings carry-over already in the bank (opening balance for this year).
+   * Counts toward Total savings with checked-off allocations.
+   */
   balance?: number
   minPayment?: number
   /** Payment (expenses) or income amount */

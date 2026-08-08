@@ -27,24 +27,26 @@ type Props = {
   buckets: Bucket[]
   paychecks: Paycheck[]
   activeYear: number
+  doneKeys: Set<string>
 }
 
 export function BudgetSummaryCards({
   buckets,
   paychecks,
   activeYear,
+  doneKeys,
 }: Props) {
   const [savingsOpen, setSavingsOpen] = useState(false)
   const [period, setPeriod] = useState<CompositionPeriod>("year")
 
   const totalSavings = useMemo(
-    () => totalSavingsAllocated(buckets, paychecks),
-    [buckets, paychecks],
+    () => totalSavingsAllocated(buckets, paychecks, doneKeys),
+    [buckets, paychecks, doneKeys],
   )
 
   const savingsByBucket = useMemo(
-    () => savingsAllocatedByBucket(buckets, paychecks),
-    [buckets, paychecks],
+    () => savingsAllocatedByBucket(buckets, paychecks, doneKeys),
+    [buckets, paychecks, doneKeys],
   )
 
   const { total, segments } = useMemo(
