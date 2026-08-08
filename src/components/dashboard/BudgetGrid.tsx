@@ -67,7 +67,7 @@ const LEFT_WIDTH = W.bucket + W.category + W.goal + W.balance
 
 /** Solid pane fill — header/body/footer must fully cover scrolling rows */
 const paneBg = "bg-white dark:bg-neutral-950"
-/** Sticky header fill — opaque white (matches body paneBg) */
+/** Locked header fill — opaque white (matches body paneBg) */
 const headerBg = "bg-white dark:bg-neutral-950"
 /** Totals footer rows — opaque darker grey */
 const totalsBg = "bg-neutral-100 dark:bg-neutral-900"
@@ -77,10 +77,10 @@ const totalsDividerTop = "border-t-2 border-t-black"
 const upcomingFill =
   "bg-[#FDF9FA] text-[#3A121C] dark:bg-rose-950 dark:text-rose-100"
 const upcomingStrokeSide = "border-l-2 border-l-[#C9A8AE] border-r-2 border-r-[#C9A8AE]"
-/** Soft feather under sticky header / above sticky Totals (not a hard band) */
+/** Soft feather under header / above Totals when body can scroll under them */
 const stickyEdgeShadowUp = "0 -10px 24px rgba(0, 0, 0, 0.18)"
 const stickyEdgeShadowDown = "0 10px 24px rgba(0, 0, 0, 0.18)"
-/** Card outer stroke — owned by sticky header / body / footer so it stays while stuck */
+/** Card outer stroke — owned by header / body / footer panes */
 const cardStroke = "border-neutral-500"
 
 /** Right edge of column i is a month boundary when the next paycheck is a new month. */
@@ -187,11 +187,10 @@ type GridRow = {
  *
  * Left pane (Group → Balance) does not scroll horizontally.
  * Right pane (paycheck columns) scrolls independently.
- * App shell keeps page chrome fixed; this grid sticks its header under that
- * chrome (top:0 of the main scrollport) and Totals to the bottom when needed.
- * Card L/R/top/bottom strokes live on sticky header, body, and footer so the
- * outer frame stays visible while sticky. Right header/footer sync via
- * translateX with the paycheck scroller. Left pane owns the H-scroll shadow.
+ * Vertical scroll lives only in the body pane: locked header and Totals sit
+ * outside that scroller so the Group header never moves and Totals stay flush
+ * to the card/viewport bottom. Right header/footer sync via translateX with
+ * the paycheck scroller. Left pane owns the H-scroll shadow.
  */
 export function BudgetGrid({
   buckets,
@@ -211,6 +210,7 @@ export function BudgetGrid({
   onPaycheckDateChange,
 }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null)
+  const bodyScrollRef = useRef<HTMLDivElement>(null)
   const headerScrollSurfaceRef = useRef<HTMLDivElement>(null)
   const footerScrollSurfaceRef = useRef<HTMLDivElement>(null)
   const leftTableRef = useRef<HTMLTableElement>(null)
@@ -221,15 +221,12 @@ export function BudgetGrid({
   const rightRowRefs = useRef(new Map<string, HTMLTableRowElement>())
   const bucketBodyRefs = useRef(new Map<string, HTMLTableSectionElement>())
   const gridFrameRef = useRef<HTMLDivElement>(null)
-  const stickyHeaderRef = useRef<HTMLDivElement>(null)
-  const stickyTotalsRef = useRef<HTMLDivElement>(null)
-  const headerSentinelRef = useRef<HTMLDivElement>(null)
-  const totalsSentinelRef = useRef<HTMLDivElement>(null)
 
   const [scrolled, setScrolled] = useState(false)
   const [scrollLeft, setScrollLeft] = useState(0)
-  const [headerStuck, setHeaderStuck] = useState(false)
-  const [totalsStuck, setTotalsStuck] = useState(false)
+  const [bodyScrolledPastTop, setBodyScrolledPastTop] = useState(false)
+  const [bodyCanScrollUnderFooter, setBodyCanScrollUnderFooter] =
+    useState(false)
   const [gripClip, setGripClip] = useState({ top: 0, height: 0 })
   const [bucketDialog, setBucketDialog] = useState<
     { mode: "create" } | { mode: "edit"; bucket: Bucket } | null
@@ -263,7 +260,7 @@ export function BudgetGrid({
     [buckets],
   )
 
-  /** Sticky footer: Budget calculation first (zero check), then Totals. */
+  /** Fixed footer: Budget calculation first (zero check), then Totals. */
   const totalsBuckets = useMemo(() => {
     const visibleOf = (kind: "budget_calc" | "totals") =>
       buckets
@@ -372,73 +369,49 @@ export function BudgetGrid({
     }
   }, [hasTotalsFooter])
 
-  // Soft edge shadows when sticky header / Totals pin in the main scrollport
+  // Soft edge shadows when body content can scroll under header / Totals
   useEffect(() => {
-    const scrollRoot =
-      gridFrameRef.current?.closest("main") ?? null
-    const ioRoot = scrollRoot instanceof Element ? scrollRoot : null
-    const headerSentinel = headerSentinelRef.current
-    const headerIo = headerSentinel
-      ? new IntersectionObserver(
-          ([entry]) => {
-            setHeaderStuck(!(entry?.isIntersecting ?? true))
-          },
-          { root: ioRoot, threshold: 0 },
-        )
-      : null
-    if (headerSentinel && headerIo) headerIo.observe(headerSentinel)
-
-    if (!hasTotalsFooter) {
-      setTotalsStuck(false)
-      return () => headerIo?.disconnect()
+    const el = bodyScrollRef.current
+    if (!el) return
+    const update = () => {
+      const pastTop = el.scrollTop > 1
+      const canScroll = el.scrollHeight > el.clientHeight + 1
+      const atBottom =
+        el.scrollTop + el.clientHeight >= el.scrollHeight - 1
+      setBodyScrolledPastTop(pastTop)
+      setBodyCanScrollUnderFooter(canScroll && !atBottom)
     }
-    const totalsSentinel = totalsSentinelRef.current
-    if (!totalsSentinel) {
-      return () => headerIo?.disconnect()
-    }
-    const totalsIo = new IntersectionObserver(
-      ([entry]) => {
-        setTotalsStuck(!(entry?.isIntersecting ?? true))
-      },
-      { root: ioRoot, threshold: 0 },
-    )
-    totalsIo.observe(totalsSentinel)
+    update()
+    el.addEventListener("scroll", update, { passive: true })
+    const ro = new ResizeObserver(update)
+    ro.observe(el)
     return () => {
-      headerIo?.disconnect()
-      totalsIo.disconnect()
+      el.removeEventListener("scroll", update)
+      ro.disconnect()
     }
-  }, [hasTotalsFooter, totalsRows])
+  }, [hasTotalsFooter, rows, totalsRows])
 
-  // Keep rearrange grips clipped between sticky header and Totals
+  // Keep rearrange grips clipped to the body viewport (outside overflow scroller)
   useEffect(() => {
     const frame = gridFrameRef.current
-    if (!frame) return
-    const scrollRoot = frame.closest("main")
+    const body = bodyScrollRef.current
+    if (!frame || !body) return
     const updateClip = () => {
-      const frameRect = frame.getBoundingClientRect()
-      const header = stickyHeaderRef.current
-      const totals = stickyTotalsRef.current
-      const headerBottom = header
-        ? header.getBoundingClientRect().bottom
-        : frameRect.top
-      const totalsTop = totals
-        ? totals.getBoundingClientRect().top
-        : frameRect.bottom
-      const top = Math.max(0, headerBottom - frameRect.top)
-      const bottom = Math.max(top, totalsTop - frameRect.top)
-      setGripClip({ top, height: Math.max(0, bottom - top) })
+      const frameTop = frame.getBoundingClientRect().top
+      const bodyRect = body.getBoundingClientRect()
+      setGripClip({
+        top: bodyRect.top - frameTop,
+        height: body.clientHeight,
+      })
     }
     updateClip()
     const ro = new ResizeObserver(updateClip)
     ro.observe(frame)
-    if (stickyHeaderRef.current) ro.observe(stickyHeaderRef.current)
-    if (stickyTotalsRef.current) ro.observe(stickyTotalsRef.current)
-    scrollRoot?.addEventListener("scroll", updateClip, { passive: true })
-    window.addEventListener("resize", updateClip)
+    ro.observe(body)
+    body.addEventListener("scroll", updateClip, { passive: true })
     return () => {
       ro.disconnect()
-      scrollRoot?.removeEventListener("scroll", updateClip)
-      window.removeEventListener("resize", updateClip)
+      body.removeEventListener("scroll", updateClip)
     }
   }, [hasTotalsFooter, rows, totalsRows])
 
@@ -507,11 +480,11 @@ export function BudgetGrid({
     const ro = new ResizeObserver(sync)
     if (leftTableRef.current) ro.observe(leftTableRef.current)
     if (rightTableRef.current) ro.observe(rightTableRef.current)
-    const scrollRoot = gridFrameRef.current?.closest("main")
-    scrollRoot?.addEventListener("scroll", sync, { passive: true })
+    const bodyScroll = bodyScrollRef.current
+    bodyScroll?.addEventListener("scroll", sync, { passive: true })
     return () => {
       ro.disconnect()
-      scrollRoot?.removeEventListener("scroll", sync)
+      bodyScroll?.removeEventListener("scroll", sync)
     }
   }, [rows, totalsRows, paychecks, displayBucketIds])
 
@@ -635,9 +608,9 @@ export function BudgetGrid({
   }
 
   return (
-    <div>
-      <div ref={gridFrameRef} className="relative">
-        {/* Rearrange grips: clipped between sticky header and Totals */}
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div ref={gridFrameRef} className="relative flex min-h-0 flex-1 flex-col">
+        {/* Rearrange grips: clipped to body viewport so they never cover header */}
         <div
           aria-hidden={false}
           className="pointer-events-none absolute -left-5 z-30 w-5 overflow-hidden"
@@ -669,26 +642,19 @@ export function BudgetGrid({
         </div>
 
         {/*
-          Card stroke is split across sticky header / body / footer so L/R/top
-          stay visible while header pins under page chrome. Header/footer are
-          siblings of the body; right panes sync via translateX.
+          Flex column card: header + Totals stay outside the body scroller so
+          rows clip under them. Right panes sync via translateX.
         */}
-        <div className="rounded-[8px]">
+        <div className="flex min-h-0 flex-1 flex-col rounded-[8px]">
+          {/* Fixed header — not inside the vertical scroller */}
           <div
-            ref={headerSentinelRef}
-            aria-hidden
-            className="h-0 w-full"
-          />
-          {/* Sticky header — pins to top of main scrollport (under AppHeader) */}
-          <div
-            ref={stickyHeaderRef}
             className={cn(
-              "sticky top-0 z-40 flex overflow-hidden rounded-t-[8px] border border-b-0",
+              "relative z-40 flex shrink-0 overflow-hidden rounded-t-[8px] border border-b-0",
               cardStroke,
               headerBg,
             )}
             style={{
-              boxShadow: headerStuck ? stickyEdgeShadowDown : "none",
+              boxShadow: bodyScrolledPastTop ? stickyEdgeShadowDown : "none",
             }}
           >
             <div
@@ -790,18 +756,21 @@ export function BudgetGrid({
                             paycheck={p}
                             edgeKind={edgeKind}
                             className={cn(
-                              "relative border-b-2 border-b-neutral-900 px-1 py-3 text-center font-medium",
+                              "relative border-b-2 border-b-neutral-900 px-1 py-3 text-center",
                               isUpcoming
-                                ? upcomingColumnClass({
-                                    active: true,
-                                    top: true,
-                                  })
+                                ? cn(
+                                    upcomingColumnClass({
+                                      active: true,
+                                      top: true,
+                                    }),
+                                    "font-light text-foreground",
+                                  )
                                 : cn(
                                     payColumnMonthBorderClass(edgeKind),
                                     headerBg,
                                     isPast
-                                      ? "text-[#969696]"
-                                      : "text-muted-foreground",
+                                      ? "font-medium text-[#969696]"
+                                      : "font-light text-foreground",
                                   ),
                             )}
                             onDateChange={(date) =>
@@ -817,14 +786,16 @@ export function BudgetGrid({
             </div>
           </div>
 
+          {/* Body-only vertical scroll — content clips under header / Totals */}
           <div
+            ref={bodyScrollRef}
             className={cn(
-              "relative z-0 flex border-x",
+              "relative z-0 min-h-0 flex-1 overflow-x-hidden overflow-y-auto border-x [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
               cardStroke,
-              !hasTotalsFooter &&
-                "overflow-hidden rounded-b-[8px] border-b",
+              !hasTotalsFooter && "rounded-b-[8px] border-b",
             )}
           >
+          <div className="relative flex">
           {/* Left pane: labels stay put; owns the continuous scroll shadow */}
           <div
             className={cn("relative z-10 shrink-0", paneBg)}
@@ -909,7 +880,7 @@ export function BudgetGrid({
                                   bucket: fullBucket,
                                 })
                               }
-                              className="absolute inset-0 flex items-start justify-start px-2 pt-2 text-left transition-colors hover:bg-neutral-100 hover:text-foreground"
+                              className="absolute inset-0 flex items-center justify-start px-2 text-left transition-colors hover:bg-neutral-100 hover:text-foreground"
                             >
                               <span className="block w-full min-w-0 text-left break-words">
                                 {bucket.name}
@@ -1124,24 +1095,20 @@ export function BudgetGrid({
             </div>
           </div>
           </div>
+          </div>
 
           {hasTotalsFooter ? (
-            <>
+              /* Fixed Totals footer — outside body scroller; opaque so rows clip under it */
               <div
-                ref={totalsSentinelRef}
-                aria-hidden
-                className="h-0 w-full"
-              />
-              {/* Outer sticky: opaque fill + no overflow-hidden so upward shadow isn't clipped */}
-              <div
-                ref={stickyTotalsRef}
                 className={cn(
-                  "sticky bottom-0 z-30 rounded-b-[8px] border border-t-0",
+                  "relative z-30 shrink-0 rounded-b-[8px] border border-t-0",
                   cardStroke,
                   totalsBg,
                 )}
                 style={{
-                  boxShadow: totalsStuck ? stickyEdgeShadowUp : "none",
+                  boxShadow: bodyCanScrollUnderFooter
+                    ? stickyEdgeShadowUp
+                    : "none",
                 }}
               >
                 {/* Inner: clip grey fill to rounded bottom corners */}
@@ -1222,7 +1189,7 @@ export function BudgetGrid({
                                           bucket: fullBucket,
                                         })
                                       }
-                                      className="absolute inset-0 flex items-start justify-start px-2 pt-2 text-left transition-colors hover:bg-neutral-200 hover:text-foreground"
+                                      className="absolute inset-0 flex items-center justify-start px-2 text-left transition-colors hover:bg-neutral-200 hover:text-foreground"
                                     >
                                       <span className="block w-full min-w-0 text-left line-clamp-3 break-words">
                                         {bucket.name}
@@ -1356,13 +1323,18 @@ export function BudgetGrid({
                                       className={cn(
                                         "relative px-1",
                                         upcomingActive
-                                          ? upcomingColumnClass({
-                                              active: true,
-                                              bottom: isLastFooterRow,
-                                            })
+                                          ? cn(
+                                              upcomingColumnClass({
+                                                active: true,
+                                                bottom: isLastFooterRow,
+                                              }),
+                                              "text-foreground",
+                                            )
                                           : cn(
                                               totalsBg,
-                                              "text-muted-foreground",
+                                              isPast
+                                                ? "text-muted-foreground"
+                                                : "text-foreground",
                                               payColumnMonthBorderClass(
                                                 edgeKind,
                                               ),
@@ -1398,7 +1370,6 @@ export function BudgetGrid({
                 </div>
                 </div>
               </div>
-            </>
           ) : null}
         </div>
 

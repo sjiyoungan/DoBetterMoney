@@ -687,15 +687,17 @@ export default function App() {
         </div>
       ) : null}
 
-      {/* Sole vertical scrollport: chrome stays put; table header/totals stick here */}
-      <main className="min-h-0 flex-1 overflow-y-auto px-[60px] py-4 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      {/* Summary + grid fill remaining height; only the table body scrolls */}
+      <main className="flex min-h-0 flex-1 flex-col overflow-hidden px-[60px] pt-4 pb-0">
         {role === "liz" ? (
-          <div className="flex flex-col gap-6">
-            <BudgetSummaryCards
-              buckets={yearBudget.buckets}
-              paychecks={yearBudget.paychecks}
-              activeYear={workspace.activeYear}
-            />
+          <div className="flex min-h-0 flex-1 flex-col gap-6">
+            <div className="shrink-0">
+              <BudgetSummaryCards
+                buckets={yearBudget.buckets}
+                paychecks={yearBudget.paychecks}
+                activeYear={workspace.activeYear}
+              />
+            </div>
             <BudgetGrid
               buckets={yearBudget.buckets}
               paychecks={yearBudget.paychecks}
@@ -715,13 +717,15 @@ export default function App() {
             />
           </div>
         ) : (
-          <div className="mx-auto max-w-7xl space-y-4">
-            <HolderPanel
-              workspace={yearBudget}
-              selectedPaycheckId={selectedPaycheckId}
-              onSelectedPaycheckChange={setSelectedPaycheckId}
-              onToggleHolderFlag={onToggleHolderFlag}
-            />
+          <div className="min-h-0 flex-1 overflow-y-auto pb-4">
+            <div className="mx-auto max-w-7xl space-y-4">
+              <HolderPanel
+                workspace={yearBudget}
+                selectedPaycheckId={selectedPaycheckId}
+                onSelectedPaycheckChange={setSelectedPaycheckId}
+                onToggleHolderFlag={onToggleHolderFlag}
+              />
+            </div>
           </div>
         )}
       </main>
