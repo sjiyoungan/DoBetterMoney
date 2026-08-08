@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
+import { CaretDownIcon } from "@/components/ui/caret-down"
 import {
   Sheet,
   SheetContent,
@@ -333,7 +334,7 @@ export function CategoryDrawer({
                         key={paycheck.id}
                         className="flex items-center justify-between gap-3 text-sm"
                       >
-                        <span className="text-foreground">
+                        <span className="text-neutral-400">
                           {formatPayDate(paycheck.date)}
                         </span>
                         <span className="tabular-nums text-foreground">
@@ -345,10 +346,16 @@ export function CategoryDrawer({
                   {hasMorePlanned ? (
                     <button
                       type="button"
-                      className="mt-4 text-sm font-medium text-foreground underline-offset-2 hover:underline"
+                      className="mt-4 flex w-full items-center justify-center gap-2 text-sm font-medium text-[#065FD4] transition-colors hover:text-[#054db0]"
                       onClick={() => setPlannedExpanded((v) => !v)}
                     >
                       {plannedExpanded ? "View less" : "View more"}
+                      <CaretDownIcon
+                        className={cn(
+                          "size-2 text-current transition-transform",
+                          plannedExpanded && "rotate-180",
+                        )}
+                      />
                     </button>
                   ) : null}
                 </div>
