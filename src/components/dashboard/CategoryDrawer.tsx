@@ -12,8 +12,9 @@ import {
   formatPayDate,
   savingsBalanceLeft,
 } from "@/lib/format"
+import { savingsActualForCategory } from "@/lib/budget-summary"
 import { cn } from "@/lib/utils"
-import type { Bucket, Category, Paycheck } from "@/types/budget"
+import type { Bucket, Category, Paycheck, Withdrawal } from "@/types/budget"
 
 type Props = {
   open: boolean
@@ -22,6 +23,7 @@ type Props = {
   bucket: Bucket | null
   paychecks: Paycheck[]
   doneKeys: Set<string>
+  withdrawals?: Withdrawal[]
   onCategoryNoteChange: (categoryId: string, note: string) => void
 }
 
@@ -33,7 +35,7 @@ type PlannedRow = {
 type HistoryItem = {
   id: string
   date: string
-  kind: "deposit" | "payment" | "comment" | "carryover"
+  kind: "deposit" | "payment" | "comment" | "carryover" | "withdrawal"
   amount?: number
   comment?: string
 }
@@ -93,6 +95,7 @@ function historyLabel(item: HistoryItem): string {
   if (item.kind === "carryover") return "Carry over"
   if (item.kind === "deposit") return "Deposit"
   if (item.kind === "payment") return "Payment"
+  if (item.kind === "withdrawal") return "Withdrawal"
   return item.comment ?? "Comment"
 }
 
@@ -109,6 +112,7 @@ export function CategoryDrawer({
   bucket,
   paychecks,
   doneKeys,
+  withdrawals = [],
   onCategoryNoteChange,
 }: Props) {
   const [plannedExpanded, setPlannedExpanded] = useState(false)
@@ -210,8 +214,21 @@ export function CategoryDrawer({
       }
     }
 
+    if (savings) {
+      for (const w of withdrawals) {
+        if (w.categoryId !== category.id) continue
+        items.push({
+          id: `withdrawal-${w.id}`,
+          date: w.date,
+          kind: "withdrawal",
+          amount: -Math.abs(w.amount),
+          comment: w.note,
+        })
+      }
+    }
+
     return items.sort((a, b) => b.date.localeCompare(a.date))
-  }, [category, bucket, paychecks, doneKeys])
+  }, [category, bucket, paychecks, doneKeys, withdrawals])
 
   if (!category || !bucket) return null
 
@@ -248,6 +265,19 @@ export function CategoryDrawer({
                 <dt className="text-muted-foreground">Goal</dt>
                 <dd className="mt-2 font-medium">
                   {formatMoney(category.goal)}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground">Total saved</dt>
+                <dd className="mt-2 font-medium tabular-nums">
+                  {formatMoney(
+                    savingsActualForCategory(
+                      category,
+                      paychecks,
+                      doneKeys,
+                      withdrawals,
+                    ),
+                  )}
                 </dd>
               </div>
               <div>

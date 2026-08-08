@@ -9,6 +9,7 @@ export function emptyYearBudget(): YearBudget {
     holderBalances: {},
     doneKeys: [],
     jiTransferSources: [],
+    jiAccountSources: [],
     jiTransferLog: [],
   }
 }

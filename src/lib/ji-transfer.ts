@@ -149,12 +149,19 @@ function carryOverAt(cat: Category): number {
 
 /**
  * Money in the account per savings category:
- * carry-over + amounts Ji has confirmed with Done (not Liz checkmarks).
+ * carry-over + Ji Done confirmations − withdrawals.
  */
 export function accountCategoryBalances(
   buckets: Bucket[],
   log: JiTransferLog[] | undefined,
+  withdrawals: readonly { categoryId: string; amount: number }[] = [],
+  sources?: JiTransferSource[],
 ): { id: string; name: string; amount: number }[] {
+  const allowed = resolveTransferCategoryIds(
+    buckets.filter((b) => b.kind === "savings"),
+    sources,
+  )
+
   const confirmedByCategory = new Map<string, number>()
   for (const entry of activeConfirmations(log)) {
     for (const categoryId of entry.categoryIds) {
@@ -172,15 +179,26 @@ export function accountCategoryBalances(
     }
   }
 
+  const withdrawnByCategory = new Map<string, number>()
+  for (const w of withdrawals) {
+    withdrawnByCategory.set(
+      w.categoryId,
+      (withdrawnByCategory.get(w.categoryId) ?? 0) + w.amount,
+    )
+  }
+
   const rows: { id: string; name: string; amount: number }[] = []
   for (const bucket of buckets) {
     if (bucket.kind !== "savings") continue
     for (const cat of bucket.categories) {
-      if (cat.hidden) continue
+      if (!categoryAllowed(cat, allowed)) continue
       rows.push({
         id: cat.id,
         name: cat.name,
-        amount: carryOverAt(cat) + (confirmedByCategory.get(cat.id) ?? 0),
+        amount:
+          carryOverAt(cat) +
+          (confirmedByCategory.get(cat.id) ?? 0) -
+          (withdrawnByCategory.get(cat.id) ?? 0),
       })
     }
   }
@@ -190,9 +208,18 @@ export function accountCategoryBalances(
 export function accountTotalBalance(
   buckets: Bucket[],
   log: JiTransferLog[] | undefined,
+  withdrawals: readonly { categoryId: string; amount: number }[] = [],
+  sources?: JiTransferSource[],
 ): number {
-  return accountCategoryBalances(buckets, log).reduce(
+  return accountCategoryBalances(buckets, log, withdrawals, sources).reduce(
     (sum, row) => sum + row.amount,
     0,
+  )
+}
+
+export function sourceBucketsForAccount(buckets: Bucket[]): Bucket[] {
+  return buckets.filter(
+    (b) =>
+      b.kind === "savings" && b.categories.some((c) => !c.hidden),
   )
 }

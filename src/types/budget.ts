@@ -140,6 +140,8 @@ export type YearBudget = {
   doneKeys: string[]
   /** Groups/categories Ji tracks for put-away (Totals-style sources). */
   jiTransferSources?: JiTransferSource[]
+  /** Groups/categories shown in Ji Account balance. */
+  jiAccountSources?: JiTransferSource[]
   /** Ji Done / undo history for put-away confirmations. */
   jiTransferLog?: JiTransferLog[]
 }

@@ -685,12 +685,41 @@ export default function App() {
     )
   }
 
+  function onSaveAccountSources(sources: JiTransferSource[]) {
+    recordHistory()
+    patchWorkspace((prev) =>
+      updateActiveYearBudget(prev, (year) => ({
+        ...year,
+        jiAccountSources: sources,
+      })),
+    )
+  }
+
   function onSaveTransferLog(log: JiTransferLog[]) {
     recordHistory()
     patchWorkspace((prev) =>
       updateActiveYearBudget(prev, (year) => ({
         ...year,
         jiTransferLog: log,
+      })),
+    )
+  }
+
+  function onWithdraw(input: { categoryId: string; amount: number }) {
+    if (input.amount <= 0) return
+    recordHistory()
+    patchWorkspace((prev) =>
+      updateActiveYearBudget(prev, (year) => ({
+        ...year,
+        withdrawals: [
+          ...year.withdrawals,
+          {
+            id: crypto.randomUUID(),
+            date: new Date().toISOString().slice(0, 10),
+            amount: input.amount,
+            categoryId: input.categoryId,
+          },
+        ],
       })),
     )
   }
@@ -748,12 +777,14 @@ export default function App() {
                 paychecks={yearBudget.paychecks}
                 activeYear={workspace.activeYear}
                 doneKeys={doneKeys}
+                withdrawals={yearBudget.withdrawals}
               />
             </div>
             <BudgetGrid
               buckets={yearBudget.buckets}
               paychecks={yearBudget.paychecks}
               doneKeys={doneKeys}
+              withdrawals={yearBudget.withdrawals}
               onToggleDone={toggleDone}
               onAmountChange={onAmountChange}
               onAmountApplyToFuture={onAmountApplyToFuture}
@@ -779,7 +810,10 @@ export default function App() {
                 onSelectedPaycheckChange={setSelectedPaycheckId}
                 onConfirmTransfer={onConfirmTransfer}
                 onSaveTransferSources={onSaveTransferSources}
+                onSaveAccountSources={onSaveAccountSources}
                 onSaveTransferLog={onSaveTransferLog}
+                onWithdraw={onWithdraw}
+                onCategoryNoteChange={onCategoryNoteChange}
               />
             </div>
           </div>

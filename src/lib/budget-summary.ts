@@ -1,4 +1,4 @@
-import type { Bucket, Category, Paycheck } from "@/types/budget"
+import type { Bucket, Category, Paycheck, Withdrawal } from "@/types/budget"
 import { allocationKey } from "@/lib/format"
 
 export type CompositionPeriod = "month" | "year"
@@ -56,21 +56,24 @@ export function sumAllocationsForDates(
 }
 
 /**
- * Money actually in this savings category:
- * carry-over (`Category.balance`) + allocations marked moved (`doneKeys`).
- * Unchecked planned cells do not count — they are not in the bank yet.
+ * Money actually in this savings category from Liz's view:
+ * carry-over + checked allocations − withdrawals.
  */
 export function savingsActualForCategory(
   cat: Category,
   paychecks: Paycheck[],
   doneKeys: ReadonlySet<string>,
+  withdrawals: readonly Withdrawal[] = [],
 ): number {
   let checked = 0
   for (const p of paychecks) {
     if (!doneKeys.has(allocationKey(cat.id, p.id))) continue
     checked += allocationAt(cat, p.date)
   }
-  return carryOverAt(cat) + checked
+  const withdrawn = withdrawals
+    .filter((w) => w.categoryId === cat.id)
+    .reduce((sum, w) => sum + w.amount, 0)
+  return carryOverAt(cat) + checked - withdrawn
 }
 
 export type SavingsCategoryTotal = {
@@ -95,6 +98,7 @@ export function savingsAllocatedByBucket(
   buckets: Bucket[],
   paychecks: Paycheck[],
   doneKeys: ReadonlySet<string>,
+  withdrawals: readonly Withdrawal[] = [],
 ): SavingsBucketTotal[] {
   return buckets
     .filter((bucket) => bucket.kind === "savings")
@@ -104,7 +108,12 @@ export function savingsAllocatedByBucket(
         .map((cat) => ({
           categoryId: cat.id,
           categoryName: cat.name,
-          amount: savingsActualForCategory(cat, paychecks, doneKeys),
+          amount: savingsActualForCategory(
+            cat,
+            paychecks,
+            doneKeys,
+            withdrawals,
+          ),
           goal: cat.goal,
         }))
       const amount = categories.reduce((sum, cat) => sum + cat.amount, 0)
@@ -119,17 +128,20 @@ export function savingsAllocatedByBucket(
 
 /**
  * Total money actually in savings accounts for the active year:
- * Σ (carry-over + checked-off allocations) across visible savings categories.
+ * Σ (carry-over + checked-off allocations − withdrawals) across visible savings.
  */
 export function totalSavingsAllocated(
   buckets: Bucket[],
   paychecks: Paycheck[],
   doneKeys: ReadonlySet<string>,
+  withdrawals: readonly Withdrawal[] = [],
 ): number {
-  return savingsAllocatedByBucket(buckets, paychecks, doneKeys).reduce(
-    (sum, row) => sum + row.amount,
-    0,
-  )
+  return savingsAllocatedByBucket(
+    buckets,
+    paychecks,
+    doneKeys,
+    withdrawals,
+  ).reduce((sum, row) => sum + row.amount, 0)
 }
 
 /**

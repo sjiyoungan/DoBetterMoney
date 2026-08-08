@@ -1,7 +1,24 @@
 import { useEffect, useMemo, useRef, useState } from "react"
-import { History, Settings, Undo2 } from "lucide-react"
+import { BanknoteArrowDown, History, Settings, Undo2 } from "lucide-react"
+import { CategoryDrawer } from "@/components/dashboard/CategoryDrawer"
 import { TotalsSourcesEditor } from "@/components/dashboard/TotalsSourcesEditor"
 import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import {
   Sheet,
   SheetContent,
@@ -12,12 +29,15 @@ import {
   accountCategoryBalances,
   accountTotalBalance,
   pendingTransferPaychecks,
+  sourceBucketsForAccount,
   sourceBucketsForJi,
   transferRowsForPaycheck,
 } from "@/lib/ji-transfer"
 import { formatMoney, formatPayDate } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import type {
+  Bucket,
+  Category,
   JiTransferLog,
   JiTransferSource,
   YearBudget,
@@ -35,7 +55,21 @@ type Props = {
     categoryIds: string[]
   }) => void
   onSaveTransferSources: (sources: JiTransferSource[]) => void
+  onSaveAccountSources: (sources: JiTransferSource[]) => void
   onSaveTransferLog: (log: JiTransferLog[]) => void
+  onWithdraw: (input: { categoryId: string; amount: number }) => void
+  onCategoryNoteChange: (categoryId: string, note: string) => void
+}
+
+function findCategory(
+  buckets: Bucket[],
+  categoryId: string,
+): { category: Category; bucket: Bucket } | null {
+  for (const bucket of buckets) {
+    const category = bucket.categories.find((c) => c.id === categoryId)
+    if (category) return { category, bucket }
+  }
+  return null
 }
 
 export function HolderPanel({
@@ -45,15 +79,27 @@ export function HolderPanel({
   onSelectedPaycheckChange,
   onConfirmTransfer,
   onSaveTransferSources,
+  onSaveAccountSources,
   onSaveTransferLog,
+  onWithdraw,
+  onCategoryNoteChange,
 }: Props) {
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [accountSettingsOpen, setAccountSettingsOpen] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
+  const [withdrawOpen, setWithdrawOpen] = useState(false)
+  const [withdrawCategoryId, setWithdrawCategoryId] = useState("")
+  const [withdrawAmount, setWithdrawAmount] = useState("")
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(
+    null,
+  )
   const [undoDraftIds, setUndoDraftIds] = useState<Set<string>>(new Set())
   const didInitSelection = useRef(false)
 
   const sources = workspace.jiTransferSources
+  const accountSources = workspace.jiAccountSources
   const log = workspace.jiTransferLog ?? []
+  const withdrawals = workspace.withdrawals ?? []
 
   const pendingPaychecks = useMemo(
     () =>
@@ -115,16 +161,46 @@ export function HolderPanel({
   }, [log])
 
   const accountRows = useMemo(
-    () => accountCategoryBalances(workspace.buckets, log),
-    [workspace.buckets, log],
+    () =>
+      accountCategoryBalances(
+        workspace.buckets,
+        log,
+        withdrawals,
+        accountSources,
+      ),
+    [workspace.buckets, log, withdrawals, accountSources],
   )
 
   const accountTotal = useMemo(
-    () => accountTotalBalance(workspace.buckets, log),
-    [workspace.buckets, log],
+    () =>
+      accountTotalBalance(
+        workspace.buckets,
+        log,
+        withdrawals,
+        accountSources,
+      ),
+    [workspace.buckets, log, withdrawals, accountSources],
   )
 
   const jiSourceBuckets = sourceBucketsForJi(workspace.buckets)
+  const accountSourceBuckets = sourceBucketsForAccount(workspace.buckets)
+
+  const selectedDetail = selectedCategoryId
+    ? findCategory(workspace.buckets, selectedCategoryId)
+    : null
+
+  const withdrawOptions = accountRows.filter((row) => row.amount > 0)
+
+  useEffect(() => {
+    if (!withdrawOpen) return
+    if (
+      withdrawCategoryId &&
+      withdrawOptions.some((r) => r.id === withdrawCategoryId)
+    ) {
+      return
+    }
+    setWithdrawCategoryId(withdrawOptions[0]?.id ?? "")
+  }, [withdrawOpen, withdrawOptions, withdrawCategoryId])
 
   function toggleUndoDraft(id: string) {
     setUndoDraftIds((prev) => {
@@ -148,6 +224,24 @@ export function HolderPanel({
     onSaveTransferLog(next)
     setUndoDraftIds(new Set())
     setHistoryOpen(false)
+  }
+
+  function openWithdraw() {
+    setWithdrawAmount("")
+    setWithdrawCategoryId(withdrawOptions[0]?.id ?? "")
+    setWithdrawOpen(true)
+  }
+
+  function submitWithdraw() {
+    const amount = Number(withdrawAmount)
+    if (!withdrawCategoryId || !Number.isFinite(amount) || amount <= 0) return
+    const max =
+      accountRows.find((r) => r.id === withdrawCategoryId)?.amount ?? 0
+    const capped = Math.min(amount, max)
+    if (capped <= 0) return
+    onWithdraw({ categoryId: withdrawCategoryId, amount: capped })
+    setWithdrawOpen(false)
+    setWithdrawAmount("")
   }
 
   return (
@@ -256,10 +350,29 @@ export function HolderPanel({
 
       <section className="flex flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white">
         <div className="border-b border-neutral-200 px-4 py-3">
-          <div className="flex h-8 items-center">
+          <div className="flex h-8 items-center justify-between gap-3">
             <h2 className="text-base font-semibold text-foreground">
               Account balance
             </h2>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                title="Choose groups and categories"
+                className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                onClick={() => setAccountSettingsOpen(true)}
+              >
+                <Settings className="size-4" />
+              </button>
+              <button
+                type="button"
+                title="Withdraw"
+                disabled={withdrawOptions.length === 0}
+                className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
+                onClick={openWithdraw}
+              >
+                <BanknoteArrowDown className="size-4" />
+              </button>
+            </div>
           </div>
         </div>
         <div className="flex min-h-0 flex-1 flex-col px-4">
@@ -270,23 +383,26 @@ export function HolderPanel({
           ) : (
             <ul className="flex-1 space-y-3 py-4">
               {accountRows.map((row) => (
-                <li
-                  key={row.id}
-                  className="flex items-center justify-between gap-3 text-sm"
-                >
-                  <span className="min-w-0 truncate text-foreground">
-                    {row.name}
-                  </span>
-                  <span
-                    className={cn(
-                      "shrink-0 tabular-nums",
-                      row.amount === 0
-                        ? "text-neutral-400"
-                        : "text-foreground",
-                    )}
+                <li key={row.id}>
+                  <button
+                    type="button"
+                    className="flex w-full items-center justify-between gap-3 rounded-md text-left text-sm transition-colors hover:bg-neutral-50"
+                    onClick={() => setSelectedCategoryId(row.id)}
                   >
-                    {formatMoney(row.amount)}
-                  </span>
+                    <span className="min-w-0 truncate text-foreground">
+                      {row.name}
+                    </span>
+                    <span
+                      className={cn(
+                        "shrink-0 tabular-nums",
+                        row.amount === 0
+                          ? "text-neutral-400"
+                          : "text-foreground",
+                      )}
+                    >
+                      {formatMoney(row.amount)}
+                    </span>
+                  </button>
                 </li>
               ))}
             </ul>
@@ -312,10 +428,21 @@ export function HolderPanel({
         </SheetContent>
       </Sheet>
 
-      <Sheet
-        open={historyOpen}
-        onOpenChange={setHistoryOpen}
-      >
+      <Sheet open={accountSettingsOpen} onOpenChange={setAccountSettingsOpen}>
+        <SheetContent className="overflow-y-auto">
+          <TotalsSourcesEditor
+            value={accountSources}
+            sourceBuckets={accountSourceBuckets}
+            onCancel={() => setAccountSettingsOpen(false)}
+            onSave={(next) => {
+              onSaveAccountSources(next)
+              setAccountSettingsOpen(false)
+            }}
+          />
+        </SheetContent>
+      </Sheet>
+
+      <Sheet open={historyOpen} onOpenChange={setHistoryOpen}>
         <SheetContent className="flex flex-col overflow-hidden p-0">
           <div className="flex min-h-0 flex-1 flex-col p-8 pb-0">
             <SheetHeader className="mb-6">
@@ -404,6 +531,81 @@ export function HolderPanel({
           </div>
         </SheetContent>
       </Sheet>
+
+      <Dialog open={withdrawOpen} onOpenChange={setWithdrawOpen}>
+        <DialogContent className="sm:max-w-md" showCloseButton={false}>
+          <DialogHeader>
+            <DialogTitle>Withdraw</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-2">
+            <div className="grid gap-2">
+              <Label htmlFor="withdraw-category">Category</Label>
+              <Select
+                value={withdrawCategoryId}
+                onValueChange={setWithdrawCategoryId}
+              >
+                <SelectTrigger id="withdraw-category" className="w-full">
+                  <SelectValue placeholder="Choose a category" />
+                </SelectTrigger>
+                <SelectContent>
+                  {withdrawOptions.map((row) => (
+                    <SelectItem key={row.id} value={row.id}>
+                      {row.name} ({formatMoney(row.amount)})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="withdraw-amount">Amount</Label>
+              <Input
+                id="withdraw-amount"
+                type="number"
+                min={0}
+                step="0.01"
+                inputMode="decimal"
+                placeholder="0"
+                value={withdrawAmount}
+                onChange={(e) => setWithdrawAmount(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="ghost"
+              className="text-muted-foreground hover:bg-transparent hover:text-foreground"
+              onClick={() => setWithdrawOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              disabled={
+                !withdrawCategoryId ||
+                !Number.isFinite(Number(withdrawAmount)) ||
+                Number(withdrawAmount) <= 0
+              }
+              onClick={submitWithdraw}
+            >
+              Withdraw
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <CategoryDrawer
+        open={!!selectedDetail}
+        onOpenChange={(open) => {
+          if (!open) setSelectedCategoryId(null)
+        }}
+        category={selectedDetail?.category ?? null}
+        bucket={selectedDetail?.bucket ?? null}
+        paychecks={workspace.paychecks}
+        doneKeys={doneKeys}
+        withdrawals={withdrawals}
+        onCategoryNoteChange={onCategoryNoteChange}
+      />
     </div>
   )
 }

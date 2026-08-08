@@ -53,6 +53,7 @@ export function normalizeWorkspace(
         doneKeys: years[key]?.doneKeys ?? [],
         jiTransferLog: years[key]?.jiTransferLog ?? [],
         jiTransferSources: years[key]?.jiTransferSources ?? [],
+        jiAccountSources: years[key]?.jiAccountSources ?? [],
       }
     }
     const yearNums = Object.keys(years)
@@ -401,6 +402,9 @@ export function createNextYear(workspace: BudgetWorkspace): BudgetWorkspace {
     doneKeys: [],
     jiTransferSources: source.jiTransferSources
       ? source.jiTransferSources.map((s) => ({ ...s }))
+      : [],
+    jiAccountSources: source.jiAccountSources
+      ? source.jiAccountSources.map((s) => ({ ...s }))
       : [],
     jiTransferLog: [],
   }
