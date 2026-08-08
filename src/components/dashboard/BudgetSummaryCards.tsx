@@ -25,7 +25,7 @@ export function BudgetSummaryCards({ buckets, paychecks }: Props) {
   )
 
   return (
-    <div className="flex shrink-0 flex-wrap items-stretch gap-6">
+    <div className="flex shrink-0 flex-wrap items-stretch gap-4">
       <div className="flex h-auto min-h-full w-[calc(11.5rem+48px)] min-w-[calc(11.5rem+48px)] shrink-0 flex-col justify-between rounded-[8px] border border-neutral-500 bg-white p-4">
         <p className="mb-6 text-sm text-neutral-600">Total savings</p>
         <p className="mt-auto text-4xl font-light tracking-tight tabular-nums text-foreground">
