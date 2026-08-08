@@ -235,7 +235,10 @@ export function CategoryDrawer({
         onOpenChange(next)
       }}
     >
-      <SheetContent className="overflow-y-auto">
+      <SheetContent
+        className="overflow-y-auto"
+        onOpenAutoFocus={(e) => e.preventDefault()}
+      >
         <SheetHeader>
           <SheetTitle>{category.name}</SheetTitle>
           <p className="text-xs text-neutral-400">{typeLabel}</p>
@@ -301,8 +304,8 @@ export function CategoryDrawer({
             <textarea
               value={noteDraft}
               placeholder="Add a comment…"
-              rows={5}
-              className="w-full resize-none border-0 bg-transparent py-4 text-sm leading-relaxed text-foreground outline-none ring-0 placeholder:text-neutral-400 focus:border-0 focus:outline-none focus:ring-0"
+              rows={2}
+              className="min-h-[calc(2*1.625em)] w-full resize-none border-0 bg-transparent py-4 text-sm leading-relaxed text-foreground outline-none ring-0 placeholder:text-neutral-400 focus:border-0 focus:outline-none focus:ring-0"
               onChange={(e) => {
                 const next = e.target.value
                 setNoteDraft(next)
