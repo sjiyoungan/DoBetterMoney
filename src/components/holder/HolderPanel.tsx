@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { History, Settings, Undo2 } from "lucide-react"
 import { TotalsSourcesEditor } from "@/components/dashboard/TotalsSourcesEditor"
 import { Button } from "@/components/ui/button"
@@ -49,6 +49,7 @@ export function HolderPanel({
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
   const [undoDraftIds, setUndoDraftIds] = useState<Set<string>>(new Set())
+  const didInitSelection = useRef(false)
 
   const sources = workspace.jiTransferSources
   const log = workspace.jiTransferLog ?? []
@@ -67,11 +68,19 @@ export function HolderPanel({
 
   useEffect(() => {
     if (pendingPaychecks.length === 0) return
+    const earliestId = pendingPaychecks[0]!.id
+    if (!didInitSelection.current) {
+      didInitSelection.current = true
+      if (selectedPaycheckId !== earliestId) {
+        onSelectedPaycheckChange(earliestId)
+      }
+      return
+    }
     const stillPending = pendingPaychecks.some(
       (p) => p.id === selectedPaycheckId,
     )
     if (!stillPending) {
-      onSelectedPaycheckChange(pendingPaychecks[0]!.id)
+      onSelectedPaycheckChange(earliestId)
     }
   }, [pendingPaychecks, selectedPaycheckId, onSelectedPaycheckChange])
 
@@ -146,7 +155,7 @@ export function HolderPanel({
         <div className="border-b border-neutral-200 px-4 py-3">
           <div className="flex h-8 items-center justify-between gap-3">
             <h2 className="text-base font-semibold text-foreground">
-              To put away
+              Transfer
             </h2>
             <div className="flex items-center gap-1">
               <button
@@ -248,7 +257,7 @@ export function HolderPanel({
         <div className="border-b border-neutral-200 px-4 py-3">
           <div className="flex h-8 items-center">
             <h2 className="text-base font-semibold text-foreground">
-              In the account
+              Account balance
             </h2>
           </div>
         </div>
