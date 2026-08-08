@@ -1,8 +1,6 @@
-import { Separator } from "@/components/ui/separator"
 import {
   Sheet,
   SheetContent,
-  SheetDescription,
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet"
@@ -28,19 +26,14 @@ export function SavingsDetailDrawer({
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="overflow-y-auto">
-        <SheetHeader>
+        <SheetHeader className="py-2">
           <SheetTitle>Total savings</SheetTitle>
-          <SheetDescription>
-            Allocated to each savings category this year
-          </SheetDescription>
         </SheetHeader>
 
         <div className="mt-2 space-y-5">
           <p className="text-3xl font-light tracking-tight tabular-nums text-foreground">
             {formatMoney(total)}
           </p>
-
-          <Separator />
 
           {groups.length === 0 ? (
             <p className="text-sm text-muted-foreground">
@@ -53,11 +46,16 @@ export function SavingsDetailDrawer({
                   key={group.bucketId}
                   className="rounded-xl border border-neutral-200 bg-white px-4 py-3"
                 >
-                  <h3 className="text-sm font-semibold text-foreground">
-                    {group.bucketName}
-                  </h3>
+                  <div className="flex items-center justify-between gap-3">
+                    <h3 className="min-w-0 truncate text-sm font-semibold text-foreground">
+                      {group.bucketName}
+                    </h3>
+                    <span className="shrink-0 text-sm tabular-nums text-foreground">
+                      {formatMoney(group.amount)}
+                    </span>
+                  </div>
                   <div className="mt-2 border-t border-neutral-200" />
-                  <ul className="mt-2 space-y-2.5">
+                  <ul className="mt-2 space-y-2">
                     {group.categories.map((cat) => {
                       const pct =
                         total > 0
@@ -69,7 +67,7 @@ export function SavingsDetailDrawer({
                           key={cat.categoryId}
                           className="flex items-center text-sm"
                         >
-                          <span className="min-w-0 flex-1 truncate font-semibold text-foreground">
+                          <span className="min-w-0 flex-1 truncate font-normal text-foreground">
                             {cat.categoryName}
                           </span>
                           <span className="ml-auto shrink-0 tabular-nums text-foreground">
