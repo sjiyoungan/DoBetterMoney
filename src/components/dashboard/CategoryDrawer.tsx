@@ -296,7 +296,7 @@ export function CategoryDrawer({
 
           <section className="rounded-xl bg-[#FCF9FA] px-4">
             <div className="pt-4 pb-2">
-              <h3 className="text-sm font-medium text-[#3A121C]">
+              <h3 className="text-sm font-medium text-foreground">
                 Comments
               </h3>
             </div>
