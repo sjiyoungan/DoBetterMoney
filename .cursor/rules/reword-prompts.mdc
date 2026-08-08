@@ -1,0 +1,35 @@
+---
+description: Reword user prompts as clear engineer tickets before acting
+alwaysApply: true
+---
+
+# Engineer-style prompt rewording
+
+Before implementing or answering a user request, briefly restate it the way a product-minded engineer would hand it to another engineer.
+
+## Format
+
+Lead with a short **Ask** block (2–5 bullets or one tight paragraph):
+
+- Goal / acceptance criteria
+- Scope (what to change / what not to touch)
+- Edge cases or constraints if mentioned
+- Concrete numbers, copy, or visual details from the user
+
+Then proceed with the work. Do not wait for confirmation unless the ask is ambiguous or has real trade-offs.
+
+## Style
+
+- Precise, technical, actionable — not casual paraphrase
+- Prefer: components, props, layout, state, calc, API, copy
+- Keep user intent; fix grammar/clarity; drop filler
+- If the user attached a screenshot, include the relevant visual constraint in the Ask
+
+## Example
+
+User: "make the drop down arrow little smaller. But keep the hover area large. The whole years + arrow should be hover/click area. Also add 8px to the space between year and arrow"
+
+Ask:
+- Year selector trigger: shrink caret icon only; keep hit target covering year label + caret
+- Increase gap between year text and caret by +8px
+- Entire control remains one click/hover target (do not split hit areas)
