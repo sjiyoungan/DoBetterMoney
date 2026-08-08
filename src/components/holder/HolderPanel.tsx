@@ -286,8 +286,8 @@ export function HolderPanel({
                     className={cn(
                       "rounded-full border px-3 py-1 text-sm tabular-nums transition-colors",
                       selected
-                        ? "border-neutral-900 bg-neutral-900 text-white"
-                        : "border-neutral-300 bg-white text-foreground hover:border-neutral-500 hover:bg-neutral-50",
+                        ? "border-neutral-400 bg-[#FDF9FA] text-[#C43B6E]"
+                        : "border-neutral-300 bg-white text-foreground hover:border-neutral-400 hover:bg-[#FDF9FA]/60",
                     )}
                   >
                     {formatPayDate(p.date)}
