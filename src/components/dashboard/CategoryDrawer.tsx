@@ -7,11 +7,11 @@ import {
 } from "@/components/ui/sheet"
 import {
   allocationKey,
-  formatHistoryDate,
   formatMoney,
   formatPayDate,
   savingsBalanceLeft,
 } from "@/lib/format"
+import { cn } from "@/lib/utils"
 import type { Bucket, Category, Paycheck } from "@/types/budget"
 
 type Props = {
@@ -255,39 +255,51 @@ export function CategoryDrawer({
                 <div className="border-t border-neutral-200" />
                 {historyItems.length === 0 ? (
                   <p className="py-4 text-sm text-muted-foreground">
-                    No carry-over, additions, or comments yet. Withdrawals will
+                    No carry-over, deposits, or comments yet. Withdrawals will
                     show up here later.
                   </p>
                 ) : (
                   <ul className="space-y-4 py-4">
-                    {historyItems.map((item) => (
-                      <li key={item.id} className="text-sm">
-                        <div className="flex items-baseline justify-between gap-3">
+                    {historyItems.map((item) => {
+                      const label =
+                        item.kind === "carryover"
+                          ? "Carry over"
+                          : item.kind === "added"
+                            ? "Deposit"
+                            : (item.comment ?? "Comment")
+                      const amountText =
+                        item.kind === "comment" || item.amount === undefined
+                          ? "—"
+                          : item.amount < 0
+                            ? `-${formatMoney(Math.abs(item.amount))}`
+                            : `+${formatMoney(item.amount)}`
+                      return (
+                        <li
+                          key={item.id}
+                          className="flex items-center gap-3 text-sm"
+                        >
+                          <span className="min-w-0 flex-1 truncate text-foreground">
+                            {label}
+                          </span>
+                          <span
+                            className={cn(
+                              "w-20 shrink-0 text-right tabular-nums",
+                              item.kind === "comment"
+                                ? "text-muted-foreground"
+                                : "text-foreground",
+                            )}
+                          >
+                            {amountText}
+                          </span>
                           <time
                             dateTime={item.date}
-                            className="tabular-nums text-muted-foreground"
+                            className="w-14 shrink-0 text-right tabular-nums text-muted-foreground"
                           >
-                            {formatHistoryDate(item.date)}
+                            {formatPayDate(item.date)}
                           </time>
-                          {item.kind === "comment" ? (
-                            <span className="text-muted-foreground">
-                              Comment
-                            </span>
-                          ) : (
-                            <span className="tabular-nums text-foreground">
-                              +{formatMoney(item.amount)}
-                            </span>
-                          )}
-                        </div>
-                        <p className="mt-1 text-foreground">
-                          {item.kind === "carryover"
-                            ? "Carry over"
-                            : item.kind === "added"
-                              ? "Added to savings"
-                              : item.comment}
-                        </p>
-                      </li>
-                    ))}
+                        </li>
+                      )
+                    })}
                   </ul>
                 )}
               </section>
