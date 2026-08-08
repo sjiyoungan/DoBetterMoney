@@ -96,8 +96,8 @@ function isMonthBoundaryAfter(
 function payColumnBorderClass(paychecks: Paycheck[], index: number) {
   if (index >= paychecks.length - 1) return undefined
   return isMonthBoundaryAfter(paychecks, index)
-    ? "border-r border-r-neutral-500"
-    : "border-r border-r-border/60"
+    ? "border-r border-r-neutral-300"
+    : undefined
 }
 
 /** Group divider: default 2px. Drop target uses an overlay so layout does not jump. */
@@ -654,11 +654,11 @@ export function BudgetGrid({
                   <tr ref={leftHeaderRef}>
                     <th
                       className={cn(
-                        "border-b-2 border-b-neutral-900 border-r border-r-neutral-900 px-2 py-3 text-center font-medium",
+                        "border-b-2 border-b-neutral-900 border-r border-r-neutral-900 px-2 py-3 text-left font-medium",
                         headerBg,
                       )}
                     >
-                      <div className="flex items-center justify-center gap-2">
+                      <div className="flex items-center justify-start gap-2">
                         <span>Group</span>
                         <button
                           type="button"
@@ -673,7 +673,7 @@ export function BudgetGrid({
                     </th>
                     <th
                       className={cn(
-                        "border-b-2 border-b-neutral-900 border-r border-r-border/60 px-3 py-3 text-left font-medium",
+                        "border-b-2 border-b-neutral-900 px-3 py-3 text-left font-medium",
                         headerBg,
                       )}
                     >
@@ -681,7 +681,7 @@ export function BudgetGrid({
                     </th>
                     <th
                       className={cn(
-                        "border-b-2 border-b-neutral-900 border-r border-r-border/60 px-3 py-3 text-right font-medium",
+                        "border-b-2 border-b-neutral-900 px-3 py-3 text-right font-medium",
                         headerBg,
                       )}
                     >
@@ -829,7 +829,7 @@ export function BudgetGrid({
                           <td
                             rowSpan={row.rowCount}
                             className={cn(
-                              "relative border-r border-r-neutral-900 p-0 text-center align-middle text-[11px] font-semibold uppercase tracking-wide text-muted-foreground",
+                              "relative border-r border-r-neutral-900 p-0 text-left align-middle text-[11px] font-semibold uppercase tracking-wide text-muted-foreground",
                               paneBg,
                               topBorder,
                             )}
@@ -848,7 +848,7 @@ export function BudgetGrid({
                                   bucket: fullBucket,
                                 })
                               }
-                              className="absolute inset-0 flex items-center justify-center px-2 transition-colors hover:bg-neutral-100 hover:text-foreground"
+                              className="absolute inset-0 flex items-center justify-start px-2 transition-colors hover:bg-neutral-100 hover:text-foreground"
                             >
                               {bucket.name}
                             </button>
@@ -857,7 +857,7 @@ export function BudgetGrid({
 
                         <td
                           className={cn(
-                            "relative border-r border-r-border/60 p-0",
+                            "relative p-0",
                             paneBg,
                             topBorder,
                             bottomBorder,
@@ -876,7 +876,7 @@ export function BudgetGrid({
 
                         <td
                           className={cn(
-                            "relative border-r border-r-border/60 px-1",
+                            "relative px-1",
                             paneBg,
                             topBorder,
                             bottomBorder,
@@ -1134,7 +1134,7 @@ export function BudgetGrid({
                                   <td
                                     rowSpan={row.rowCount}
                                     className={cn(
-                                      "relative overflow-hidden border-r border-r-neutral-900 p-0 text-center align-middle text-[11px] font-semibold uppercase tracking-wide text-muted-foreground",
+                                      "relative overflow-hidden border-r border-r-neutral-900 p-0 text-left align-middle text-[11px] font-semibold uppercase tracking-wide text-muted-foreground",
                                       totalsBg,
                                       topBorder,
                                     )}
@@ -1152,7 +1152,7 @@ export function BudgetGrid({
                                           bucket: fullBucket,
                                         })
                                       }
-                                      className="absolute inset-0 flex items-center justify-center px-1 transition-colors hover:bg-neutral-200 hover:text-foreground"
+                                      className="absolute inset-0 flex items-center justify-start px-2 transition-colors hover:bg-neutral-200 hover:text-foreground"
                                     >
                                       <span className="line-clamp-3 break-words">
                                         {bucket.name}
@@ -1162,7 +1162,7 @@ export function BudgetGrid({
                                 ) : null}
                                 <td
                                   className={cn(
-                                    "relative border-r border-r-border/60 p-0",
+                                    "relative p-0",
                                     totalsBg,
                                     topBorder,
                                     bottomBorder,
@@ -1184,7 +1184,7 @@ export function BudgetGrid({
                                 </td>
                                 <td
                                   className={cn(
-                                    "relative border-r border-r-border/60",
+                                    "relative",
                                     totalsBg,
                                     topBorder,
                                     bottomBorder,
