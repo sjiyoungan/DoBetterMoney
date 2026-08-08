@@ -221,11 +221,7 @@ export function CategoryDrawer({
         ? "Income"
         : "Expense"
 
-  const historyEmptyCopy = isSavings
-    ? "No carry-over, deposits, or comments yet. Withdrawals will show up here later."
-    : isIncome
-      ? "No deposits or comments yet."
-      : "No payments or comments yet."
+  const historyEmptyCopy = "Deposits and withdrawals will show up here."
 
   return (
     <Sheet
