@@ -77,6 +77,7 @@ export type SavingsCategoryTotal = {
   categoryId: string
   categoryName: string
   amount: number
+  goal: number | undefined
 }
 
 export type SavingsBucketTotal = {
@@ -104,6 +105,7 @@ export function savingsAllocatedByBucket(
           categoryId: cat.id,
           categoryName: cat.name,
           amount: savingsActualForCategory(cat, paychecks, doneKeys),
+          goal: cat.goal,
         }))
       const amount = categories.reduce((sum, cat) => sum + cat.amount, 0)
       return {

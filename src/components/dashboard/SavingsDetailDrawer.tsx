@@ -57,11 +57,14 @@ export function SavingsDetailDrawer({
                   <div className="border-t border-neutral-200" />
                   <ul className="space-y-4 py-4">
                     {group.categories.map((cat) => {
-                      const pct =
-                        total > 0
-                          ? Math.round((cat.amount / total) * 100)
+                      const goal =
+                        typeof cat.goal === "number" &&
+                        Number.isFinite(cat.goal) &&
+                        cat.goal > 0
+                          ? cat.goal
                           : 0
-                      const barPct = total > 0 ? (cat.amount / total) * 100 : 0
+                      const progress = goal > 0 ? (cat.amount / goal) * 100 : 0
+                      const pct = goal > 0 ? Math.round(progress) : 0
                       return (
                         <li
                           key={cat.categoryId}
@@ -70,21 +73,23 @@ export function SavingsDetailDrawer({
                           <span className="min-w-0 flex-1 truncate font-normal text-foreground">
                             {cat.categoryName}
                           </span>
-                          <span className="ml-auto shrink-0 tabular-nums text-foreground">
-                            {formatMoney(cat.amount)}
-                          </span>
-                          <div className="ml-3 h-2 w-16 shrink-0 overflow-hidden rounded-full bg-neutral-200 sm:w-20">
-                            <div
-                              className="h-full rounded-full"
-                              style={{
-                                width: `${Math.min(barPct, 100)}%`,
-                                backgroundColor: COMPOSITION_COLORS.savings,
-                              }}
-                            />
+                          <div className="ml-auto flex shrink-0 items-center gap-2">
+                            <span className="tabular-nums text-foreground">
+                              {formatMoney(cat.amount)}
+                            </span>
+                            <div className="h-2 w-16 overflow-hidden rounded-full bg-neutral-200 sm:w-20">
+                              <div
+                                className="h-full rounded-full"
+                                style={{
+                                  width: `${Math.min(progress, 100)}%`,
+                                  backgroundColor: COMPOSITION_COLORS.savings,
+                                }}
+                              />
+                            </div>
+                            <span className="w-8 text-right tabular-nums text-neutral-600">
+                              {pct}%
+                            </span>
                           </div>
-                          <span className="ml-2 w-8 shrink-0 text-right tabular-nums text-neutral-600">
-                            {pct}%
-                          </span>
                         </li>
                       )
                     })}
