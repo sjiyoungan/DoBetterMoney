@@ -138,9 +138,9 @@ function snapPayScrollLeft(scrollLeft: number, maxScroll: number) {
 const paneBg = "bg-white dark:bg-neutral-950"
 /** Locked header fill — opaque white (matches body paneBg) */
 const headerBg = "bg-white dark:bg-neutral-950"
-/** Totals footer rows — opaque muted grey-pink */
-const totalsBg = "bg-[#F3EBED] dark:bg-neutral-900"
-/** Top edge of Totals footer — black so it reads clearly on the grey fill */
+/** Totals footer rows — opaque white (matches body paneBg) */
+const totalsBg = "bg-white dark:bg-neutral-950"
+/** Top edge of Totals footer — black so it reads clearly on the white fill */
 const totalsDividerTop = "border-t-2 border-t-black"
 /** Upcoming paycheck column tint — opaque so panes never show rows through */
 const upcomingFill =
@@ -1304,7 +1304,7 @@ export function BudgetGrid({
                     : "none",
                 }}
               >
-                {/* Inner: clip grey fill to rounded bottom corners */}
+                {/* Inner: clip footer fill to rounded bottom corners */}
                 <div
                   className={cn(
                     "flex overflow-hidden rounded-b-[8px]",
