@@ -949,7 +949,7 @@ export function BudgetGrid({
                             paycheck={p}
                             edgeKind={edgeKind}
                             className={cn(
-                              "relative border-b-2 border-b-neutral-900 px-1 py-3 text-center",
+                              "relative border-b-2 border-b-neutral-900 px-1 py-3 text-right",
                               isUpcoming
                                 ? cn(
                                     upcomingColumnClass({
@@ -1860,7 +1860,7 @@ function PayDateHeader({
       <PayColumnSameMonthDivider kind={edgeKind} />
       <button
         type="button"
-        className="w-full rounded-sm px-0.5 py-0.5 transition-colors hover:bg-black/5"
+        className="w-full rounded-sm px-0.5 py-0.5 text-right transition-colors hover:bg-black/5"
         title="Change paycheck date"
         aria-haspopup="dialog"
         aria-expanded={open}
