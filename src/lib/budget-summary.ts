@@ -10,14 +10,14 @@ export type CompositionSegment = {
 }
 
 export type CompositionResult = {
-  /** Total income allocations (donut denominator). */
-  income: number
+  /** Sum of fixed + variable + savings (donut denominator). */
+  total: number
   segments: CompositionSegment[]
 }
 
 /**
- * Segment colors — Fixed / Variable / Savings as % of income.
- * Savings is the brightest (smallest slice) so it stays visible.
+ * Segment colors — Fixed / Variable / Savings as share of expenses+savings.
+ * Savings is the brightest maroon so the smallest slice stays visible.
  */
 export const COMPOSITION_COLORS: Record<CompositionSegmentKey, string> = {
   fixed: "#70B8AC",
@@ -67,7 +67,8 @@ export function totalSavingsAllocated(
 
 /**
  * Budget composition for the active year (all paychecks).
- * Segments are Fixed / Variable / Savings; income is the denominator for %.
+ * Segments are Fixed / Variable / Savings only (no income).
+ * Percentages renormalize to the sum of those three segments.
  * Spending with missing variability is treated as fixed.
  */
 export function computeComposition(
@@ -75,15 +76,12 @@ export function computeComposition(
   paychecks: Paycheck[],
 ): CompositionResult {
   const dates = new Set(paychecks.map((p) => p.date))
-  let income = 0
   let fixed = 0
   let variable = 0
   let savings = 0
 
   for (const bucket of buckets) {
-    if (bucket.kind === "income") {
-      income += sumAllocationsForDates(bucket.categories, dates)
-    } else if (bucket.kind === "savings") {
+    if (bucket.kind === "savings") {
       savings += sumAllocationsForDates(bucket.categories, dates)
     } else if (bucket.kind === "spending") {
       for (const cat of bucket.categories) {
@@ -95,8 +93,10 @@ export function computeComposition(
     }
   }
 
+  const total = fixed + variable + savings
+
   return {
-    income,
+    total,
     segments: [
       {
         key: "fixed",

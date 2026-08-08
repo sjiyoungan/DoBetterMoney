@@ -19,29 +19,29 @@ export function BudgetSummaryCards({ buckets, paychecks }: Props) {
     [buckets, paychecks],
   )
 
-  const { income, segments } = useMemo(
+  const { total, segments } = useMemo(
     () => computeComposition(buckets, paychecks),
     [buckets, paychecks],
   )
 
   return (
     <div className="flex shrink-0 flex-wrap items-stretch gap-3">
-      <div className="flex h-auto min-h-full w-fit shrink-0 flex-col justify-center rounded-[8px] border border-neutral-500 bg-white px-[26px] py-2.5">
-        <p className="text-[11px] text-muted-foreground">Total savings</p>
-        <p className="mt-1 text-xl font-semibold tracking-tight tabular-nums text-foreground">
+      <div className="flex h-auto min-h-full w-[calc(11.5rem+48px)] min-w-[calc(11.5rem+48px)] shrink-0 flex-col justify-between rounded-[8px] border border-neutral-500 bg-white p-4">
+        <p className="mb-4 text-sm text-muted-foreground">Total savings</p>
+        <p className="mt-auto text-xl font-semibold tracking-tight tabular-nums text-foreground">
           {formatMoney(totalSavings)}
         </p>
       </div>
 
-      <div className="flex h-auto min-h-full w-fit shrink-0 flex-col rounded-[8px] border border-neutral-500 bg-white px-3.5 py-2.5">
-        <p className="text-[11px] text-muted-foreground">Income allocation</p>
+      <div className="flex h-auto min-h-full w-fit shrink-0 flex-col rounded-[8px] border border-neutral-500 bg-white p-4">
+        <p className="mb-4 text-sm text-muted-foreground">Expenses & savings</p>
 
-        <div className="mt-2.5 flex items-center gap-3">
-          <CompositionDonut segments={segments} income={income} />
-          <ul className="flex min-w-[9.5rem] flex-col gap-1">
+        <div className="flex w-fit items-center gap-3">
+          <CompositionDonut segments={segments} total={total} />
+          <ul className="flex min-w-[9.5rem] flex-col gap-2">
             {segments.map((seg) => {
               const pct =
-                income > 0 ? Math.round((seg.amount / income) * 100) : 0
+                total > 0 ? Math.round((seg.amount / total) * 100) : 0
               return (
                 <li
                   key={seg.key}
@@ -70,14 +70,14 @@ export function BudgetSummaryCards({ buckets, paychecks }: Props) {
 
 function CompositionDonut({
   segments,
-  income,
+  total,
 }: {
   segments: CompositionSegment[]
-  income: number
+  total: number
 }) {
   const size = 72
-  const stroke = 10
-  const gap = 3.5
+  const stroke = 7
+  const gap = 2
   const r = (size - stroke) / 2
   const c = 2 * Math.PI * r
   const visible = segments.filter((s) => s.amount > 0)
@@ -86,11 +86,10 @@ function CompositionDonut({
 
   let offset = 0
   const arcs =
-    income <= 0
+    total <= 0
       ? null
       : visible.map((seg) => {
-          // Arc length as fraction of income (full circle), not renormalized to segment sum
-          const len = (seg.amount / income) * usable
+          const len = (seg.amount / total) * usable
           const dash = `${Math.max(len, 0)} ${c - Math.max(len, 0)}`
           const el = (
             <circle
