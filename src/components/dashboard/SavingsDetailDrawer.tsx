@@ -24,7 +24,7 @@ export function SavingsDetailDrawer({
 }: Props) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full overflow-y-auto sm:max-w-md">
+      <SheetContent className="overflow-y-auto">
         <SheetHeader>
           <SheetTitle>Total savings</SheetTitle>
           <SheetDescription>
@@ -32,7 +32,7 @@ export function SavingsDetailDrawer({
           </SheetDescription>
         </SheetHeader>
 
-        <div className="mt-2 space-y-4 px-4 pb-4">
+        <div className="mt-2 space-y-4">
           <p className="text-3xl font-light tracking-tight tabular-nums text-foreground">
             {formatMoney(total)}
           </p>

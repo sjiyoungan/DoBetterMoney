@@ -43,13 +43,13 @@ export function CategoryDrawer({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full sm:max-w-md overflow-y-auto">
+      <SheetContent className="overflow-y-auto">
         <SheetHeader>
           <SheetTitle>{category.name}</SheetTitle>
           <SheetDescription>{bucket.name}</SheetDescription>
         </SheetHeader>
 
-        <div className="mt-6 space-y-6 px-1">
+        <div className="mt-6 space-y-6">
           <div className="flex flex-wrap gap-2">
             <Badge variant="secondary">
               {category.isRecurring ? "Recurring" : "Variable"}
