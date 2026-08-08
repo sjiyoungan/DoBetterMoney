@@ -6,6 +6,7 @@ import {
   type CompositionSegment,
 } from "@/lib/budget-summary"
 import { formatMoney } from "@/lib/format"
+import { blushHoverClass, cn } from "@/lib/utils"
 import type { Bucket, Paycheck } from "@/types/budget"
 import { SavingsDetailDrawer } from "./SavingsDetailDrawer"
 
@@ -39,7 +40,10 @@ export function BudgetSummaryCards({ buckets, paychecks }: Props) {
         type="button"
         aria-label="View total savings by group"
         onClick={() => setSavingsOpen(true)}
-        className="flex h-auto min-h-full w-[calc(11.5rem+48px)] min-w-[calc(11.5rem+48px)] shrink-0 cursor-pointer flex-col justify-between rounded-[8px] border border-neutral-500 bg-white p-4 text-left transition-[background] duration-150 hover:bg-[linear-gradient(160deg,#FDF9FA_0%,#FFFFFF_72%)]"
+        className={cn(
+          "flex h-auto min-h-full w-[calc(11.5rem+48px)] min-w-[calc(11.5rem+48px)] shrink-0 cursor-pointer flex-col justify-between rounded-[8px] border border-neutral-500 bg-white p-4 text-left transition-[background] duration-150",
+          blushHoverClass,
+        )}
       >
         <p className="mb-6 text-sm text-neutral-600">Total savings</p>
         <p className="mt-auto text-4xl font-light tracking-tight tabular-nums text-foreground">

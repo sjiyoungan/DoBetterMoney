@@ -47,15 +47,23 @@ export function sumAllocationsForDates(
   return total
 }
 
+export type SavingsCategoryTotal = {
+  categoryId: string
+  categoryName: string
+  amount: number
+}
+
 export type SavingsBucketTotal = {
   bucketId: string
   bucketName: string
   amount: number
+  categories: SavingsCategoryTotal[]
 }
 
 /**
  * Per-bucket savings totals for the active year (same allocation basis as
  * {@link totalSavingsAllocated}). Only `kind === "savings"` buckets.
+ * Each bucket includes a per-category breakdown of visible categories.
  */
 export function savingsAllocatedByBucket(
   buckets: Bucket[],
@@ -64,11 +72,22 @@ export function savingsAllocatedByBucket(
   const dates = new Set(paychecks.map((p) => p.date))
   return buckets
     .filter((bucket) => bucket.kind === "savings")
-    .map((bucket) => ({
-      bucketId: bucket.id,
-      bucketName: bucket.name,
-      amount: sumAllocationsForDates(bucket.categories, dates),
-    }))
+    .map((bucket) => {
+      const categories = bucket.categories
+        .filter((cat) => !cat.hidden)
+        .map((cat) => ({
+          categoryId: cat.id,
+          categoryName: cat.name,
+          amount: sumAllocationsForDates([cat], dates),
+        }))
+      const amount = categories.reduce((sum, cat) => sum + cat.amount, 0)
+      return {
+        bucketId: bucket.id,
+        bucketName: bucket.name,
+        amount,
+        categories,
+      }
+    })
 }
 
 /**
