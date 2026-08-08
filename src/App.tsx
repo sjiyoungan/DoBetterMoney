@@ -690,7 +690,7 @@ export default function App() {
       {/* Budget grid fills remaining height; body scrolls inside the card */}
       <main className="flex min-h-0 flex-1 flex-col overflow-hidden px-[60px] py-4">
         {role === "liz" ? (
-          <div className="flex min-h-0 flex-1 flex-col gap-3">
+          <div className="flex min-h-0 flex-1 flex-col gap-6">
             <BudgetSummaryCards
               buckets={yearBudget.buckets}
               paychecks={yearBudget.paychecks}
