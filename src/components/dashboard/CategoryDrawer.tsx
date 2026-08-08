@@ -337,7 +337,7 @@ export function CategoryDrawer({
                         key={paycheck.id}
                         className="flex items-center justify-between gap-3 text-sm"
                       >
-                        <span className="text-neutral-400">
+                        <span className="text-neutral-600">
                           {formatPayDate(paycheck.date)}
                         </span>
                         <span className="tabular-nums text-foreground">
