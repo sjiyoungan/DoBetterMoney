@@ -329,7 +329,7 @@ export function HolderPanel({
           )}
         </div>
 
-        <div className="flex justify-end pl-6 pr-4 py-3">
+        <div className="flex justify-end py-3 pl-6 pr-[14px]">
           <Button
             type="button"
             disabled={!selectedPaycheck || rows.length === 0}
