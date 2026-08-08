@@ -160,7 +160,7 @@ export function HolderPanel({
     <div className="grid gap-4 lg:grid-cols-2">
       <section className="flex flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white">
         <div className="border-b border-neutral-200 px-4 py-3">
-          <div className="mb-3 flex items-start justify-between gap-3">
+          <div className="flex h-8 items-center justify-between gap-3">
             <h2 className="text-base font-semibold text-foreground">
               To put away
             </h2>
@@ -185,7 +185,7 @@ export function HolderPanel({
           </div>
 
           {pendingPaychecks.length === 0 ? null : (
-            <div className="flex flex-wrap gap-2">
+            <div className="mt-3 flex flex-wrap gap-2">
               {pendingPaychecks.map((p) => {
                 const selected = p.id === selectedPaycheck?.id
                 return (
@@ -262,12 +262,11 @@ export function HolderPanel({
 
       <section className="flex flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white">
         <div className="border-b border-neutral-200 px-4 py-3">
-          <h2 className="text-base font-semibold text-foreground">
-            In the account
-          </h2>
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            Carry-over plus checked deposits
-          </p>
+          <div className="flex h-8 items-center">
+            <h2 className="text-base font-semibold text-foreground">
+              In the account
+            </h2>
+          </div>
         </div>
         <div className="flex min-h-0 flex-1 flex-col px-4">
           {accountRows.length === 0 ? (
