@@ -64,12 +64,12 @@ function PayScrollArrow({ dir }: { dir: "left" | "right" }) {
   )
 }
 
-/** Form fields / editable text — never start a pan from these. */
-function isPayPanFieldTarget(target: EventTarget | null) {
+/** Interactive / editable targets — never start a pan from these. */
+function isPayPanBlockedTarget(target: EventTarget | null) {
   if (!(target instanceof Element)) return false
   return Boolean(
     target.closest(
-      "input, textarea, select, [contenteditable]:not([contenteditable='false'])",
+      "input, textarea, select, button, [data-pay-no-pan], [contenteditable]:not([contenteditable='false'])",
     ),
   )
 }
@@ -673,9 +673,9 @@ export function BudgetGrid({
 
   function onPayPanPointerDown(e: ReactPointerEvent<HTMLDivElement>) {
     if (e.button !== 0) return
-    // Don't steal from focused form fields; buttons (e.g. date headers) can
-    // still click if the pointer doesn't move past the pan slop.
-    if (isPayPanFieldTarget(e.target)) return
+    // Don't steal clicks from fields, buttons (e.g. date headers), or
+    // explicit no-pan regions. Pan still works from empty header/footer chrome.
+    if (isPayPanBlockedTarget(e.target)) return
     const el = scrollRef.current
     if (!el) return
     payPanRef.current = {
@@ -1167,17 +1167,10 @@ export function BudgetGrid({
             </table>
           </div>
 
-          {/* Right pane: paycheck columns scroll horizontally */}
+          {/* Right pane: amount cells + vertical scroll only (no click-drag pan) */}
           <div
             ref={scrollRef}
-            className={cn(
-              "min-w-0 flex-1 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
-              payPanSurfaceClass,
-            )}
-            onPointerDown={onPayPanPointerDown}
-            onPointerMove={onPayPanPointerMove}
-            onPointerUp={onPayPanPointerUp}
-            onPointerCancel={onPayPanPointerUp}
+            className="min-w-0 flex-1 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           >
             <div className="relative w-max min-w-full">
               <table
@@ -2052,7 +2045,11 @@ function AmountCell({
   }
 
   return (
-    <div ref={rootRef} className="group/cell relative flex h-9 items-center gap-0.5 pl-1 pr-1.5">
+    <div
+      ref={rootRef}
+      data-pay-no-pan
+      className="group/cell relative flex h-9 items-center gap-0.5 pl-1 pr-1.5"
+    >
       {showFutureHint ? (
         <div className="absolute -top-1 right-0 z-30 flex translate-y-[-100%] items-center rounded-md border border-neutral-400 bg-white shadow-sm dark:border-neutral-500 dark:bg-neutral-900">
           <button
