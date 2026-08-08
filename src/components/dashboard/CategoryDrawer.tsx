@@ -149,7 +149,8 @@ export function CategoryDrawer({
   const visiblePlanned = plannedExpanded
     ? plannedRows
     : plannedRows.slice(0, PLANNED_PREVIEW)
-  const hasMorePlanned = plannedRows.length > PLANNED_PREVIEW
+  const plannedHiddenCount = Math.max(0, plannedRows.length - PLANNED_PREVIEW)
+  const hasMorePlanned = plannedHiddenCount > 0
 
   const isSavings = bucket?.kind === "savings"
   const isIncome = bucket?.kind === "income"
@@ -347,7 +348,9 @@ export function CategoryDrawer({
                       className="flex w-full items-center justify-center gap-2 py-3 text-sm font-medium text-foreground transition-colors hover:text-neutral-700"
                       onClick={() => setPlannedExpanded((v) => !v)}
                     >
-                      {plannedExpanded ? "View less" : "View more"}
+                      {plannedExpanded
+                        ? "View less"
+                        : `View ${plannedHiddenCount} more`}
                       <CaretDownIcon
                         className={cn(
                           "size-2 text-current transition-transform",
