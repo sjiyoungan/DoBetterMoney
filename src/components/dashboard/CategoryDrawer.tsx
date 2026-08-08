@@ -312,7 +312,7 @@ export function CategoryDrawer({
           </section>
 
           {isSavings ? (
-            <section className="rounded-xl border border-neutral-200 bg-white px-4">
+            <section className="overflow-hidden rounded-xl border border-neutral-200 bg-white px-4">
               <div className="flex items-center justify-between gap-3 py-4">
                 <h3 className="min-w-0 truncate text-base font-semibold text-foreground">
                   Planned savings
@@ -327,8 +327,8 @@ export function CategoryDrawer({
                   No upcoming or future plans yet.
                 </p>
               ) : (
-                <div className="py-4">
-                  <ul className="space-y-4">
+                <div>
+                  <ul className="space-y-4 px-0 py-4">
                     {visiblePlanned.map(({ paycheck, amount }) => (
                       <li
                         key={paycheck.id}
@@ -344,19 +344,21 @@ export function CategoryDrawer({
                     ))}
                   </ul>
                   {hasMorePlanned ? (
-                    <button
-                      type="button"
-                      className="mt-4 flex w-full items-center justify-center gap-2 text-sm font-medium text-[#065FD4] transition-colors hover:text-[#054db0]"
-                      onClick={() => setPlannedExpanded((v) => !v)}
-                    >
-                      {plannedExpanded ? "View less" : "View more"}
-                      <CaretDownIcon
-                        className={cn(
-                          "size-2 text-current transition-transform",
-                          plannedExpanded && "rotate-180",
-                        )}
-                      />
-                    </button>
+                    <div className="-mx-4 border-t border-neutral-200/80 bg-neutral-100/70 backdrop-blur-md">
+                      <button
+                        type="button"
+                        className="flex w-full items-center justify-center gap-2 px-4 py-3 text-sm font-medium text-neutral-500 transition-colors hover:text-neutral-700"
+                        onClick={() => setPlannedExpanded((v) => !v)}
+                      >
+                        {plannedExpanded ? "View less" : "View more"}
+                        <CaretDownIcon
+                          className={cn(
+                            "size-2 text-current transition-transform",
+                            plannedExpanded && "rotate-180",
+                          )}
+                        />
+                      </button>
+                    </div>
                   ) : null}
                 </div>
               )}
