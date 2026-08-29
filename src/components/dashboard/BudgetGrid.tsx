@@ -89,6 +89,7 @@ type Props = {
   onCategoryNoteChange: (categoryId: string, note: string) => void
   onAddBucket: (bucket: Bucket) => void
   onUpdateBucket: (bucket: Bucket) => void
+  onDeleteBucket: (bucketId: string) => void
   onReorderBuckets: (fromId: string, beforeId: string | null) => void
   onSetupIncome: (sources: IncomeSourceInput[]) => void
   onPaycheckDateChange?: (paycheckId: string, date: string) => void
@@ -284,6 +285,7 @@ export function BudgetGrid({
   onCategoryNoteChange,
   onAddBucket,
   onUpdateBucket,
+  onDeleteBucket,
   onReorderBuckets,
   onSetupIncome,
   onPaycheckDateChange,
@@ -1685,6 +1687,7 @@ export function BudgetGrid({
         }}
         onAdd={onAddBucket}
         onUpdate={onUpdateBucket}
+        onDelete={onDeleteBucket}
       />
 
       <CategoryDrawer

@@ -74,6 +74,7 @@ type Props = {
   onOpenChange: (open: boolean) => void
   onAdd: (bucket: Bucket) => void
   onUpdate: (bucket: Bucket) => void
+  onDelete?: (bucketId: string) => void
 }
 
 const fieldH = "h-10" // 40px
@@ -600,6 +601,7 @@ export function AddBucketDialog({
   onOpenChange,
   onAdd,
   onUpdate,
+  onDelete,
 }: Props) {
   const editing = !!bucket
   const [bucketName, setBucketName] = useState("")
@@ -607,6 +609,7 @@ export function AddBucketDialog({
   const [drafts, setDrafts] = useState<CategoryDraft[]>([newDraft()])
   const [baseline, setBaseline] = useState("")
   const [confirmOpen, setConfirmOpen] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
   const [removeId, setRemoveId] = useState<string | null>(null)
   const [editingName, setEditingName] = useState(false)
   const [typeOpen, setTypeOpen] = useState(false)
@@ -1441,23 +1444,37 @@ export function AddBucketDialog({
             ) : null}
           </div>
 
-          <DialogFooter className="-ml-6 -mr-4 -mb-6 mt-5 items-center pl-6 pr-4 py-4 sm:justify-end sm:gap-4">
-            <Button
-              type="button"
-              variant="ghost"
-              className="text-muted-foreground hover:bg-transparent hover:text-foreground"
-              onClick={requestClose}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              disabled={!canSubmit}
-              onClick={handleSubmit}
-              className="disabled:border-neutral-300 disabled:text-muted-foreground/70"
-            >
-              {editing ? "Save" : "Create"}
-            </Button>
+          <DialogFooter className="-ml-6 -mr-4 -mb-6 mt-5 items-center pl-6 pr-4 py-4 sm:justify-between sm:gap-4">
+            {editing && onDelete ? (
+              <Button
+                type="button"
+                variant="ghost"
+                className="text-destructive hover:bg-transparent hover:text-destructive/80"
+                onClick={() => setDeleteOpen(true)}
+              >
+                Delete
+              </Button>
+            ) : (
+              <span />
+            )}
+            <div className="flex items-center gap-4">
+              <Button
+                type="button"
+                variant="ghost"
+                className="text-muted-foreground hover:bg-transparent hover:text-foreground"
+                onClick={requestClose}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                disabled={!canSubmit}
+                onClick={handleSubmit}
+                className="disabled:border-neutral-300 disabled:text-muted-foreground/70"
+              >
+                {editing ? "Save" : "Create"}
+              </Button>
+            </div>
           </DialogFooter>
             </>
           )}
@@ -1483,6 +1500,41 @@ export function AddBucketDialog({
             </Button>
             <Button type="button" variant="destructive" onClick={closeClean}>
               Discard
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <DialogContent className="p-6 sm:max-w-sm" showCloseButton={false}>
+          <DialogHeader>
+            <DialogTitle>Delete group?</DialogTitle>
+            <DialogDescription>
+              {bucket?.name
+                ? `Deleting “${bucket.name}” will remove this group and its categories from this year.`
+                : "Deleting this group will remove it and its categories from this year."}{" "}
+              This can’t be undone from here.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="-mx-6 -mb-6 px-6 py-4 sm:justify-between">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setDeleteOpen(false)}
+            >
+              Keep group
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={() => {
+                if (!bucket || !onDelete) return
+                onDelete(bucket.id)
+                setDeleteOpen(false)
+                closeClean()
+              }}
+            >
+              Delete
             </Button>
           </DialogFooter>
         </DialogContent>
