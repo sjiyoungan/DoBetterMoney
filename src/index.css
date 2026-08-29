@@ -130,3 +130,19 @@
     @apply font-sans;
     }
 }
+
+/* Blush hovers — plain CSS so Tailwind can’t drop the arbitrary gradient utilities */
+@layer utilities {
+  .blush-hover {
+    transition: background 150ms ease;
+  }
+  .blush-hover:hover {
+    background-image: linear-gradient(160deg, #f7ebee 0%, #ffffff 72%);
+  }
+  .sticky-blush-hover {
+    transition: background 150ms ease;
+  }
+  .sticky-blush-hover:hover {
+    background-image: linear-gradient(160deg, #ffffff 0%, #f3ebed 72%);
+  }
+}

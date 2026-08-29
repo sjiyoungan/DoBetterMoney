@@ -6,9 +6,7 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 /** Soft blush hover wash for interactive cards / label buttons on white */
-export const blushHoverClass =
-  "hover:bg-[linear-gradient(160deg,#F7EBEE_0%,#FFFFFF_72%)]"
+export const blushHoverClass = "blush-hover"
 
 /** Sticky footer label hover: white → grey-pink fill (#F3EBED) */
-export const stickyBlushHoverClass =
-  "hover:bg-[linear-gradient(160deg,#FFFFFF_0%,#F3EBED_72%)]"
+export const stickyBlushHoverClass = "sticky-blush-hover"
