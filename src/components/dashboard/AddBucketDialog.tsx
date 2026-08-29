@@ -856,7 +856,14 @@ export function AddBucketDialog({
             return
           }
           // Nested confirm dialogs — don't treat as closing the group dialog
-          if (confirmOpen || removeId || frequencyDraftId || sourcesDraftId) return
+          if (
+            confirmOpen ||
+            deleteOpen ||
+            removeId ||
+            frequencyDraftId ||
+            sourcesDraftId
+          )
+            return
           // Tab blur / backgrounding can emit a dismiss — keep the modal open
           if (document.visibilityState === "hidden") return
           requestClose()
@@ -867,14 +874,28 @@ export function AddBucketDialog({
           showCloseButton={false}
           onPointerDownOutside={(e) => {
             e.preventDefault()
-            if (confirmOpen || removeId || frequencyDraftId || sourcesDraftId) return
+            if (
+              confirmOpen ||
+              deleteOpen ||
+              removeId ||
+              frequencyDraftId ||
+              sourcesDraftId
+            )
+              return
             // Ignore dismissals from leaving the browser tab
             if (document.visibilityState === "hidden") return
             requestClose()
           }}
           onInteractOutside={(e) => {
             e.preventDefault()
-            if (confirmOpen || removeId || frequencyDraftId || sourcesDraftId) return
+            if (
+              confirmOpen ||
+              deleteOpen ||
+              removeId ||
+              frequencyDraftId ||
+              sourcesDraftId
+            )
+              return
             if (document.visibilityState === "hidden") return
             requestClose()
           }}
@@ -894,6 +915,10 @@ export function AddBucketDialog({
             }
             if (removeId) {
               setRemoveId(null)
+              return
+            }
+            if (deleteOpen) {
+              setDeleteOpen(false)
               return
             }
             if (confirmOpen) {
