@@ -733,7 +733,11 @@ export function AddBucketDialog({
     ? drafts.find((d) => d.id === removeId)
     : undefined
   const nestedOpen =
-    confirmOpen || !!removeId || !!frequencyDraftId || !!sourcesDraftId
+    confirmOpen ||
+    deleteOpen ||
+    !!removeId ||
+    !!frequencyDraftId ||
+    !!sourcesDraftId
 
   const sourceBuckets = useMemo(
     () =>
@@ -757,6 +761,7 @@ export function AddBucketDialog({
 
   function closeClean() {
     setConfirmOpen(false)
+    setDeleteOpen(false)
     setRemoveId(null)
     onOpenChange(false)
   }
