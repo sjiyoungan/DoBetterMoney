@@ -146,7 +146,7 @@
     background-image: linear-gradient(160deg, #ffffff 0%, #f3ebed 72%);
   }
 
-  /* Pay cell check/comment — visible on cell hover (past + current columns) */
+  /* Pay cell check/comment — visible on cell hover only (not sticky focus) */
   .cell-chrome {
     opacity: 0;
     transition:
@@ -158,8 +158,13 @@
   .cell-chrome-visible {
     opacity: 1;
   }
-  [class~="group/cell"]:hover .cell-chrome,
-  [class~="group/cell"]:focus-within .cell-chrome {
+  [class~="group/cell"]:hover .cell-chrome {
     opacity: 1;
+  }
+  /* Stronger hover fill when the pointer is on the icon itself */
+  .cell-icon:hover {
+    border-color: #a3a3a3;
+    background-color: #f5f5f5;
+    color: #404040;
   }
 }

@@ -2164,11 +2164,13 @@ function AmountCell({
           e.stopPropagation()
           if (!canCheck) return
           onToggleDone()
+          // Drop focus so icons hide when the pointer leaves the cell
+          ;(e.currentTarget as HTMLButtonElement).blur()
         }}
         disabled={!canCheck}
         title={done ? "Unmark" : "Mark moved"}
         className={cn(
-          "inline-flex size-5 shrink-0 items-center justify-center rounded-sm border",
+          "cell-icon inline-flex size-5 shrink-0 items-center justify-center rounded-sm border",
           !canCheck && "pointer-events-none opacity-0",
           canCheck &&
             done &&
@@ -2180,7 +2182,10 @@ function AmountCell({
             "border-neutral-200 bg-neutral-100 text-neutral-400 hover:border-neutral-300 hover:bg-neutral-200 hover:text-neutral-500",
           canCheck &&
             !done &&
-            "cell-chrome border-transparent text-neutral-500 group-hover/cell:border-neutral-300 hover:border-neutral-400 hover:bg-neutral-50 hover:text-neutral-700",
+            cn(
+              commentOpen ? "cell-chrome-visible" : "cell-chrome",
+              "border-transparent text-neutral-500",
+            ),
         )}
       >
         <Check className="size-3" strokeWidth={2.5} />
@@ -2192,12 +2197,12 @@ function AmountCell({
         onClick={openComment}
         title={hasComment ? "Edit comment" : "Add comment"}
         className={cn(
-          "inline-flex size-5 shrink-0 items-center justify-center rounded-sm border",
+          "cell-icon inline-flex size-5 shrink-0 items-center justify-center rounded-sm border",
           commentOpen
             ? "border-neutral-300 bg-neutral-50 text-neutral-600"
             : hasComment
               ? "cell-chrome-visible border-transparent text-neutral-500"
-              : "cell-chrome border-transparent text-neutral-500 group-hover/cell:border-neutral-300 hover:border-neutral-400 hover:bg-neutral-50 hover:text-neutral-700",
+              : "cell-chrome border-transparent text-neutral-500",
         )}
       >
         <MessageSquare className="size-3" strokeWidth={2.5} />
