@@ -3,6 +3,7 @@ import {
   generateRecurrenceDates,
   isRecurrenceComplete,
   legacyFrequencyToRecurrence,
+  todayIso,
 } from "@/lib/recurrence"
 
 export type IncomeSourceInput = {
@@ -53,7 +54,7 @@ export function generatePaychecksFromIncome(
     }
   }
 
-  const today = new Date().toISOString().slice(0, 10)
+  const today = todayIso()
 
   return [...byDate.entries()]
     .sort(([a], [b]) => a.localeCompare(b))
