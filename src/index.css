@@ -145,4 +145,21 @@
   .sticky-blush-hover:hover {
     background-image: linear-gradient(160deg, #ffffff 0%, #f3ebed 72%);
   }
+
+  /* Pay cell check/comment — visible on cell hover (past + current columns) */
+  .cell-chrome {
+    opacity: 0;
+    transition:
+      opacity 150ms ease,
+      color 150ms ease,
+      border-color 150ms ease,
+      background-color 150ms ease;
+  }
+  .cell-chrome-visible {
+    opacity: 1;
+  }
+  [class~="group/cell"]:hover .cell-chrome,
+  [class~="group/cell"]:focus-within .cell-chrome {
+    opacity: 1;
+  }
 }

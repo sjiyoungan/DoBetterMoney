@@ -26,6 +26,7 @@ import {
   savingsBalanceLeft,
 } from "@/lib/format"
 import type { IncomeSourceInput } from "@/lib/income-schedule"
+import { todayIso } from "@/lib/recurrence"
 import { isReorderNoOp } from "@/lib/reorder"
 import {
   computeBudgetCalcForDate,
@@ -410,12 +411,15 @@ export function BudgetGrid({
     dropBeforeId !== undefined &&
     !isReorderNoOp(displayBucketIds, draggingId, dropBeforeId)
 
-  const today = useMemo(() => new Date().toISOString().slice(0, 10), [])
+  // Local calendar date — recompute each render so a long-lived tab doesn’t freeze “today”.
+  const today = todayIso()
 
+  // Current column = first paycheck on or after today (date wins over completed flag).
   const currentPaycheckId = useMemo(() => {
     return (
-      paychecks.find((p) => !p.completed && p.date >= today)?.id ??
-      paychecks.find((p) => !p.completed)?.id
+      paychecks.find((p) => p.date >= today)?.id ??
+      paychecks.find((p) => !p.completed)?.id ??
+      paychecks[paychecks.length - 1]?.id
     )
   }, [paychecks, today])
 
@@ -1004,10 +1008,8 @@ export function BudgetGrid({
                     <tr ref={rightHeaderRef}>
                       {paychecks.map((p, i) => {
                         const isUpcoming = p.id === currentPaycheckId
-                        const isPast =
-                          !isUpcoming &&
-                          (p.completed ||
-                            (upcomingIndex >= 0 && i < upcomingIndex))
+                        // Only dates before local today are past — today stays current/pink.
+                        const isPast = p.date < today
                         const edgeKind = isUpcoming
                           ? undefined
                           : payColumnBorderClass(paychecks, i)
@@ -1298,9 +1300,7 @@ export function BudgetGrid({
                               Number(raw) !== 0
                             const isUpcoming = p.id === currentPaycheckId
                             const manuallyDone = doneKeys.has(key)
-                            const isPast =
-                              p.completed ||
-                              (upcomingIndex >= 0 && i < upcomingIndex)
+                            const isPast = p.date < today
                             const cellGray = isPast
                             const canMarkDone =
                               hasAmount && (p.date <= today || isUpcoming)
@@ -1312,7 +1312,7 @@ export function BudgetGrid({
                               <td
                                 key={p.id}
                                 className={cn(
-                                  "relative px-1",
+                                  "group/cell relative px-1",
                                   cellGray
                                     ? "bg-neutral-50 text-[#969696] dark:bg-neutral-900"
                                     : isUpcoming
@@ -1595,11 +1595,8 @@ export function BudgetGrid({
                                       )
                                   const isUpcoming =
                                     p.id === currentPaycheckId
-                                  const isPast =
-                                    p.completed ||
-                                    (upcomingIndex >= 0 && i < upcomingIndex)
-                                  const upcomingActive =
-                                    isUpcoming && !isPast
+                                  const isPast = p.date < today
+                                  const upcomingActive = isUpcoming
                                   const edgeKind = upcomingActive
                                     ? undefined
                                     : payColumnBorderClass(paychecks, i)
@@ -2171,7 +2168,7 @@ function AmountCell({
         disabled={!canCheck}
         title={done ? "Unmark" : "Mark moved"}
         className={cn(
-          "inline-flex size-5 shrink-0 items-center justify-center rounded-sm border transition-colors",
+          "inline-flex size-5 shrink-0 items-center justify-center rounded-sm border",
           !canCheck && "pointer-events-none opacity-0",
           canCheck &&
             done &&
@@ -2183,7 +2180,7 @@ function AmountCell({
             "border-neutral-200 bg-neutral-100 text-neutral-400 hover:border-neutral-300 hover:bg-neutral-200 hover:text-neutral-500",
           canCheck &&
             !done &&
-            "border-transparent text-neutral-300 opacity-0 group-hover/cell:opacity-100 group-hover/cell:border-neutral-300 hover:border-neutral-400 hover:bg-neutral-50 hover:text-neutral-600",
+            "cell-chrome border-transparent text-neutral-500 group-hover/cell:border-neutral-300 hover:border-neutral-400 hover:bg-neutral-50 hover:text-neutral-700",
         )}
       >
         <Check className="size-3" strokeWidth={2.5} />
@@ -2195,10 +2192,12 @@ function AmountCell({
         onClick={openComment}
         title={hasComment ? "Edit comment" : "Add comment"}
         className={cn(
-          "inline-flex size-5 shrink-0 items-center justify-center rounded-sm border transition-colors",
+          "inline-flex size-5 shrink-0 items-center justify-center rounded-sm border",
           commentOpen
             ? "border-neutral-300 bg-neutral-50 text-neutral-600"
-            : "border-transparent text-neutral-300 opacity-0 group-hover/cell:opacity-100 group-hover/cell:border-neutral-300 hover:border-neutral-400 hover:bg-neutral-50 hover:text-neutral-600",
+            : hasComment
+              ? "cell-chrome-visible border-transparent text-neutral-500"
+              : "cell-chrome border-transparent text-neutral-500 group-hover/cell:border-neutral-300 hover:border-neutral-400 hover:bg-neutral-50 hover:text-neutral-700",
         )}
       >
         <MessageSquare className="size-3" strokeWidth={2.5} />
