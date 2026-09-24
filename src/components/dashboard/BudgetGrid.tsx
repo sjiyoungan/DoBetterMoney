@@ -23,9 +23,11 @@ import {
   allocationKey,
   formatMoney,
   formatPayDate,
-  savingsBalanceLeft,
-  sumAllocations,
 } from "@/lib/format"
+import {
+  savingsActualForCategory,
+  savingsPlannedForCategory,
+} from "@/lib/budget-summary"
 import type { IncomeSourceInput } from "@/lib/income-schedule"
 import { todayIso } from "@/lib/recurrence"
 import {
@@ -1022,11 +1024,12 @@ export function BudgetGrid({
                         const bottomBorder = groupDividerBottomClass(
                           row.isLastInBucket,
                         )
-                        const balanceLeft = isSavings
-                          ? savingsBalanceLeft(
-                              category.goal,
-                              category.allocations,
-                              paychecks.map((p) => p.date),
+                        const balanceToday = isSavings
+                          ? savingsActualForCategory(
+                              category,
+                              paychecks,
+                              doneKeys,
+                              withdrawals,
                             )
                           : undefined
                         const paymentAmount =
@@ -1034,9 +1037,11 @@ export function BudgetGrid({
                           category.recurringAmount ??
                           category.minPayment
                         const plannedTotal = isSavings
-                          ? sumAllocations(
-                              category.allocations,
-                              paychecks.map((p) => p.date),
+                          ? savingsPlannedForCategory(
+                              category,
+                              paychecks,
+                              doneKeys,
+                              today,
                             )
                           : undefined
 
@@ -1134,10 +1139,10 @@ export function BudgetGrid({
                                 extraTop,
                               )}
                             >
-                              {isSavings && balanceLeft !== undefined ? (
+                              {isSavings ? (
                                 <div className="flex h-9 items-center justify-end px-2">
                                   <span className="text-sm tabular-nums text-muted-foreground">
-                                    ${balanceLeft}
+                                    ${balanceToday}
                                   </span>
                                 </div>
                               ) : null}

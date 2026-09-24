@@ -30,16 +30,6 @@ export function sumAllocations(
   return total
 }
 
-/** Savings balance left = goal − planned amounts on the active paycheck columns. */
-export function savingsBalanceLeft(
-  goal: number | undefined,
-  allocations: Record<string, number | ""> | undefined,
-  dates?: ReadonlySet<string> | readonly string[],
-): number | undefined {
-  if (goal === undefined) return undefined
-  return goal - sumAllocations(allocations, dates)
-}
-
 export function formatPayDate(iso: string) {
   const d = new Date(`${iso}T12:00:00`)
   return d.toLocaleDateString("en-US", {

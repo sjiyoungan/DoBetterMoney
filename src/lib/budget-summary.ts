@@ -76,6 +76,47 @@ export function savingsActualForCategory(
   return carryOverAt(cat) + checked - withdrawn
 }
 
+/**
+ * Remaining planned deposits: unchecked current paycheck (date ≥ today)
+ * plus all future unchecked paychecks. Past columns never count.
+ */
+export function savingsPlannedForCategory(
+  cat: Category,
+  paychecks: Paycheck[],
+  doneKeys: ReadonlySet<string>,
+  today: string,
+): number {
+  let total = 0
+  for (const p of paychecks) {
+    if (p.date < today) continue
+    if (doneKeys.has(allocationKey(cat.id, p.id))) continue
+    total += allocationAt(cat, p.date)
+  }
+  return total
+}
+
+/**
+ * Balance left toward the goal:
+ * goal − what we have today (carry + checked − withdrawals) − remaining planned.
+ */
+export function savingsRemainingToGoal(
+  cat: Category,
+  paychecks: Paycheck[],
+  doneKeys: ReadonlySet<string>,
+  withdrawals: readonly Withdrawal[] = [],
+  today: string,
+): number | undefined {
+  if (cat.goal === undefined) return undefined
+  const actual = savingsActualForCategory(
+    cat,
+    paychecks,
+    doneKeys,
+    withdrawals,
+  )
+  const planned = savingsPlannedForCategory(cat, paychecks, doneKeys, today)
+  return cat.goal - actual - planned
+}
+
 export type SavingsCategoryTotal = {
   categoryId: string
   categoryName: string

@@ -10,9 +10,12 @@ import {
   allocationKey,
   formatMoney,
   formatPayDate,
-  savingsBalanceLeft,
 } from "@/lib/format"
-import { savingsActualForCategory } from "@/lib/budget-summary"
+import {
+  savingsActualForCategory,
+  savingsPlannedForCategory,
+  savingsRemainingToGoal,
+} from "@/lib/budget-summary"
 import { cn } from "@/lib/utils"
 import type { Bucket, Category, Paycheck, Withdrawal } from "@/types/budget"
 
@@ -125,29 +128,25 @@ export function CategoryDrawer({
     setNoteDraft(category?.note ?? "")
   }, [category?.id, open])
 
-  const upcomingIndex = useMemo(() => {
-    const id =
-      paychecks.find((p) => !p.completed && p.date >= today)?.id ??
-      paychecks.find((p) => !p.completed)?.id
-    if (!id) return -1
-    return paychecks.findIndex((p) => p.id === id)
-  }, [paychecks, today])
-
   const plannedRows = useMemo((): PlannedRow[] => {
-    if (!category || upcomingIndex < 0) return []
+    if (!category) return []
     const rows: PlannedRow[] = []
-    for (let i = upcomingIndex; i < paychecks.length; i++) {
-      const paycheck = paychecks[i]!
+    for (const paycheck of paychecks) {
+      if (paycheck.date < today) continue
+      if (doneKeys.has(allocationKey(category.id, paycheck.id))) continue
       const amount = allocationNumber(category.allocations, paycheck.date)
       if (amount === null) continue
       rows.push({ paycheck, amount })
     }
     return rows
-  }, [category, paychecks, upcomingIndex])
+  }, [category, paychecks, doneKeys, today])
 
   const totalPlanned = useMemo(
-    () => plannedRows.reduce((sum, row) => sum + row.amount, 0),
-    [plannedRows],
+    () =>
+      category
+        ? savingsPlannedForCategory(category, paychecks, doneKeys, today)
+        : 0,
+    [category, paychecks, doneKeys, today],
   )
 
   const visiblePlanned = plannedExpanded
@@ -284,10 +283,12 @@ export function CategoryDrawer({
                 <dt className="text-muted-foreground">Balance left</dt>
                 <dd className="mt-2 font-medium tabular-nums">
                   {formatMoney(
-                    savingsBalanceLeft(
-                      category.goal,
-                      category.allocations,
-                      paychecks.map((p) => p.date),
+                    savingsRemainingToGoal(
+                      category,
+                      paychecks,
+                      doneKeys,
+                      withdrawals,
+                      today,
                     ),
                   )}
                 </dd>
