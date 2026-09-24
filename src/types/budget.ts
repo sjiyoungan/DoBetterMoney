@@ -83,6 +83,8 @@ export type Bucket = {
   name: string
   note?: string
   kind: BucketKind
+  /** When true, group is omitted from the main grid */
+  hidden?: boolean
   categories: Category[]
 }
 

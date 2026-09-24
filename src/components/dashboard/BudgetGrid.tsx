@@ -1,4 +1,5 @@
 import {
+  Fragment,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -12,22 +13,21 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
-  CirclePlus,
-  Menu,
   MessageSquare,
 } from "lucide-react"
 import { AddBucketDialog } from "@/components/dashboard/AddBucketDialog"
 import { CategoryDrawer } from "@/components/dashboard/CategoryDrawer"
+import { EditGroupsDialog } from "@/components/dashboard/EditGroupsDialog"
 import { OnboardingFlow } from "@/components/dashboard/OnboardingFlow"
 import {
   allocationKey,
   formatMoney,
   formatPayDate,
   savingsBalanceLeft,
+  sumAllocations,
 } from "@/lib/format"
 import type { IncomeSourceInput } from "@/lib/income-schedule"
 import { todayIso } from "@/lib/recurrence"
-import { isReorderNoOp } from "@/lib/reorder"
 import {
   computeBudgetCalcForDate,
   computeTotalForDate,
@@ -92,12 +92,25 @@ type Props = {
   onUpdateBucket: (bucket: Bucket) => void
   onDeleteBucket: (bucketId: string) => void
   onReorderBuckets: (fromId: string, beforeId: string | null) => void
+  onSaveGroups: (buckets: Bucket[]) => void
   onSetupIncome: (sources: IncomeSourceInput[]) => void
   onPaycheckDateChange?: (paycheckId: string, date: string) => void
 }
 
-const W = { bucket: 118, category: 168, goal: 110, balance: 96, pay: 130 } as const
-const LEFT_WIDTH = W.bucket + W.category + W.goal + W.balance
+/** Left pane: Group | Category | Goal | Balance | Payment/Planned */
+const W = {
+  bucket: 118,
+  category: 168,
+  goal: 96,
+  balance: 96,
+  planned: 96,
+  pay: 130,
+} as const
+const LEFT_WIDTH =
+  W.bucket + W.category + W.goal + W.balance + W.planned
+
+const metricLabelClass =
+  "text-[10px] font-medium uppercase tracking-wide text-neutral-400"
 
 /** Ideal paycheck scroll: keep upcoming in view; if the tail is short, pin end flush so more past columns fill the pane. */
 function idealPayScrollLeft(
@@ -202,7 +215,7 @@ function PayColumnSameMonthDivider({
   )
 }
 
-/** Group divider: 1px black (same weight as month lines). Drop target uses an overlay so layout does not jump. */
+/** Group divider: 1px black (same weight as month lines). */
 function groupDividerTopClass(showDivider: boolean) {
   return showDivider ? "border-t border-t-neutral-900" : undefined
 }
@@ -231,22 +244,17 @@ function upcomingColumnClass(opts: {
   )
 }
 
-function DropLine({
-  show,
-  edge,
-}: {
-  show: boolean
-  edge: "top" | "bottom"
-}) {
-  if (!show) return null
+const SAVINGS_LABELS_KEY = "__savings_labels__"
+
+function LeftColgroup() {
   return (
-    <span
-      aria-hidden
-      className={cn(
-        "pointer-events-none absolute inset-x-0 z-20 h-1 bg-neutral-900",
-        edge === "top" ? "top-0 -translate-y-1/2" : "bottom-0 translate-y-1/2",
-      )}
-    />
+    <colgroup>
+      <col style={{ width: W.bucket, minWidth: W.bucket }} />
+      <col style={{ width: W.category, minWidth: W.category }} />
+      <col style={{ width: W.goal, minWidth: W.goal }} />
+      <col style={{ width: W.balance, minWidth: W.balance }} />
+      <col style={{ width: W.planned, minWidth: W.planned }} />
+    </colgroup>
   )
 }
 
@@ -262,7 +270,7 @@ type GridRow = {
 /**
  * Split-pane budget grid.
  *
- * Left pane (Group → Balance) does not scroll horizontally.
+ * Left pane (Group → Payment/Planned) does not scroll horizontally.
  * Right pane (paycheck columns) pans horizontally via click-drag anywhere in
  * the paycheck area (header, body, Totals), including starting on inputs —
  * a press without drag still focuses/edits; past slop it pans. Arrow controls
@@ -287,7 +295,7 @@ export function BudgetGrid({
   onAddBucket,
   onUpdateBucket,
   onDeleteBucket,
-  onReorderBuckets,
+  onSaveGroups,
   onSetupIncome,
   onPaycheckDateChange,
 }: Props) {
@@ -301,7 +309,6 @@ export function BudgetGrid({
   const rightHeaderRef = useRef<HTMLTableRowElement>(null)
   const leftRowRefs = useRef(new Map<string, HTMLTableRowElement>())
   const rightRowRefs = useRef(new Map<string, HTMLTableRowElement>())
-  const bucketBodyRefs = useRef(new Map<string, HTMLTableSectionElement>())
   const gridFrameRef = useRef<HTMLDivElement>(null)
   const gridMeasureRef = useRef<HTMLDivElement>(null)
 
@@ -313,36 +320,34 @@ export function BudgetGrid({
   const [bodyScrolledPastTop, setBodyScrolledPastTop] = useState(false)
   const [bodyCanScrollUnderFooter, setBodyCanScrollUnderFooter] =
     useState(false)
-  const [gripClip, setGripClip] = useState({ top: 0, height: 0 })
   const [bucketDialog, setBucketDialog] = useState<
     { mode: "create" } | { mode: "edit"; bucket: Bucket } | null
   >(null)
+  const [editGroupsOpen, setEditGroupsOpen] = useState(false)
+  const [headerMode, setHeaderMode] = useState<"expense" | "savings">(
+    "expense",
+  )
   const [selected, setSelected] = useState<{
     category: Category
     bucket: Bucket
   } | null>(null)
-  const [draggingId, setDraggingId] = useState<string | null>(null)
-  const [dropBeforeId, setDropBeforeId] = useState<string | null | undefined>(
-    undefined,
-  )
-  const [gripRects, setGripRects] = useState<
-    Record<string, { top: number; height: number }>
-  >({})
-  const dragMovedRef = useRef(false)
   const payPanRef = useRef<{
     pointerId: number
     startX: number
     startScroll: number
     moved: boolean
   } | null>(null)
+  const savingsAnchorRef = useRef<HTMLTableSectionElement | null>(null)
 
-  /** Visible body rows — hidden categories stay in data; footer kinds render below. */
+  /** Visible body rows — hidden categories/groups stay in data; footer kinds render below. */
   const displayBuckets = useMemo(
     () =>
       buckets
         .filter(
           (bucket) =>
-            bucket.kind !== "totals" && bucket.kind !== "budget_calc",
+            !bucket.hidden &&
+            bucket.kind !== "totals" &&
+            bucket.kind !== "budget_calc",
         )
         .map((bucket) => ({
           ...bucket,
@@ -350,6 +355,11 @@ export function BudgetGrid({
         }))
         .filter((bucket) => bucket.categories.length > 0),
     [buckets],
+  )
+
+  const firstSavingsBucketId = useMemo(
+    () => displayBuckets.find((b) => b.kind === "savings")?.id ?? null,
+    [displayBuckets],
   )
 
   /** Fixed footer: Budget calculation first (zero check), then Totals. */
@@ -364,11 +374,6 @@ export function BudgetGrid({
         .filter((bucket) => bucket.categories.length > 0)
     return [...visibleOf("budget_calc"), ...visibleOf("totals")]
   }, [buckets])
-
-  const displayBucketIds = useMemo(
-    () => displayBuckets.map((b) => b.id),
-    [displayBuckets],
-  )
 
   const rows = useMemo(() => {
     const result: GridRow[] = []
@@ -405,11 +410,6 @@ export function BudgetGrid({
   }, [totalsBuckets])
 
   const hasTotalsFooter = totalsRows.length > 0
-
-  const dropIndicatorActive =
-    draggingId !== null &&
-    dropBeforeId !== undefined &&
-    !isReorderNoOp(displayBucketIds, draggingId, dropBeforeId)
 
   // Local calendar date — recompute each render so a long-lived tab doesn’t freeze “today”.
   const today = todayIso()
@@ -537,35 +537,15 @@ export function BudgetGrid({
     }
   }, [hasTotalsFooter, rows, totalsRows])
 
-  // Keep rearrange grips clipped to the body viewport (outside overflow scroller)
-  useEffect(() => {
-    const frame = gridFrameRef.current
-    const body = bodyScrollRef.current
-    if (!frame || !body) return
-    const updateClip = () => {
-      const frameTop = frame.getBoundingClientRect().top
-      const bodyRect = body.getBoundingClientRect()
-      setGripClip({
-        top: bodyRect.top - frameTop,
-        height: body.clientHeight,
-      })
-    }
-    updateClip()
-    const ro = new ResizeObserver(updateClip)
-    ro.observe(frame)
-    ro.observe(body)
-    body.addEventListener("scroll", updateClip, { passive: true })
-    return () => {
-      ro.disconnect()
-      body.removeEventListener("scroll", updateClip)
-    }
-  }, [hasTotalsFooter, rows, totalsRows])
-
-  // Keep left/right row heights matched + sync external grip positions
+  // Keep left/right row heights matched
   useEffect(() => {
     const sync = () => {
       const pairs: Array<[HTMLTableRowElement | null, HTMLTableRowElement | null]> = [
         [leftHeaderRef.current, rightHeaderRef.current],
+        [
+          leftRowRefs.current.get(SAVINGS_LABELS_KEY) ?? null,
+          rightRowRefs.current.get(SAVINGS_LABELS_KEY) ?? null,
+        ],
         ...rows.map(
           (row) =>
             [
@@ -594,32 +574,6 @@ export function BudgetGrid({
         left.style.height = `${height}px`
         right.style.height = `${height}px`
       }
-
-      const frame = gridFrameRef.current
-      if (!frame) return
-      const frameTop = frame.getBoundingClientRect().top
-      const next: Record<string, { top: number; height: number }> = {}
-      for (const id of displayBucketIds) {
-        const body = bucketBodyRefs.current.get(id)
-        if (!body) continue
-        const r = body.getBoundingClientRect()
-        next[id] = { top: r.top - frameTop, height: r.height }
-      }
-      setGripRects((prev) => {
-        const prevKeys = Object.keys(prev)
-        const nextKeys = Object.keys(next)
-        if (
-          prevKeys.length === nextKeys.length &&
-          nextKeys.every(
-            (id) =>
-              prev[id]?.top === next[id]?.top &&
-              prev[id]?.height === next[id]?.height,
-          )
-        ) {
-          return prev
-        }
-        return next
-      })
     }
 
     sync()
@@ -632,64 +586,35 @@ export function BudgetGrid({
       ro.disconnect()
       bodyScroll?.removeEventListener("scroll", sync)
     }
-  }, [rows, totalsRows, paychecks, displayBucketIds])
+  }, [rows, totalsRows, paychecks, firstSavingsBucketId])
 
-  // Group rearrange: track drop line while pointer is down on the grip
+  // Sticky header: Payment while expenses lead; Goal/Balance/Planned once savings labels reach it
   useEffect(() => {
-    if (!draggingId) return
-
-    const resolveDropBefore = (clientY: number) => {
-      for (let i = 0; i < displayBucketIds.length; i++) {
-        const id = displayBucketIds[i]!
-        const body = bucketBodyRefs.current.get(id)
-        if (!body) continue
-        const rect = body.getBoundingClientRect()
-        if (clientY < rect.top) return id
-        if (clientY <= rect.bottom) {
-          const mid = rect.top + rect.height / 2
-          if (clientY < mid) return id
-          return displayBucketIds[i + 1] ?? null
-        }
+    const body = bodyScrollRef.current
+    if (!body) return
+    const update = () => {
+      const anchor = savingsAnchorRef.current
+      if (!anchor) {
+        setHeaderMode("expense")
+        return
       }
-      return null
+      const bodyTop = body.getBoundingClientRect().top
+      setHeaderMode(anchor.getBoundingClientRect().top <= bodyTop + 1 ? "savings" : "expense")
     }
-
-    const onMove = (e: PointerEvent) => {
-      dragMovedRef.current = true
-      setDropBeforeId(resolveDropBefore(e.clientY))
-    }
-
-    const onUp = (e: PointerEvent) => {
-      const before = resolveDropBefore(e.clientY)
-      const from = draggingId
-      setDraggingId(null)
-      setDropBeforeId(undefined)
-      document.body.style.removeProperty("cursor")
-      document.body.style.removeProperty("user-select")
-      if (
-        dragMovedRef.current &&
-        !isReorderNoOp(displayBucketIds, from, before)
-      ) {
-        onReorderBuckets(from, before)
-      }
-    }
-
-    document.body.style.cursor = "grabbing"
-    document.body.style.userSelect = "none"
-    window.addEventListener("pointermove", onMove)
-    window.addEventListener("pointerup", onUp)
-    window.addEventListener("pointercancel", onUp)
+    update()
+    body.addEventListener("scroll", update, { passive: true })
+    const ro = new ResizeObserver(update)
+    ro.observe(body)
+    const anchor = savingsAnchorRef.current
+    if (anchor) ro.observe(anchor)
     return () => {
-      window.removeEventListener("pointermove", onMove)
-      window.removeEventListener("pointerup", onUp)
-      window.removeEventListener("pointercancel", onUp)
-      document.body.style.removeProperty("cursor")
-      document.body.style.removeProperty("user-select")
+      body.removeEventListener("scroll", update)
+      ro.disconnect()
     }
-  }, [draggingId, displayBucketIds, onReorderBuckets])
+  }, [firstSavingsBucketId, displayBuckets, hasTotalsFooter])
 
-  // Always reserve 2px so the Balance column width does not jump on scroll
-  const balanceEdge = scrolled
+  // Always reserve 2px so the Planned column width does not jump on scroll
+  const plannedEdge = scrolled
     ? "border-r-2 border-r-transparent"
     : "border-r-2 border-r-neutral-900"
 
@@ -701,22 +626,6 @@ export function BudgetGrid({
   function setRightRowRef(key: string, el: HTMLTableRowElement | null) {
     if (el) rightRowRefs.current.set(key, el)
     else rightRowRefs.current.delete(key)
-  }
-
-  function setBucketBodyRef(id: string, el: HTMLTableSectionElement | null) {
-    if (el) bucketBodyRefs.current.set(id, el)
-    else bucketBodyRefs.current.delete(id)
-  }
-
-  function startBucketDrag(
-    bucketId: string,
-    e: ReactPointerEvent<HTMLButtonElement>,
-  ) {
-    e.preventDefault()
-    e.stopPropagation()
-    dragMovedRef.current = false
-    setDraggingId(bucketId)
-    setDropBeforeId(bucketId)
   }
 
   function scrollPayByColumn(direction: -1 | 1) {
@@ -796,23 +705,6 @@ export function BudgetGrid({
   const canScrollPayLeft = scrollLeft > 1
   const canScrollPayRight = scrollLeft < scrollMax - 1
 
-  function isDropBeforeBucket(bucketId: string) {
-    return (
-      dropIndicatorActive &&
-      dropBeforeId !== undefined &&
-      dropBeforeId === bucketId
-    )
-  }
-
-  function isDropAfterLast(bucketId: string) {
-    const lastId = displayBucketIds[displayBucketIds.length - 1]
-    return (
-      dropIndicatorActive &&
-      dropBeforeId === null &&
-      bucketId === lastId
-    )
-  }
-
   const bodyBuckets = buckets.filter(
     (b) => b.kind !== "totals" && b.kind !== "budget_calc",
   )
@@ -867,37 +759,6 @@ export function BudgetGrid({
         </button>
       </div>
       <div ref={gridFrameRef} className="relative flex min-h-0 flex-1 flex-col">
-        {/* Rearrange grips: clipped to body viewport so they never cover header */}
-        <div
-          aria-hidden={false}
-          className="pointer-events-none absolute -left-5 z-30 w-5 overflow-hidden"
-          style={{ top: gripClip.top, height: gripClip.height }}
-        >
-          {displayBuckets.map((bucket) => {
-            const rect = gripRects[bucket.id]
-            if (!rect) return null
-            return (
-              <button
-                key={bucket.id}
-                type="button"
-                title="Rearrange group"
-                aria-label={`Rearrange ${bucket.name}`}
-                onPointerDown={(e) => startBucketDrag(bucket.id, e)}
-                style={{
-                  top: rect.top - gripClip.top,
-                  height: rect.height,
-                }}
-                className={cn(
-                  "pointer-events-auto absolute left-0 flex w-full cursor-grab items-center justify-center text-neutral-400 opacity-0 transition-opacity hover:opacity-100 active:cursor-grabbing",
-                  draggingId === bucket.id && "opacity-100",
-                )}
-              >
-                <Menu className="size-3.5" strokeWidth={2} />
-              </button>
-            )
-          })}
-        </div>
-
         {/*
           Flex column card: header + Totals stay outside the body scroller so
           rows clip under them. Right panes sync via translateX.
@@ -926,12 +787,7 @@ export function BudgetGrid({
               }}
             >
               <table className="w-full table-fixed border-separate border-spacing-0 text-sm">
-                <colgroup>
-                  <col style={{ width: W.bucket, minWidth: W.bucket }} />
-                  <col style={{ width: W.category, minWidth: W.category }} />
-                  <col style={{ width: W.goal, minWidth: W.goal }} />
-                  <col style={{ width: W.balance, minWidth: W.balance }} />
-                </colgroup>
+                <LeftColgroup />
                 <thead>
                   <tr ref={leftHeaderRef}>
                     <th
@@ -944,12 +800,15 @@ export function BudgetGrid({
                         <span>Group</span>
                         <button
                           type="button"
-                          title="Add group"
-                          aria-label="Add group"
-                          onClick={() => setBucketDialog({ mode: "create" })}
-                          className="-mr-1 inline-flex size-8 shrink-0 items-center justify-start text-muted-foreground transition-colors hover:text-foreground"
+                          title="Edit groups"
+                          aria-label="Edit groups"
+                          onClick={() => setEditGroupsOpen(true)}
+                          className={cn(
+                            "-ml-1 rounded-md px-2 py-1 text-sm font-medium text-foreground",
+                            blushHoverClass,
+                          )}
                         >
-                          <CirclePlus className="size-5" strokeWidth={1.75} />
+                          Edit group
                         </button>
                       </div>
                     </th>
@@ -967,16 +826,24 @@ export function BudgetGrid({
                         headerBg,
                       )}
                     >
-                      Goal/payment
+                      {headerMode === "savings" ? "Goal" : null}
                     </th>
                     <th
                       className={cn(
                         "border-b-2 border-b-neutral-900 px-3 py-3 text-right font-medium",
                         headerBg,
-                        balanceEdge,
                       )}
                     >
-                      Balance
+                      {headerMode === "savings" ? "Balance" : null}
+                    </th>
+                    <th
+                      className={cn(
+                        "border-b-2 border-b-neutral-900 px-3 py-3 text-right font-medium",
+                        headerBg,
+                        plannedEdge,
+                      )}
+                    >
+                      {headerMode === "savings" ? "Planned" : "Payment"}
                     </th>
                   </tr>
                 </thead>
@@ -1073,174 +940,249 @@ export function BudgetGrid({
               ref={leftTableRef}
               className="w-full table-fixed border-separate border-spacing-0 text-sm"
             >
-              <colgroup>
-                <col style={{ width: W.bucket, minWidth: W.bucket }} />
-                <col style={{ width: W.category, minWidth: W.category }} />
-                <col style={{ width: W.goal, minWidth: W.goal }} />
-                <col style={{ width: W.balance, minWidth: W.balance }} />
-              </colgroup>
+              <LeftColgroup />
 
-              {displayBuckets.map((bucket) => (
-                <tbody
-                  key={bucket.id}
-                  ref={(el) => setBucketBodyRef(bucket.id, el)}
-                  data-bucket-id={bucket.id}
-                  className={cn(draggingId === bucket.id && "opacity-50")}
-                >
-                  {bucket.categories.map((category) => {
-                    const row = rows.find((r) => r.key === category.id)!
-                    const isSavings = bucket.kind === "savings"
-                    const isExpense = bucket.kind === "spending"
-                    const fullBucket =
-                      buckets.find((b) => b.id === bucket.id) ?? bucket
-                    const dropBefore = isDropBeforeBucket(bucket.id)
-                    const dropAfterLast =
-                      row.isLastInBucket && isDropAfterLast(bucket.id)
-                    const topBorder = groupDividerTopClass(
-                      row.showBucketDivider,
-                    )
-                    const bottomBorder = groupDividerBottomClass(
-                      row.isLastInBucket,
-                    )
-                    const showTopLine = dropBefore && row.isFirstInBucket
-                    const showBottomLine = dropAfterLast
-                    const balanceLeft = isSavings
-                      ? savingsBalanceLeft(
-                          category.goal,
-                          category.allocations,
-                          paychecks.map((p) => p.date),
-                        )
-                      : undefined
-                    const paymentAmount =
-                      category.amount ??
-                      category.recurringAmount ??
-                      category.minPayment
-
-                    return (
-                      <tr
-                        key={category.id}
-                        ref={(el) => setLeftRowRef(category.id, el)}
-                      >
-                        {row.isFirstInBucket ? (
+              {displayBuckets.map((bucket) => {
+                const isFirstSavings = bucket.id === firstSavingsBucketId
+                const labelTopBorder = groupDividerTopClass(
+                  isFirstSavings && displayBuckets[0]?.id !== firstSavingsBucketId,
+                )
+                return (
+                  <Fragment key={bucket.id}>
+                    {isFirstSavings ? (
+                      <tbody ref={savingsAnchorRef}>
+                        <tr
+                          ref={(el) => setLeftRowRef(SAVINGS_LABELS_KEY, el)}
+                        >
                           <td
-                            rowSpan={row.rowCount}
                             className={cn(
-                              "relative border-r border-r-neutral-900 p-0 text-left align-middle text-[11px] font-semibold uppercase tracking-wide text-muted-foreground",
+                              "border-r border-r-neutral-900",
                               paneBg,
-                              topBorder,
+                              labelTopBorder,
+                            )}
+                          />
+                          <td
+                            className={cn(
+                              "px-3 pt-3 pb-1",
+                              paneBg,
+                              metricLabelClass,
+                              labelTopBorder,
                             )}
                           >
-                            <DropLine show={showTopLine} edge="top" />
-                            <DropLine
-                              show={isDropAfterLast(bucket.id)}
-                              edge="bottom"
-                            />
-                            <button
-                              type="button"
-                              title={`Edit ${bucket.name}`}
-                              onClick={() =>
-                                setBucketDialog({
-                                  mode: "edit",
-                                  bucket: fullBucket,
-                                })
-                              }
+                            Category
+                          </td>
+                          <td
+                            className={cn(
+                              "px-3 pt-3 pb-1 text-right",
+                              paneBg,
+                              metricLabelClass,
+                              labelTopBorder,
+                            )}
+                          >
+                            Goal
+                          </td>
+                          <td
+                            className={cn(
+                              "px-3 pt-3 pb-1 text-right",
+                              paneBg,
+                              metricLabelClass,
+                              labelTopBorder,
+                            )}
+                          >
+                            Balance
+                          </td>
+                          <td
+                            className={cn(
+                              "px-3 pt-3 pb-1 text-right",
+                              paneBg,
+                              metricLabelClass,
+                              plannedEdge,
+                              labelTopBorder,
+                            )}
+                          >
+                            Planned
+                          </td>
+                        </tr>
+                      </tbody>
+                    ) : null}
+                    <tbody>
+                      {bucket.categories.map((category) => {
+                        const row = rows.find((r) => r.key === category.id)!
+                        const isSavings = bucket.kind === "savings"
+                        const isExpense = bucket.kind === "spending"
+                        const fullBucket =
+                          buckets.find((b) => b.id === bucket.id) ?? bucket
+                        const extraTop =
+                          isFirstSavings && row.isFirstInBucket
+                            ? "pt-2"
+                            : undefined
+                        const topBorder = groupDividerTopClass(
+                          row.showBucketDivider && !isFirstSavings,
+                        )
+                        const bottomBorder = groupDividerBottomClass(
+                          row.isLastInBucket,
+                        )
+                        const balanceLeft = isSavings
+                          ? savingsBalanceLeft(
+                              category.goal,
+                              category.allocations,
+                              paychecks.map((p) => p.date),
+                            )
+                          : undefined
+                        const paymentAmount =
+                          category.amount ??
+                          category.recurringAmount ??
+                          category.minPayment
+                        const plannedTotal = isSavings
+                          ? sumAllocations(
+                              category.allocations,
+                              paychecks.map((p) => p.date),
+                            )
+                          : undefined
+
+                        return (
+                          <tr
+                            key={category.id}
+                            ref={(el) => setLeftRowRef(category.id, el)}
+                          >
+                            {row.isFirstInBucket ? (
+                              <td
+                                rowSpan={row.rowCount}
+                                className={cn(
+                                  "relative border-r border-r-neutral-900 p-0 text-left align-middle text-[11px] font-semibold uppercase tracking-wide text-muted-foreground",
+                                  paneBg,
+                                  topBorder,
+                                )}
+                              >
+                                <button
+                                  type="button"
+                                  title={`Edit ${bucket.name}`}
+                                  onClick={() =>
+                                    setBucketDialog({
+                                      mode: "edit",
+                                      bucket: fullBucket,
+                                    })
+                                  }
+                                  className={cn(
+                                    "absolute inset-0 flex cursor-pointer items-center justify-start px-2 text-left transition-[background] duration-150 hover:text-foreground",
+                                    blushHoverClass,
+                                  )}
+                                >
+                                  <span className="block w-full min-w-0 text-left break-words">
+                                    {bucket.name}
+                                  </span>
+                                </button>
+                              </td>
+                            ) : null}
+
+                            <td
                               className={cn(
-                                "absolute inset-0 flex cursor-pointer items-center justify-start px-2 text-left transition-[background] duration-150 hover:text-foreground",
-                                blushHoverClass,
+                                "relative p-0",
+                                paneBg,
+                                topBorder,
+                                bottomBorder,
+                                extraTop,
                               )}
                             >
-                              <span className="block w-full min-w-0 text-left break-words">
-                                {bucket.name}
-                              </span>
-                            </button>
-                          </td>
-                        ) : null}
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setSelected({ category, bucket })
+                                }
+                                className={cn(
+                                  "h-9 w-full cursor-pointer px-3 text-left text-sm transition-[background] duration-150 hover:text-foreground",
+                                  blushHoverClass,
+                                )}
+                              >
+                                {category.name}
+                              </button>
+                            </td>
 
-                        <td
-                          className={cn(
-                            "relative p-0",
-                            paneBg,
-                            topBorder,
-                            bottomBorder,
-                          )}
-                        >
-                          <DropLine show={showTopLine} edge="top" />
-                          <DropLine show={showBottomLine} edge="bottom" />
-                          <button
-                            type="button"
-                            onClick={() => setSelected({ category, bucket })}
-                            className={cn(
-                              "h-9 w-full cursor-pointer px-3 text-left text-sm transition-[background] duration-150 hover:text-foreground",
-                              blushHoverClass,
-                            )}
-                          >
-                            {category.name}
-                          </button>
-                        </td>
+                            <td
+                              className={cn(
+                                "relative px-1",
+                                paneBg,
+                                topBorder,
+                                bottomBorder,
+                                extraTop,
+                              )}
+                            >
+                              {isSavings ? (
+                                <MoneyField
+                                  value={
+                                    category.goal === undefined
+                                      ? ""
+                                      : String(category.goal)
+                                  }
+                                  onChange={(value) =>
+                                    onCategoryFieldChange(
+                                      category.id,
+                                      "goal",
+                                      value,
+                                    )
+                                  }
+                                />
+                              ) : null}
+                            </td>
 
-                        <td
-                          className={cn(
-                            "relative px-1",
-                            paneBg,
-                            topBorder,
-                            bottomBorder,
-                          )}
-                        >
-                          <DropLine show={showTopLine} edge="top" />
-                          <DropLine show={showBottomLine} edge="bottom" />
-                          {isSavings ? (
-                            <MoneyField
-                              value={
-                                category.goal === undefined
-                                  ? ""
-                                  : String(category.goal)
-                              }
-                              onChange={(value) =>
-                                onCategoryFieldChange(category.id, "goal", value)
-                              }
-                            />
-                          ) : isExpense ? (
-                            <MoneyField
-                              value={
-                                paymentAmount === undefined
-                                  ? ""
-                                  : String(paymentAmount)
-                              }
-                              onChange={(value) =>
-                                onCategoryFieldChange(
-                                  category.id,
-                                  "amount",
-                                  value,
-                                )
-                              }
-                            />
-                          ) : null}
-                        </td>
+                            <td
+                              className={cn(
+                                "relative px-1 text-right tabular-nums text-muted-foreground",
+                                paneBg,
+                                topBorder,
+                                bottomBorder,
+                                extraTop,
+                              )}
+                            >
+                              {isSavings && balanceLeft !== undefined ? (
+                                <div className="flex h-9 items-center justify-end px-2">
+                                  <span className="text-sm tabular-nums text-muted-foreground">
+                                    ${balanceLeft}
+                                  </span>
+                                </div>
+                              ) : null}
+                            </td>
 
-                        <td
-                          className={cn(
-                            "relative px-1 text-right tabular-nums text-muted-foreground",
-                            paneBg,
-                            balanceEdge,
-                            topBorder,
-                            bottomBorder,
-                          )}
-                        >
-                          <DropLine show={showTopLine} edge="top" />
-                          <DropLine show={showBottomLine} edge="bottom" />
-                          {isSavings && balanceLeft !== undefined ? (
-                            <div className="flex h-9 items-center justify-end px-2">
-                              <span className="text-sm tabular-nums text-muted-foreground">
-                                ${balanceLeft}
-                              </span>
-                            </div>
-                          ) : null}
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              ))}
+                            <td
+                              className={cn(
+                                "relative px-1",
+                                paneBg,
+                                plannedEdge,
+                                topBorder,
+                                bottomBorder,
+                                extraTop,
+                              )}
+                            >
+                              {isExpense ? (
+                                <MoneyField
+                                  value={
+                                    paymentAmount === undefined
+                                      ? ""
+                                      : String(paymentAmount)
+                                  }
+                                  onChange={(value) =>
+                                    onCategoryFieldChange(
+                                      category.id,
+                                      "amount",
+                                      value,
+                                    )
+                                  }
+                                />
+                              ) : isSavings && plannedTotal !== undefined ? (
+                                <div className="flex h-9 items-center justify-end px-2">
+                                  <span className="text-sm tabular-nums text-muted-foreground">
+                                    ${plannedTotal}
+                                  </span>
+                                </div>
+                              ) : null}
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </Fragment>
+                )
+              })}
             </table>
           </div>
 
@@ -1267,105 +1209,156 @@ export function BudgetGrid({
                   ))}
                 </colgroup>
 
-                {displayBuckets.map((bucket) => (
-                  <tbody
-                    key={bucket.id}
-                    className={cn(draggingId === bucket.id && "opacity-50")}
-                  >
-                    {bucket.categories.map((category) => {
-                      const row = rows.find((r) => r.key === category.id)!
-                      const dropBefore = isDropBeforeBucket(bucket.id)
-                      const dropAfterLast =
-                        row.isLastInBucket && isDropAfterLast(bucket.id)
-                      const topBorder = groupDividerTopClass(
-                        row.showBucketDivider,
-                      )
-                      const bottomBorder = groupDividerBottomClass(
-                        row.isLastInBucket,
-                      )
-                      const showTopLine = dropBefore && row.isFirstInBucket
-                      const showBottomLine = dropAfterLast
-
-                      return (
-                        <tr
-                          key={category.id}
-                          ref={(el) => setRightRowRef(category.id, el)}
-                        >
-                          {paychecks.map((p, i) => {
-                            const raw = category.allocations[p.date]
-                            const key = allocationKey(category.id, p.id)
-                            const hasAmount =
-                              raw !== "" &&
-                              raw !== undefined &&
-                              Number(raw) !== 0
-                            const isUpcoming = p.id === currentPaycheckId
-                            const manuallyDone = doneKeys.has(key)
-                            const isPast = p.date < today
-                            const cellGray = isPast
-                            const canMarkDone =
-                              hasAmount && (p.date <= today || isUpcoming)
-                            const edgeKind = isUpcoming
-                              ? undefined
-                              : payColumnBorderClass(paychecks, i)
-
-                            return (
-                              <td
-                                key={p.id}
-                                className={cn(
-                                  "group/cell relative px-1",
-                                  cellGray
-                                    ? "bg-neutral-50 text-[#969696] dark:bg-neutral-900"
-                                    : isUpcoming
+                {displayBuckets.map((bucket) => {
+                  const isFirstSavings = bucket.id === firstSavingsBucketId
+                  const labelTopBorder = groupDividerTopClass(
+                    isFirstSavings &&
+                      displayBuckets[0]?.id !== firstSavingsBucketId,
+                  )
+                  return (
+                    <Fragment key={bucket.id}>
+                      {isFirstSavings ? (
+                        <tbody>
+                          <tr
+                            ref={(el) =>
+                              setRightRowRef(SAVINGS_LABELS_KEY, el)
+                            }
+                          >
+                            {paychecks.map((p, i) => {
+                              const isUpcoming = p.id === currentPaycheckId
+                              const edgeKind = isUpcoming
+                                ? undefined
+                                : payColumnBorderClass(paychecks, i)
+                              return (
+                                <td
+                                  key={p.id}
+                                  className={cn(
+                                    "relative",
+                                    isUpcoming
                                       ? upcomingColumnClass({ active: true })
                                       : paneBg,
-                                  payColumnMonthBorderClass(edgeKind),
-                                  topBorder,
-                                  bottomBorder,
-                                )}
-                                style={{ width: W.pay, minWidth: W.pay }}
-                              >
-                                <PayColumnSameMonthDivider kind={edgeKind} />
-                                <DropLine show={showTopLine} edge="top" />
-                                <DropLine show={showBottomLine} edge="bottom" />
-                                <AmountCell
-                                  value={
-                                    raw === "" ||
-                                    raw === undefined ||
-                                    Number(raw) === 0
-                                      ? ""
-                                      : String(raw)
-                                  }
-                                  comment={
-                                    category.comments?.[p.date]?.trim() ?? ""
-                                  }
-                                  done={manuallyDone}
-                                  accent={isUpcoming && !cellGray}
-                                  showCheck={canMarkDone || manuallyDone}
-                                  onChange={(value) =>
-                                    onAmountChange(category.id, p.date, value)
-                                  }
-                                  onApplyToFuture={(value) =>
-                                    onAmountApplyToFuture(
-                                      category.id,
-                                      p.date,
-                                      value,
-                                    )
-                                  }
-                                  onCommit={() => onAmountCommit?.()}
-                                  onToggleDone={() => onToggleDone(key)}
-                                  onCommentChange={(next) =>
-                                    onCommentChange(category.id, p.date, next)
-                                  }
-                                  onCommentCommit={() => onCommentCommit?.()}
-                                />
-                              </td>
-                            )
-                          })}
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                ))}
+                                    payColumnMonthBorderClass(edgeKind),
+                                    labelTopBorder,
+                                  )}
+                                  style={{ width: W.pay, minWidth: W.pay }}
+                                >
+                                  <PayColumnSameMonthDivider kind={edgeKind} />
+                                </td>
+                              )
+                            })}
+                          </tr>
+                        </tbody>
+                      ) : null}
+                      <tbody>
+                        {bucket.categories.map((category) => {
+                          const row = rows.find((r) => r.key === category.id)!
+                          const extraTop =
+                            isFirstSavings && row.isFirstInBucket
+                              ? "pt-2"
+                              : undefined
+                          const topBorder = groupDividerTopClass(
+                            row.showBucketDivider && !isFirstSavings,
+                          )
+                          const bottomBorder = groupDividerBottomClass(
+                            row.isLastInBucket,
+                          )
+
+                          return (
+                            <tr
+                              key={category.id}
+                              ref={(el) => setRightRowRef(category.id, el)}
+                            >
+                              {paychecks.map((p, i) => {
+                                const raw = category.allocations[p.date]
+                                const key = allocationKey(category.id, p.id)
+                                const hasAmount =
+                                  raw !== "" &&
+                                  raw !== undefined &&
+                                  Number(raw) !== 0
+                                const isUpcoming = p.id === currentPaycheckId
+                                const manuallyDone = doneKeys.has(key)
+                                const isPast = p.date < today
+                                const cellGray = isPast
+                                const canMarkDone =
+                                  hasAmount && (p.date <= today || isUpcoming)
+                                const edgeKind = isUpcoming
+                                  ? undefined
+                                  : payColumnBorderClass(paychecks, i)
+
+                                return (
+                                  <td
+                                    key={p.id}
+                                    className={cn(
+                                      "group/cell relative px-1",
+                                      cellGray
+                                        ? "bg-neutral-50 text-[#969696] dark:bg-neutral-900"
+                                        : isUpcoming
+                                          ? upcomingColumnClass({
+                                              active: true,
+                                            })
+                                          : paneBg,
+                                      payColumnMonthBorderClass(edgeKind),
+                                      topBorder,
+                                      bottomBorder,
+                                      extraTop,
+                                    )}
+                                    style={{ width: W.pay, minWidth: W.pay }}
+                                  >
+                                    <PayColumnSameMonthDivider
+                                      kind={edgeKind}
+                                    />
+                                    <AmountCell
+                                      value={
+                                        raw === "" ||
+                                        raw === undefined ||
+                                        Number(raw) === 0
+                                          ? ""
+                                          : String(raw)
+                                      }
+                                      comment={
+                                        category.comments?.[p.date]?.trim() ??
+                                        ""
+                                      }
+                                      done={manuallyDone}
+                                      accent={isUpcoming && !cellGray}
+                                      showCheck={canMarkDone || manuallyDone}
+                                      onChange={(value) =>
+                                        onAmountChange(
+                                          category.id,
+                                          p.date,
+                                          value,
+                                        )
+                                      }
+                                      onApplyToFuture={(value) =>
+                                        onAmountApplyToFuture(
+                                          category.id,
+                                          p.date,
+                                          value,
+                                        )
+                                      }
+                                      onCommit={() => onAmountCommit?.()}
+                                      onToggleDone={() => onToggleDone(key)}
+                                      onCommentChange={(next) =>
+                                        onCommentChange(
+                                          category.id,
+                                          p.date,
+                                          next,
+                                        )
+                                      }
+                                      onCommentCommit={() =>
+                                        onCommentCommit?.()
+                                      }
+                                    />
+                                  </td>
+                                )
+                              })}
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </Fragment>
+                  )
+                })}
               </table>
             </div>
           </div>
@@ -1409,16 +1402,7 @@ export function BudgetGrid({
                   }}
                 >
                   <table className="w-full table-fixed border-separate border-spacing-0 text-sm">
-                    <colgroup>
-                      <col style={{ width: W.bucket, minWidth: W.bucket }} />
-                      <col
-                        style={{ width: W.category, minWidth: W.category }}
-                      />
-                      <col style={{ width: W.goal, minWidth: W.goal }} />
-                      <col
-                        style={{ width: W.balance, minWidth: W.balance }}
-                      />
-                    </colgroup>
+                    <LeftColgroup />
                     {totalsBuckets.map((bucket, bucketIndex) => {
                       const fullBucket =
                         buckets.find((b) => b.id === bucket.id) ?? bucket
@@ -1512,7 +1496,15 @@ export function BudgetGrid({
                                   className={cn(
                                     "relative",
                                     totalsBg,
-                                    balanceEdge,
+                                    topBorder,
+                                    bottomBorder,
+                                  )}
+                                />
+                                <td
+                                  className={cn(
+                                    "relative",
+                                    totalsBg,
+                                    plannedEdge,
                                     topBorder,
                                     bottomBorder,
                                   )}
@@ -1666,6 +1658,17 @@ export function BudgetGrid({
 
       </div>
       </div>
+
+      <EditGroupsDialog
+        open={editGroupsOpen}
+        buckets={buckets}
+        onOpenChange={setEditGroupsOpen}
+        onSave={onSaveGroups}
+        onEditGroup={(bucket) => {
+          setEditGroupsOpen(false)
+          setBucketDialog({ mode: "edit", bucket })
+        }}
+      />
 
       <AddBucketDialog
         key={

@@ -621,6 +621,33 @@ export default function App() {
     )
   }
 
+  function onSaveGroups(nextBuckets: Bucket[]) {
+    recordHistory()
+    patchWorkspace((prev) =>
+      updateActiveYearBudget(prev, (year) => {
+        const nextIds = new Set(nextBuckets.map((b) => b.id))
+        const removedCategoryIds = new Set(
+          year.buckets
+            .filter((b) => !nextIds.has(b.id))
+            .flatMap((b) => b.categories.map((c) => c.id)),
+        )
+        const doneKeys = year.doneKeys.filter((key) => {
+          const categoryId = key.split("::")[0]
+          return categoryId ? !removedCategoryIds.has(categoryId) : true
+        })
+        const withdrawals = year.withdrawals.filter(
+          (w) => !removedCategoryIds.has(w.categoryId),
+        )
+        return {
+          ...year,
+          buckets: nextBuckets,
+          doneKeys,
+          withdrawals,
+        }
+      }),
+    )
+  }
+
   function onReorderBuckets(fromId: string, beforeId: string | null) {
     recordHistory()
     patchWorkspace((prev) =>
@@ -822,6 +849,7 @@ export default function App() {
               onUpdateBucket={onUpdateBucket}
               onDeleteBucket={onDeleteBucket}
               onReorderBuckets={onReorderBuckets}
+              onSaveGroups={onSaveGroups}
               onSetupIncome={onSetupIncome}
               onPaycheckDateChange={onPaycheckDateChange}
             />
