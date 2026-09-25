@@ -104,7 +104,7 @@ type Props = {
 const W = {
   bucket: 118,
   category: 168,
-  metric: 288,
+  metric: 264,
   planned: 96,
   pay: 130,
 } as const
@@ -880,9 +880,7 @@ export function BudgetGrid({
                         headerBg,
                         plannedEdge,
                       )}
-                    >
-                      {headerMode === "expense" ? "Payment" : null}
-                    </th>
+                    />
                   </tr>
                 </thead>
               </table>
@@ -974,7 +972,7 @@ export function BudgetGrid({
                         headerBg,
                       )}
                     >
-                      Planned
+                      {headerMode === "expense" ? "Payment" : "Planned"}
                     </th>
                   </tr>
                 </thead>
@@ -1039,26 +1037,26 @@ export function BudgetGrid({
                           </td>
                           <td
                             className={cn(
-                              "px-3 pt-3 pb-1",
+                              "pt-3 pb-1 pl-0 pr-1",
                               paneBg,
                               plannedEdge,
                               labelTopBorder,
                             )}
                           >
-                            <div className="flex items-end gap-2">
+                            <div className="flex items-end gap-2 pl-0 pr-1">
                               <span
                                 className={cn(
                                   metricLabelClass,
-                                  "w-[5.75rem] shrink-0 text-right",
+                                  "w-[5.5rem] shrink-0 text-right",
                                 )}
                               >
                                 Planned/goal
                               </span>
-                              <span className="w-14 shrink-0" aria-hidden />
+                              <span className="w-16 shrink-0" aria-hidden />
                               <span
                                 className={cn(
                                   metricLabelClass,
-                                  "min-w-[3.25rem] shrink-0 text-left",
+                                  "min-w-[2.75rem] shrink-0 text-left",
                                 )}
                               >
                                 Left
@@ -1072,7 +1070,6 @@ export function BudgetGrid({
                       {bucket.categories.map((category) => {
                         const row = rows.find((r) => r.key === category.id)!
                         const isSavings = bucket.kind === "savings"
-                        const isExpense = bucket.kind === "spending"
                         const fullBucket =
                           buckets.find((b) => b.id === bucket.id) ?? bucket
                         const extraTop =
@@ -1085,10 +1082,6 @@ export function BudgetGrid({
                         const bottomBorder = groupDividerBottomClass(
                           row.isLastInBucket,
                         )
-                        const paymentAmount =
-                          category.amount ??
-                          category.recurringAmount ??
-                          category.minPayment
 
                         return (
                           <tr
@@ -1150,7 +1143,7 @@ export function BudgetGrid({
 
                             <td
                               className={cn(
-                                "relative px-1",
+                                "relative pl-0 pr-1",
                                 paneBg,
                                 plannedEdge,
                                 topBorder,
@@ -1158,24 +1151,7 @@ export function BudgetGrid({
                                 extraTop,
                               )}
                             >
-                              {isExpense ? (
-                                <div className="w-[96px]">
-                                  <MoneyField
-                                    value={
-                                      paymentAmount === undefined
-                                        ? ""
-                                        : String(paymentAmount)
-                                    }
-                                    onChange={(value) =>
-                                      onCategoryFieldChange(
-                                        category.id,
-                                        "amount",
-                                        value,
-                                      )
-                                    }
-                                  />
-                                </div>
-                              ) : isSavings ? (
+                              {isSavings ? (
                                 <SavingsProgressRow
                                   cash={savingsActualForCategory(
                                     category,
@@ -1434,6 +1410,7 @@ export function BudgetGrid({
                       {bucket.categories.map((category) => {
                         const row = rows.find((r) => r.key === category.id)!
                         const isSavings = bucket.kind === "savings"
+                        const isExpense = bucket.kind === "spending"
                         const extraTop =
                           isFirstSavings && row.isFirstInBucket
                             ? "pt-2"
@@ -1452,6 +1429,10 @@ export function BudgetGrid({
                               today,
                             )
                           : 0
+                        const paymentAmount =
+                          category.amount ??
+                          category.recurringAmount ??
+                          category.minPayment
 
                         return (
                           <tr
@@ -1473,6 +1454,22 @@ export function BudgetGrid({
                                     {formatMoney(plannedTotal)}
                                   </span>
                                 </div>
+                              ) : isExpense ? (
+                                <MoneyField
+                                  value={
+                                    paymentAmount === undefined
+                                      ? ""
+                                      : String(paymentAmount)
+                                  }
+                                  onChange={(value) =>
+                                    onCategoryFieldChange(
+                                      category.id,
+                                      "amount",
+                                      value,
+                                    )
+                                  }
+                                  align="left"
+                                />
                               ) : null}
                             </td>
                           </tr>
@@ -2150,21 +2147,30 @@ function SavingsProgressRow({
 }) {
   const have = cash + planned
   const hasGoal = goal !== undefined && Number.isFinite(goal) && goal > 0
-  const ratioLabel = hasGoal
-    ? `${formatMoney(have)}/${formatMoney(goal)}`
-    : have !== 0
-      ? formatMoney(have)
-      : "—"
   const midProgress = hasGoal ? Math.min(1, Math.max(0, have / goal)) : 0
   const cashProgress = hasGoal ? Math.min(1, Math.max(0, cash / goal)) : 0
 
   return (
-    <div className="flex h-9 min-w-0 items-center gap-2 px-2">
-      <span className="w-[5.75rem] shrink-0 text-right text-[11px] tabular-nums text-muted-foreground">
-        {ratioLabel}
+    <div className="flex h-9 min-w-0 items-center gap-2 pl-0 pr-1">
+      <span className="flex w-[5.5rem] shrink-0 justify-end text-[11px] tabular-nums">
+        {hasGoal ? (
+          <>
+            <span className="text-neutral-600 dark:text-neutral-300">
+              {formatMoney(have)}
+            </span>
+            <span className="text-neutral-400">/</span>
+            <span className="text-neutral-400">{formatMoney(goal)}</span>
+          </>
+        ) : have !== 0 ? (
+          <span className="text-neutral-600 dark:text-neutral-300">
+            {formatMoney(have)}
+          </span>
+        ) : (
+          <span className="text-neutral-400">—</span>
+        )}
       </span>
       <div
-        className="relative h-1.5 w-14 shrink-0 overflow-hidden rounded-full bg-[#E8E8E8] dark:bg-neutral-800"
+        className="relative h-1.5 w-16 shrink-0 overflow-hidden rounded-full bg-[#E8E8E8] dark:bg-neutral-800"
         role="progressbar"
         aria-valuemin={0}
         aria-valuemax={100}
@@ -2182,7 +2188,7 @@ function SavingsProgressRow({
           style={{ width: `${cashProgress * 100}%` }}
         />
       </div>
-      <span className="min-w-[3.25rem] shrink-0 text-left text-[11px] tabular-nums text-muted-foreground">
+      <span className="min-w-[2.75rem] shrink-0 text-left text-[11px] tabular-nums text-muted-foreground">
         {remaining !== undefined ? formatMoney(remaining) : ""}
       </span>
     </div>
@@ -2192,16 +2198,19 @@ function SavingsProgressRow({
 function MoneyField({
   value,
   onChange,
+  align = "right",
 }: {
   value: string
   onChange: (value: string) => void
+  align?: "left" | "right"
 }) {
   const [editing, setEditing] = useState(false)
 
   return (
     <div
       className={cn(
-        "flex h-9 cursor-text items-center justify-end rounded-md border border-transparent px-2",
+        "flex h-9 cursor-text items-center rounded-md border border-transparent px-2",
+        align === "left" ? "justify-start" : "justify-end",
         "hover:border-input focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/30",
       )}
       onClick={() => setEditing(true)}
@@ -2209,7 +2218,10 @@ function MoneyField({
       {editing ? (
         <input
           autoFocus
-          className="h-7 w-full bg-transparent text-right text-sm tabular-nums text-foreground outline-none"
+          className={cn(
+            "h-7 w-full bg-transparent text-sm tabular-nums text-foreground outline-none",
+            align === "left" ? "text-left" : "text-right",
+          )}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           onBlur={() => setEditing(false)}
