@@ -881,12 +881,40 @@ export function BudgetGrid({
                     </th>
                     <th
                       className={cn(
-                        "border-b-2 border-b-neutral-900 px-3 py-3 text-right font-medium",
+                        "border-b-2 border-b-neutral-900 py-3 pl-0 pr-0 text-left font-medium",
                         headerBg,
                         plannedEdge,
                       )}
                     >
-                      {headerMode === "expense" ? "Payment" : null}
+                      {headerMode === "expense" ? (
+                        <span className="block pr-3 text-right">Payment</span>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={cn(
+                              metricLabelClass,
+                              "shrink-0 text-right",
+                            )}
+                            style={{ width: PROGRESS_RATIO_W }}
+                          >
+                            Planned/goal
+                          </span>
+                          <span
+                            className="shrink-0"
+                            style={{ width: PROGRESS_BAR_W }}
+                            aria-hidden
+                          />
+                          <span
+                            className={cn(
+                              metricLabelClass,
+                              "shrink-0 text-left",
+                            )}
+                            style={{ width: PROGRESS_LEFT_W }}
+                          >
+                            Left
+                          </span>
+                        </div>
+                      )}
                     </th>
                   </tr>
                 </thead>
