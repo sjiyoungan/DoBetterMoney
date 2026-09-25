@@ -887,7 +887,24 @@ export function BudgetGrid({
                       )}
                     >
                       {headerMode === "expense" ? (
-                        <span className="block pr-3 text-right">Payment</span>
+                        <div className="flex items-center gap-2">
+                          <span
+                            className="shrink-0"
+                            style={{ width: PROGRESS_RATIO_W }}
+                            aria-hidden
+                          />
+                          <span
+                            className="shrink-0"
+                            style={{ width: PROGRESS_BAR_W }}
+                            aria-hidden
+                          />
+                          <span
+                            className="shrink-0 text-left text-sm font-medium"
+                            style={{ width: PROGRESS_LEFT_W }}
+                          >
+                            Payment
+                          </span>
+                        </div>
                       ) : (
                         <div className="flex items-center gap-2">
                           <span
@@ -1198,8 +1215,21 @@ export function BudgetGrid({
                               )}
                             >
                               {isExpense ? (
-                                <div className="flex h-9 justify-end">
-                                  <div className="w-24">
+                                <div className="flex h-9 items-center gap-2 pl-0 pr-0">
+                                  <span
+                                    className="shrink-0"
+                                    style={{ width: PROGRESS_RATIO_W }}
+                                    aria-hidden
+                                  />
+                                  <span
+                                    className="shrink-0"
+                                    style={{ width: PROGRESS_BAR_W }}
+                                    aria-hidden
+                                  />
+                                  <div
+                                    className="shrink-0"
+                                    style={{ width: PROGRESS_LEFT_W }}
+                                  >
                                     <MoneyField
                                       value={
                                         paymentAmount === undefined
@@ -1213,6 +1243,7 @@ export function BudgetGrid({
                                           value,
                                         )
                                       }
+                                      align="left"
                                     />
                                   </div>
                                 </div>
@@ -2251,7 +2282,7 @@ function SavingsProgressRow({
 function MoneyField({
   value,
   onChange,
-  align = "right",
+  align = "left",
 }: {
   value: string
   onChange: (value: string) => void
@@ -2262,7 +2293,7 @@ function MoneyField({
   return (
     <div
       className={cn(
-        "flex h-9 cursor-text items-center rounded-md border border-transparent px-2",
+        "flex h-9 w-full cursor-text items-center rounded-md border border-transparent px-0",
         align === "left" ? "justify-start" : "justify-end",
         "hover:border-input focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/30",
       )}
