@@ -153,6 +153,9 @@ function payColumnScrollTarget(
 }
 
 function snapPayScrollLeft(scrollLeft: number, maxScroll: number) {
+  if (maxScroll <= 0) return 0
+  // Pin to the end when near it so drag-release doesn't hide the last column.
+  if (scrollLeft >= maxScroll - W.pay / 2) return maxScroll
   const snapped = Math.round(scrollLeft / W.pay) * W.pay
   return Math.max(0, Math.min(maxScroll, snapped))
 }
@@ -1041,7 +1044,27 @@ export function BudgetGrid({
                               plannedEdge,
                               labelTopBorder,
                             )}
-                          />
+                          >
+                            <div className="flex items-end gap-2">
+                              <span
+                                className={cn(
+                                  metricLabelClass,
+                                  "w-[5.75rem] shrink-0 text-right",
+                                )}
+                              >
+                                Planned/goal
+                              </span>
+                              <span className="w-14 shrink-0" aria-hidden />
+                              <span
+                                className={cn(
+                                  metricLabelClass,
+                                  "min-w-[3.25rem] shrink-0 text-left",
+                                )}
+                              >
+                                Left
+                              </span>
+                            </div>
+                          </td>
                         </tr>
                       </tbody>
                     ) : null}
@@ -1227,6 +1250,7 @@ export function BudgetGrid({
                           >
                             {paychecks.map((p, i) => {
                               const isUpcoming = p.id === currentPaycheckId
+                              const isPast = p.date < today
                               const edgeKind = isUpcoming
                                 ? undefined
                                 : payColumnBorderClass(paychecks, i)
@@ -1235,9 +1259,11 @@ export function BudgetGrid({
                                   key={p.id}
                                   className={cn(
                                     "relative",
-                                    isUpcoming
-                                      ? upcomingColumnClass({ active: true })
-                                      : paneBg,
+                                    isPast
+                                      ? "bg-neutral-50 dark:bg-neutral-900"
+                                      : isUpcoming
+                                        ? upcomingColumnClass({ active: true })
+                                        : paneBg,
                                     payColumnMonthBorderClass(edgeKind),
                                     labelTopBorder,
                                   )}
@@ -2129,32 +2155,36 @@ function SavingsProgressRow({
     : have !== 0
       ? formatMoney(have)
       : "—"
-  const progress = hasGoal ? Math.min(1, Math.max(0, have / goal)) : 0
-  const leftLabel =
-    remaining !== undefined ? `${formatMoney(remaining)} left` : ""
+  const midProgress = hasGoal ? Math.min(1, Math.max(0, have / goal)) : 0
+  const cashProgress = hasGoal ? Math.min(1, Math.max(0, cash / goal)) : 0
 
   return (
     <div className="flex h-9 min-w-0 items-center gap-2 px-2">
-      <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">
+      <span className="w-[5.75rem] shrink-0 text-right text-[11px] tabular-nums text-muted-foreground">
         {ratioLabel}
       </span>
       <div
-        className="h-1.5 min-w-[2rem] flex-1 overflow-hidden rounded-full bg-[#E8E8E8] dark:bg-neutral-800"
+        className="relative h-1.5 w-14 shrink-0 overflow-hidden rounded-full bg-[#E8E8E8] dark:bg-neutral-800"
         role="progressbar"
         aria-valuemin={0}
         aria-valuemax={100}
-        aria-valuenow={Math.round(progress * 100)}
+        aria-valuenow={Math.round(midProgress * 100)}
+        aria-label="Savings progress"
       >
+        {/* Mid: cash on hand + planned */}
         <div
-          className="h-full rounded-full bg-[#B0B0B0] dark:bg-neutral-500"
-          style={{ width: `${progress * 100}%` }}
+          className="absolute inset-y-0 left-0 rounded-full bg-[#C4C4C4] dark:bg-neutral-600"
+          style={{ width: `${midProgress * 100}%` }}
+        />
+        {/* Dark: cash on hand only */}
+        <div
+          className="absolute inset-y-0 left-0 rounded-full bg-[#8A8A8A] dark:bg-neutral-400"
+          style={{ width: `${cashProgress * 100}%` }}
         />
       </div>
-      {leftLabel ? (
-        <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">
-          {leftLabel}
-        </span>
-      ) : null}
+      <span className="min-w-[3.25rem] shrink-0 text-left text-[11px] tabular-nums text-muted-foreground">
+        {remaining !== undefined ? formatMoney(remaining) : ""}
+      </span>
     </div>
   )
 }
