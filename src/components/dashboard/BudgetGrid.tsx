@@ -102,14 +102,19 @@ type Props = {
 
 /** Left pane: Group | Category | Payment-or-savings-bar */
 const W = {
-  bucket: 118,
+  bucket: 102,
   category: 168,
-  metric: 264,
+  /** Fits ratio + bar + left remaining (5-figure + 24px); no extra slack */
+  metric: 244,
   planned: 96,
   pay: 130,
 } as const
 const LEFT_WIDTH = W.bucket + W.category + W.metric
 const STICKY_PLANNED = W.planned
+/** “Left” remaining: room for five figures + 24px */
+const PROGRESS_LEFT_W = 24 + 52
+const PROGRESS_BAR_W = 64
+const PROGRESS_RATIO_W = 88
 
 const metricLabelClass =
   "text-[10px] font-medium uppercase tracking-wide text-neutral-400"
@@ -876,11 +881,13 @@ export function BudgetGrid({
                     </th>
                     <th
                       className={cn(
-                        "border-b-2 border-b-neutral-900 px-3 py-3 text-left font-medium",
+                        "border-b-2 border-b-neutral-900 px-3 py-3 text-right font-medium",
                         headerBg,
                         plannedEdge,
                       )}
-                    />
+                    >
+                      {headerMode === "expense" ? "Payment" : null}
+                    </th>
                   </tr>
                 </thead>
               </table>
@@ -972,7 +979,7 @@ export function BudgetGrid({
                         headerBg,
                       )}
                     >
-                      {headerMode === "expense" ? "Payment" : "Planned"}
+                      Planned
                     </th>
                   </tr>
                 </thead>
@@ -1043,21 +1050,27 @@ export function BudgetGrid({
                               labelTopBorder,
                             )}
                           >
-                            <div className="flex items-end gap-2 pl-0 pr-1">
+                            <div className="flex items-end gap-2 pl-0 pr-0">
                               <span
                                 className={cn(
                                   metricLabelClass,
-                                  "w-[5.5rem] shrink-0 text-right",
+                                  "shrink-0 text-right",
                                 )}
+                                style={{ width: PROGRESS_RATIO_W }}
                               >
                                 Planned/goal
                               </span>
-                              <span className="w-16 shrink-0" aria-hidden />
+                              <span
+                                className="shrink-0"
+                                style={{ width: PROGRESS_BAR_W }}
+                                aria-hidden
+                              />
                               <span
                                 className={cn(
                                   metricLabelClass,
-                                  "min-w-[2.75rem] shrink-0 text-left",
+                                  "shrink-0 text-left",
                                 )}
+                                style={{ width: PROGRESS_LEFT_W }}
                               >
                                 Left
                               </span>
@@ -1070,6 +1083,7 @@ export function BudgetGrid({
                       {bucket.categories.map((category) => {
                         const row = rows.find((r) => r.key === category.id)!
                         const isSavings = bucket.kind === "savings"
+                        const isExpense = bucket.kind === "spending"
                         const fullBucket =
                           buckets.find((b) => b.id === bucket.id) ?? bucket
                         const extraTop =
@@ -1082,6 +1096,10 @@ export function BudgetGrid({
                         const bottomBorder = groupDividerBottomClass(
                           row.isLastInBucket,
                         )
+                        const paymentAmount =
+                          category.amount ??
+                          category.recurringAmount ??
+                          category.minPayment
 
                         return (
                           <tr
@@ -1143,7 +1161,7 @@ export function BudgetGrid({
 
                             <td
                               className={cn(
-                                "relative pl-0 pr-1",
+                                "relative pl-0 pr-0",
                                 paneBg,
                                 plannedEdge,
                                 topBorder,
@@ -1151,7 +1169,26 @@ export function BudgetGrid({
                                 extraTop,
                               )}
                             >
-                              {isSavings ? (
+                              {isExpense ? (
+                                <div className="flex h-9 justify-end">
+                                  <div className="w-24">
+                                    <MoneyField
+                                      value={
+                                        paymentAmount === undefined
+                                          ? ""
+                                          : String(paymentAmount)
+                                      }
+                                      onChange={(value) =>
+                                        onCategoryFieldChange(
+                                          category.id,
+                                          "amount",
+                                          value,
+                                        )
+                                      }
+                                    />
+                                  </div>
+                                </div>
+                              ) : isSavings ? (
                                 <SavingsProgressRow
                                   cash={savingsActualForCategory(
                                     category,
@@ -1410,7 +1447,6 @@ export function BudgetGrid({
                       {bucket.categories.map((category) => {
                         const row = rows.find((r) => r.key === category.id)!
                         const isSavings = bucket.kind === "savings"
-                        const isExpense = bucket.kind === "spending"
                         const extraTop =
                           isFirstSavings && row.isFirstInBucket
                             ? "pt-2"
@@ -1429,10 +1465,6 @@ export function BudgetGrid({
                               today,
                             )
                           : 0
-                        const paymentAmount =
-                          category.amount ??
-                          category.recurringAmount ??
-                          category.minPayment
 
                         return (
                           <tr
@@ -1454,22 +1486,6 @@ export function BudgetGrid({
                                     {formatMoney(plannedTotal)}
                                   </span>
                                 </div>
-                              ) : isExpense ? (
-                                <MoneyField
-                                  value={
-                                    paymentAmount === undefined
-                                      ? ""
-                                      : String(paymentAmount)
-                                  }
-                                  onChange={(value) =>
-                                    onCategoryFieldChange(
-                                      category.id,
-                                      "amount",
-                                      value,
-                                    )
-                                  }
-                                  align="left"
-                                />
                               ) : null}
                             </td>
                           </tr>
@@ -2151,8 +2167,11 @@ function SavingsProgressRow({
   const cashProgress = hasGoal ? Math.min(1, Math.max(0, cash / goal)) : 0
 
   return (
-    <div className="flex h-9 min-w-0 items-center gap-2 pl-0 pr-1">
-      <span className="flex w-[5.5rem] shrink-0 justify-end text-[11px] tabular-nums">
+    <div className="flex h-9 min-w-0 items-center gap-2 pl-0 pr-0">
+      <span
+        className="flex shrink-0 justify-end text-[11px] tabular-nums"
+        style={{ width: PROGRESS_RATIO_W }}
+      >
         {hasGoal ? (
           <>
             <span className="text-neutral-600 dark:text-neutral-300">
@@ -2161,16 +2180,19 @@ function SavingsProgressRow({
             <span className="text-neutral-400">/</span>
             <span className="text-neutral-400">{formatMoney(goal)}</span>
           </>
-        ) : have !== 0 ? (
-          <span className="text-neutral-600 dark:text-neutral-300">
-            {formatMoney(have)}
-          </span>
         ) : (
-          <span className="text-neutral-400">—</span>
+          <>
+            <span className="text-neutral-600 dark:text-neutral-300">
+              {formatMoney(planned)}
+            </span>
+            <span className="text-neutral-400">/</span>
+            <span className="text-neutral-300">—</span>
+          </>
         )}
       </span>
       <div
-        className="relative h-1.5 w-16 shrink-0 overflow-hidden rounded-full bg-[#E8E8E8] dark:bg-neutral-800"
+        className="relative h-1.5 shrink-0 overflow-hidden rounded-full bg-[#E8E8E8] dark:bg-neutral-800"
+        style={{ width: PROGRESS_BAR_W }}
         role="progressbar"
         aria-valuemin={0}
         aria-valuemax={100}
@@ -2188,7 +2210,10 @@ function SavingsProgressRow({
           style={{ width: `${cashProgress * 100}%` }}
         />
       </div>
-      <span className="min-w-[2.75rem] shrink-0 text-left text-[11px] tabular-nums text-muted-foreground">
+      <span
+        className="shrink-0 text-left text-[11px] tabular-nums text-muted-foreground"
+        style={{ width: PROGRESS_LEFT_W }}
+      >
         {remaining !== undefined ? formatMoney(remaining) : ""}
       </span>
     </div>
