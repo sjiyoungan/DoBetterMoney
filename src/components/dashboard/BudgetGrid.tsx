@@ -25,8 +25,8 @@ import {
   formatPayDate,
 } from "@/lib/format"
 import {
-  savingsActualForCategory,
   savingsPlannedForCategory,
+  savingsRemainingToGoal,
 } from "@/lib/budget-summary"
 import type { IncomeSourceInput } from "@/lib/income-schedule"
 import { todayIso } from "@/lib/recurrence"
@@ -1024,12 +1024,13 @@ export function BudgetGrid({
                         const bottomBorder = groupDividerBottomClass(
                           row.isLastInBucket,
                         )
-                        const balanceToday = isSavings
-                          ? savingsActualForCategory(
+                        const balanceLeft = isSavings
+                          ? savingsRemainingToGoal(
                               category,
                               paychecks,
                               doneKeys,
                               withdrawals,
+                              today,
                             )
                           : undefined
                         const paymentAmount =
@@ -1139,10 +1140,10 @@ export function BudgetGrid({
                                 extraTop,
                               )}
                             >
-                              {isSavings ? (
+                              {isSavings && balanceLeft !== undefined ? (
                                 <div className="flex h-9 items-center justify-end px-2">
                                   <span className="text-sm tabular-nums text-muted-foreground">
-                                    ${balanceToday}
+                                    ${balanceLeft}
                                   </span>
                                 </div>
                               ) : null}
