@@ -633,11 +633,18 @@ export function BudgetGrid({
 
   function rowHoverProps(rowId: string) {
     return {
+      "data-hover-row": rowId,
       onMouseEnter: () => setHoveredRowId(rowId),
-      onMouseLeave: () =>
-        setHoveredRowId((cur) => (cur === rowId ? null : cur)),
-      className: hoveredRowId === rowId ? "row-hover-active" : undefined,
+      onMouseLeave: (e: React.MouseEvent<HTMLElement>) => {
+        const related = e.relatedTarget as HTMLElement | null
+        if (related?.closest?.(`[data-hover-row="${rowId}"]`)) return
+        setHoveredRowId((cur) => (cur === rowId ? null : cur))
+      },
     }
+  }
+
+  function rowHoverClass(rowId: string) {
+    return hoveredRowId === rowId ? "row-hover-active" : undefined
   }
 
   function scrollPayByColumn(direction: -1 | 1) {
@@ -808,15 +815,14 @@ export function BudgetGrid({
                         headerBg,
                       )}
                     >
-                      <div className="flex items-center justify-start gap-2">
-                        <span>Group</span>
+                      <div className="flex items-center justify-start">
                         <button
                           type="button"
                           title="Edit groups"
                           aria-label="Edit groups"
                           onClick={() => setEditGroupsOpen(true)}
                           className={cn(
-                            "-ml-1 rounded-md px-2 py-1 text-sm font-medium text-foreground",
+                            "rounded-md px-2 py-1 text-sm font-medium text-foreground",
                             blushHoverClass,
                           )}
                         >
@@ -1060,7 +1066,6 @@ export function BudgetGrid({
                           <tr
                             key={category.id}
                             ref={(el) => setLeftRowRef(category.id, el)}
-                            {...rowHoverProps(category.id)}
                           >
                             {row.isFirstInBucket ? (
                               <td
@@ -1099,17 +1104,16 @@ export function BudgetGrid({
                                 topBorder,
                                 bottomBorder,
                                 extraTop,
+                                rowHoverClass(category.id),
                               )}
+                              {...rowHoverProps(category.id)}
                             >
                               <button
                                 type="button"
                                 onClick={() =>
                                   setSelected({ category, bucket })
                                 }
-                                className={cn(
-                                  "h-9 w-full cursor-pointer px-3 text-left text-sm transition-[background] duration-150 hover:text-foreground",
-                                  blushHoverClass,
-                                )}
+                                className="h-9 w-full cursor-pointer px-3 text-left text-sm transition-colors duration-150 hover:text-foreground"
                               >
                                 {category.name}
                               </button>
@@ -1122,7 +1126,9 @@ export function BudgetGrid({
                                 topBorder,
                                 bottomBorder,
                                 extraTop,
+                                rowHoverClass(category.id),
                               )}
+                              {...rowHoverProps(category.id)}
                             >
                               {isSavings ? (
                                 <MoneyField
@@ -1149,7 +1155,9 @@ export function BudgetGrid({
                                 topBorder,
                                 bottomBorder,
                                 extraTop,
+                                rowHoverClass(category.id),
                               )}
+                              {...rowHoverProps(category.id)}
                             >
                               {isSavings && balanceLeft !== undefined ? (
                                 <div className="flex h-9 items-center justify-end px-2">
@@ -1168,7 +1176,9 @@ export function BudgetGrid({
                                 topBorder,
                                 bottomBorder,
                                 extraTop,
+                                rowHoverClass(category.id),
                               )}
+                              {...rowHoverProps(category.id)}
                             >
                               {isExpense ? (
                                 <MoneyField
@@ -1284,6 +1294,7 @@ export function BudgetGrid({
                             <tr
                               key={category.id}
                               ref={(el) => setRightRowRef(category.id, el)}
+                              className={rowHoverClass(category.id)}
                               {...rowHoverProps(category.id)}
                             >
                               {paychecks.map((p, i) => {

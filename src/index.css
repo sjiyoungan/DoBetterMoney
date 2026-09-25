@@ -168,8 +168,9 @@
     color: #404040;
   }
 
-  /* Full-row track highlight across split left/right panes */
+  /* Full-row track highlight (category → pay cells; skips group column) */
+  td.row-hover-active,
   tr.row-hover-active > td {
-    background-color: #f7ebee !important;
+    background-color: #fffcfd !important;
   }
 }
