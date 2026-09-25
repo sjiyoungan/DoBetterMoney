@@ -25,6 +25,7 @@ import {
   formatPayDate,
 } from "@/lib/format"
 import {
+  savingsActualForCategory,
   savingsPlannedForCategory,
   savingsRemainingToGoal,
 } from "@/lib/budget-summary"
@@ -99,17 +100,16 @@ type Props = {
   onPaycheckDateChange?: (paycheckId: string, date: string) => void
 }
 
-/** Left pane: Group | Category | Goal | Balance | Payment/Planned */
+/** Left pane: Group | Category | Payment-or-savings-bar */
 const W = {
   bucket: 118,
   category: 168,
-  goal: 96,
-  balance: 96,
+  metric: 288,
   planned: 96,
   pay: 130,
 } as const
-const LEFT_WIDTH =
-  W.bucket + W.category + W.goal + W.balance + W.planned
+const LEFT_WIDTH = W.bucket + W.category + W.metric
+const STICKY_PLANNED = W.planned
 
 const metricLabelClass =
   "text-[10px] font-medium uppercase tracking-wide text-neutral-400"
@@ -253,9 +253,15 @@ function LeftColgroup() {
     <colgroup>
       <col style={{ width: W.bucket, minWidth: W.bucket }} />
       <col style={{ width: W.category, minWidth: W.category }} />
-      <col style={{ width: W.goal, minWidth: W.goal }} />
-      <col style={{ width: W.balance, minWidth: W.balance }} />
-      <col style={{ width: W.planned, minWidth: W.planned }} />
+      <col style={{ width: W.metric, minWidth: W.metric }} />
+    </colgroup>
+  )
+}
+
+function PlannedColgroup() {
+  return (
+    <colgroup>
+      <col style={{ width: STICKY_PLANNED, minWidth: STICKY_PLANNED }} />
     </colgroup>
   )
 }
@@ -272,14 +278,16 @@ type GridRow = {
 /**
  * Split-pane budget grid.
  *
- * Left pane (Group → Payment/Planned) does not scroll horizontally.
- * Right pane (paycheck columns) pans horizontally via click-drag anywhere in
+ * Left pane (Group → Payment/bar) does not scroll horizontally.
+ * Middle pane (paycheck columns) pans horizontally via click-drag anywhere in
  * the paycheck area (header, body, Totals), including starting on inputs —
  * a press without drag still focuses/edits; past slop it pans. Arrow controls
  * also scroll. Mouse wheel over paychecks scrolls the body vertically.
+ * Sticky Planned sits after the paycheck scroller and does not pan.
  * Vertical scroll lives only in the body pane: locked header and Totals sit
  * outside that scroller. Right header/footer sync via translateX with the
- * paycheck scroller. Left pane owns the H-scroll shadow.
+ * paycheck scroller. Left pane owns the right-edge H-scroll shadow; Planned
+ * owns the left-edge shadow when paycheck columns overflow.
  */
 export function BudgetGrid({
   buckets,
@@ -307,10 +315,14 @@ export function BudgetGrid({
   const footerScrollSurfaceRef = useRef<HTMLDivElement>(null)
   const leftTableRef = useRef<HTMLTableElement>(null)
   const rightTableRef = useRef<HTMLTableElement>(null)
+  const plannedTableRef = useRef<HTMLTableElement>(null)
+  const plannedFooterTableRef = useRef<HTMLTableElement>(null)
   const leftHeaderRef = useRef<HTMLTableRowElement>(null)
   const rightHeaderRef = useRef<HTMLTableRowElement>(null)
+  const plannedHeaderRef = useRef<HTMLTableRowElement>(null)
   const leftRowRefs = useRef(new Map<string, HTMLTableRowElement>())
   const rightRowRefs = useRef(new Map<string, HTMLTableRowElement>())
+  const plannedRowRefs = useRef(new Map<string, HTMLTableRowElement>())
   const gridFrameRef = useRef<HTMLDivElement>(null)
   const gridMeasureRef = useRef<HTMLDivElement>(null)
 
@@ -329,7 +341,6 @@ export function BudgetGrid({
   const [headerMode, setHeaderMode] = useState<"expense" | "savings">(
     "expense",
   )
-  const [hoveredRowId, setHoveredRowId] = useState<string | null>(null)
   const [selected, setSelected] = useState<{
     category: Category
     bucket: Bucket
@@ -431,7 +442,8 @@ export function BudgetGrid({
     [paychecks, currentPaycheckId],
   )
 
-  const tableNaturalWidth = LEFT_WIDTH + paychecks.length * W.pay
+  const tableNaturalWidth =
+    LEFT_WIDTH + paychecks.length * W.pay + STICKY_PLANNED
   const shouldHugTable =
     availWidth > 0 && tableNaturalWidth < availWidth - 1
 
@@ -540,42 +552,69 @@ export function BudgetGrid({
     }
   }, [hasTotalsFooter, rows, totalsRows])
 
-  // Keep left/right row heights matched
+  // Keep left / paycheck / Planned row heights matched
   useEffect(() => {
     const sync = () => {
-      const pairs: Array<[HTMLTableRowElement | null, HTMLTableRowElement | null]> = [
-        [leftHeaderRef.current, rightHeaderRef.current],
+      const triples: Array<
+        [
+          HTMLTableRowElement | null,
+          HTMLTableRowElement | null,
+          HTMLTableRowElement | null,
+        ]
+      > = [
+        [
+          leftHeaderRef.current,
+          rightHeaderRef.current,
+          plannedHeaderRef.current,
+        ],
         [
           leftRowRefs.current.get(SAVINGS_LABELS_KEY) ?? null,
           rightRowRefs.current.get(SAVINGS_LABELS_KEY) ?? null,
+          plannedRowRefs.current.get(SAVINGS_LABELS_KEY) ?? null,
         ],
         ...rows.map(
           (row) =>
             [
               leftRowRefs.current.get(row.key) ?? null,
               rightRowRefs.current.get(row.key) ?? null,
-            ] as [HTMLTableRowElement | null, HTMLTableRowElement | null],
+              plannedRowRefs.current.get(row.key) ?? null,
+            ] as [
+              HTMLTableRowElement | null,
+              HTMLTableRowElement | null,
+              HTMLTableRowElement | null,
+            ],
         ),
         ...totalsRows.map(
           (row) =>
             [
               leftRowRefs.current.get(row.key) ?? null,
               rightRowRefs.current.get(row.key) ?? null,
-            ] as [HTMLTableRowElement | null, HTMLTableRowElement | null],
+              plannedRowRefs.current.get(row.key) ?? null,
+            ] as [
+              HTMLTableRowElement | null,
+              HTMLTableRowElement | null,
+              HTMLTableRowElement | null,
+            ],
         ),
       ]
 
-      for (const [left, right] of pairs) {
-        if (!left || !right) continue
-        left.style.height = ""
-        right.style.height = ""
+      for (const [left, right, planned] of triples) {
+        if (left) left.style.height = ""
+        if (right) right.style.height = ""
+        if (planned) planned.style.height = ""
       }
 
-      for (const [left, right] of pairs) {
-        if (!left || !right) continue
-        const height = Math.max(left.offsetHeight, right.offsetHeight)
-        left.style.height = `${height}px`
-        right.style.height = `${height}px`
+      for (const [left, right, planned] of triples) {
+        const height = Math.max(
+          left?.offsetHeight ?? 0,
+          right?.offsetHeight ?? 0,
+          planned?.offsetHeight ?? 0,
+        )
+        if (height === 0) continue
+        const px = `${height}px`
+        if (left) left.style.height = px
+        if (right) right.style.height = px
+        if (planned) planned.style.height = px
       }
     }
 
@@ -583,6 +622,8 @@ export function BudgetGrid({
     const ro = new ResizeObserver(sync)
     if (leftTableRef.current) ro.observe(leftTableRef.current)
     if (rightTableRef.current) ro.observe(rightTableRef.current)
+    if (plannedTableRef.current) ro.observe(plannedTableRef.current)
+    if (plannedFooterTableRef.current) ro.observe(plannedFooterTableRef.current)
     const bodyScroll = bodyScrollRef.current
     bodyScroll?.addEventListener("scroll", sync, { passive: true })
     return () => {
@@ -591,7 +632,7 @@ export function BudgetGrid({
     }
   }, [rows, totalsRows, paychecks, firstSavingsBucketId])
 
-  // Sticky header: Payment while expenses lead; Goal/Balance/Planned once savings labels reach it
+  // Sticky header: Payment while expenses lead; blank metric once savings labels reach it
   useEffect(() => {
     const body = bodyScrollRef.current
     if (!body) return
@@ -631,20 +672,9 @@ export function BudgetGrid({
     else rightRowRefs.current.delete(key)
   }
 
-  function rowHoverProps(rowId: string) {
-    return {
-      "data-hover-row": rowId,
-      onMouseEnter: () => setHoveredRowId(rowId),
-      onMouseLeave: (e: React.MouseEvent<HTMLElement>) => {
-        const related = e.relatedTarget as HTMLElement | null
-        if (related?.closest?.(`[data-hover-row="${rowId}"]`)) return
-        setHoveredRowId((cur) => (cur === rowId ? null : cur))
-      },
-    }
-  }
-
-  function rowHoverClass(rowId: string) {
-    return hoveredRowId === rowId ? "row-hover-active" : undefined
+  function setPlannedRowRef(key: string, el: HTMLTableRowElement | null) {
+    if (el) plannedRowRefs.current.set(key, el)
+    else plannedRowRefs.current.delete(key)
   }
 
   function scrollPayByColumn(direction: -1 | 1) {
@@ -723,6 +753,9 @@ export function BudgetGrid({
   )
   const canScrollPayLeft = scrollLeft > 1
   const canScrollPayRight = scrollLeft < scrollMax - 1
+  const plannedLeftShadow = canScrollPayRight
+    ? "-6px 0 10px rgba(0, 0, 0, 0.16)"
+    : "none"
 
   const bodyBuckets = buckets.filter(
     (b) => b.kind !== "totals" && b.kind !== "budget_calc",
@@ -840,28 +873,12 @@ export function BudgetGrid({
                     </th>
                     <th
                       className={cn(
-                        "border-b-2 border-b-neutral-900 py-3 pl-3 pr-5 text-right font-medium",
-                        headerBg,
-                      )}
-                    >
-                      {headerMode === "savings" ? "Goal" : null}
-                    </th>
-                    <th
-                      className={cn(
-                        "border-b-2 border-b-neutral-900 px-3 py-3 text-right font-medium",
-                        headerBg,
-                      )}
-                    >
-                      {headerMode === "savings" ? "Balance" : null}
-                    </th>
-                    <th
-                      className={cn(
-                        "border-b-2 border-b-neutral-900 px-3 py-3 text-right font-medium",
+                        "border-b-2 border-b-neutral-900 px-3 py-3 text-left font-medium",
                         headerBg,
                         plannedEdge,
                       )}
                     >
-                      {headerMode === "savings" ? "Planned" : "Payment"}
+                      {headerMode === "expense" ? "Payment" : null}
                     </th>
                   </tr>
                 </thead>
@@ -932,6 +949,34 @@ export function BudgetGrid({
                 </table>
               </div>
             </div>
+            <div
+              className={cn(
+                "relative z-10 shrink-0 border-l border-l-neutral-900",
+                headerBg,
+              )}
+              style={{
+                width: STICKY_PLANNED,
+                minWidth: STICKY_PLANNED,
+                maxWidth: STICKY_PLANNED,
+                boxShadow: plannedLeftShadow,
+              }}
+            >
+              <table className="w-full table-fixed border-separate border-spacing-0 text-sm">
+                <PlannedColgroup />
+                <thead>
+                  <tr ref={plannedHeaderRef}>
+                    <th
+                      className={cn(
+                        "border-b-2 border-b-neutral-900 px-3 py-3 text-left font-medium",
+                        headerBg,
+                      )}
+                    >
+                      Planned
+                    </th>
+                  </tr>
+                </thead>
+              </table>
+            </div>
           </div>
 
           {/* Body-only vertical scroll — content clips under header / Totals */}
@@ -991,35 +1036,12 @@ export function BudgetGrid({
                           </td>
                           <td
                             className={cn(
-                              "px-3 pt-3 pb-1 text-right",
+                              "px-3 pt-3 pb-1",
                               paneBg,
-                              metricLabelClass,
-                              labelTopBorder,
-                            )}
-                          >
-                            Goal
-                          </td>
-                          <td
-                            className={cn(
-                              "px-3 pt-3 pb-1 text-right",
-                              paneBg,
-                              metricLabelClass,
-                              labelTopBorder,
-                            )}
-                          >
-                            Balance
-                          </td>
-                          <td
-                            className={cn(
-                              "px-3 pt-3 pb-1 text-right",
-                              paneBg,
-                              metricLabelClass,
                               plannedEdge,
                               labelTopBorder,
                             )}
-                          >
-                            Planned
-                          </td>
+                          />
                         </tr>
                       </tbody>
                     ) : null}
@@ -1040,27 +1062,10 @@ export function BudgetGrid({
                         const bottomBorder = groupDividerBottomClass(
                           row.isLastInBucket,
                         )
-                        const balanceLeft = isSavings
-                          ? savingsRemainingToGoal(
-                              category,
-                              paychecks,
-                              doneKeys,
-                              withdrawals,
-                              today,
-                            )
-                          : undefined
                         const paymentAmount =
                           category.amount ??
                           category.recurringAmount ??
                           category.minPayment
-                        const plannedTotal = isSavings
-                          ? savingsPlannedForCategory(
-                              category,
-                              paychecks,
-                              doneKeys,
-                              today,
-                            )
-                          : undefined
 
                         return (
                           <tr
@@ -1104,68 +1109,20 @@ export function BudgetGrid({
                                 topBorder,
                                 bottomBorder,
                                 extraTop,
-                                rowHoverClass(category.id),
                               )}
-                              {...rowHoverProps(category.id)}
                             >
                               <button
                                 type="button"
                                 onClick={() =>
                                   setSelected({ category, bucket })
                                 }
-                                className="h-9 w-full cursor-pointer px-3 text-left text-sm transition-colors duration-150 hover:text-foreground"
+                                className={cn(
+                                  "h-9 w-full cursor-pointer px-3 text-left text-sm transition-colors duration-150 hover:text-foreground",
+                                  blushHoverClass,
+                                )}
                               >
                                 {category.name}
                               </button>
-                            </td>
-
-                            <td
-                              className={cn(
-                                "relative px-1",
-                                paneBg,
-                                topBorder,
-                                bottomBorder,
-                                extraTop,
-                                rowHoverClass(category.id),
-                              )}
-                              {...rowHoverProps(category.id)}
-                            >
-                              {isSavings ? (
-                                <MoneyField
-                                  value={
-                                    category.goal === undefined
-                                      ? ""
-                                      : String(category.goal)
-                                  }
-                                  onChange={(value) =>
-                                    onCategoryFieldChange(
-                                      category.id,
-                                      "goal",
-                                      value,
-                                    )
-                                  }
-                                />
-                              ) : null}
-                            </td>
-
-                            <td
-                              className={cn(
-                                "relative px-1 text-right tabular-nums text-muted-foreground",
-                                paneBg,
-                                topBorder,
-                                bottomBorder,
-                                extraTop,
-                                rowHoverClass(category.id),
-                              )}
-                              {...rowHoverProps(category.id)}
-                            >
-                              {isSavings && balanceLeft !== undefined ? (
-                                <div className="flex h-9 items-center justify-end px-2">
-                                  <span className="text-sm tabular-nums text-muted-foreground">
-                                    ${balanceLeft}
-                                  </span>
-                                </div>
-                              ) : null}
                             </td>
 
                             <td
@@ -1176,31 +1133,48 @@ export function BudgetGrid({
                                 topBorder,
                                 bottomBorder,
                                 extraTop,
-                                rowHoverClass(category.id),
                               )}
-                              {...rowHoverProps(category.id)}
                             >
                               {isExpense ? (
-                                <MoneyField
-                                  value={
-                                    paymentAmount === undefined
-                                      ? ""
-                                      : String(paymentAmount)
-                                  }
-                                  onChange={(value) =>
-                                    onCategoryFieldChange(
-                                      category.id,
-                                      "amount",
-                                      value,
-                                    )
-                                  }
-                                />
-                              ) : isSavings && plannedTotal !== undefined ? (
-                                <div className="flex h-9 items-center justify-end px-2">
-                                  <span className="text-sm tabular-nums text-muted-foreground">
-                                    ${plannedTotal}
-                                  </span>
+                                <div className="w-[96px]">
+                                  <MoneyField
+                                    value={
+                                      paymentAmount === undefined
+                                        ? ""
+                                        : String(paymentAmount)
+                                    }
+                                    onChange={(value) =>
+                                      onCategoryFieldChange(
+                                        category.id,
+                                        "amount",
+                                        value,
+                                      )
+                                    }
+                                  />
                                 </div>
+                              ) : isSavings ? (
+                                <SavingsProgressRow
+                                  cash={savingsActualForCategory(
+                                    category,
+                                    paychecks,
+                                    doneKeys,
+                                    withdrawals,
+                                  )}
+                                  planned={savingsPlannedForCategory(
+                                    category,
+                                    paychecks,
+                                    doneKeys,
+                                    today,
+                                  )}
+                                  goal={category.goal}
+                                  remaining={savingsRemainingToGoal(
+                                    category,
+                                    paychecks,
+                                    doneKeys,
+                                    withdrawals,
+                                    today,
+                                  )}
+                                />
                               ) : null}
                             </td>
                           </tr>
@@ -1294,8 +1268,6 @@ export function BudgetGrid({
                             <tr
                               key={category.id}
                               ref={(el) => setRightRowRef(category.id, el)}
-                              className={rowHoverClass(category.id)}
-                              {...rowHoverProps(category.id)}
                             >
                               {paychecks.map((p, i) => {
                                 const raw = category.allocations[p.date]
@@ -1390,6 +1362,101 @@ export function BudgetGrid({
                 })}
               </table>
             </div>
+          </div>
+          <div
+            className={cn(
+              "relative z-10 shrink-0 border-l border-l-neutral-900",
+              paneBg,
+            )}
+            style={{
+              width: STICKY_PLANNED,
+              minWidth: STICKY_PLANNED,
+              maxWidth: STICKY_PLANNED,
+              boxShadow: plannedLeftShadow,
+            }}
+          >
+            <table
+              ref={plannedTableRef}
+              className="w-full table-fixed border-separate border-spacing-0 text-sm"
+            >
+              <PlannedColgroup />
+              {displayBuckets.map((bucket) => {
+                const isFirstSavings = bucket.id === firstSavingsBucketId
+                const labelTopBorder = groupDividerTopClass(
+                  isFirstSavings &&
+                    displayBuckets[0]?.id !== firstSavingsBucketId,
+                )
+                return (
+                  <Fragment key={bucket.id}>
+                    {isFirstSavings ? (
+                      <tbody>
+                        <tr
+                          ref={(el) =>
+                            setPlannedRowRef(SAVINGS_LABELS_KEY, el)
+                          }
+                        >
+                          <td
+                            className={cn(
+                              paneBg,
+                              labelTopBorder,
+                            )}
+                          />
+                        </tr>
+                      </tbody>
+                    ) : null}
+                    <tbody>
+                      {bucket.categories.map((category) => {
+                        const row = rows.find((r) => r.key === category.id)!
+                        const isSavings = bucket.kind === "savings"
+                        const extraTop =
+                          isFirstSavings && row.isFirstInBucket
+                            ? "pt-2"
+                            : undefined
+                        const topBorder = groupDividerTopClass(
+                          row.showBucketDivider && !isFirstSavings,
+                        )
+                        const bottomBorder = groupDividerBottomClass(
+                          row.isLastInBucket,
+                        )
+                        const plannedTotal = isSavings
+                          ? savingsPlannedForCategory(
+                              category,
+                              paychecks,
+                              doneKeys,
+                              today,
+                            )
+                          : 0
+
+                        return (
+                          <tr
+                            key={category.id}
+                            ref={(el) => setPlannedRowRef(category.id, el)}
+                          >
+                            <td
+                              className={cn(
+                                "relative px-3 text-left",
+                                paneBg,
+                                topBorder,
+                                bottomBorder,
+                                extraTop,
+                              )}
+                            >
+                              {isSavings && plannedTotal ? (
+                                <div className="flex h-9 items-center justify-start">
+                                  <span className="text-sm tabular-nums text-muted-foreground">
+                                    {formatMoney(plannedTotal)}
+                                  </span>
+                                </div>
+                              ) : null}
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </Fragment>
+                )
+              })}
+            </table>
           </div>
           </div>
           </div>
@@ -1517,22 +1584,6 @@ export function BudgetGrid({
                                   className={cn(
                                     "relative",
                                     totalsBg,
-                                    topBorder,
-                                    bottomBorder,
-                                  )}
-                                />
-                                <td
-                                  className={cn(
-                                    "relative",
-                                    totalsBg,
-                                    topBorder,
-                                    bottomBorder,
-                                  )}
-                                />
-                                <td
-                                  className={cn(
-                                    "relative",
-                                    totalsBg,
                                     plannedEdge,
                                     topBorder,
                                     bottomBorder,
@@ -1551,7 +1602,7 @@ export function BudgetGrid({
                 <div
                   ref={footerScrollSurfaceRef}
                   className={cn(
-                    "min-w-0 flex-1 overflow-hidden rounded-br-[8px]",
+                    "min-w-0 flex-1 overflow-hidden",
                     totalsBg,
                     payPanSurfaceClass,
                   )}
@@ -1679,6 +1730,58 @@ export function BudgetGrid({
                       ))}
                     </table>
                   </div>
+                </div>
+                <div
+                  className={cn(
+                    "relative z-10 shrink-0 overflow-hidden rounded-br-[8px] border-l border-l-neutral-900",
+                    totalsBg,
+                  )}
+                  style={{
+                    width: STICKY_PLANNED,
+                    minWidth: STICKY_PLANNED,
+                    maxWidth: STICKY_PLANNED,
+                    boxShadow: plannedLeftShadow,
+                  }}
+                >
+                  <table
+                    ref={plannedFooterTableRef}
+                    className="w-full table-fixed border-separate border-spacing-0 text-sm"
+                  >
+                    <PlannedColgroup />
+                    {totalsBuckets.map((bucket, bucketIndex) => (
+                      <tbody key={bucket.id}>
+                        {bucket.categories.map((category) => {
+                          const row = totalsRows.find(
+                            (r) => r.key === category.id,
+                          )!
+                          const topBorder =
+                            row.isFirstInBucket && bucketIndex === 0
+                              ? totalsDividerTopClass(true)
+                              : groupDividerTopClass(row.showBucketDivider)
+                          const bottomBorder = groupDividerBottomClass(
+                            row.isLastInBucket,
+                          )
+                          return (
+                            <tr
+                              key={category.id}
+                              ref={(el) =>
+                                setPlannedRowRef(category.id, el)
+                              }
+                            >
+                              <td
+                                className={cn(
+                                  "relative",
+                                  totalsBg,
+                                  topBorder,
+                                  bottomBorder,
+                                )}
+                              />
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    ))}
+                  </table>
                 </div>
                 </div>
               </div>
@@ -2005,6 +2108,54 @@ function PayDateHeader({
           )
         : null}
     </th>
+  )
+}
+
+function SavingsProgressRow({
+  cash,
+  planned,
+  goal,
+  remaining,
+}: {
+  cash: number
+  planned: number
+  goal: number | undefined
+  remaining: number | undefined
+}) {
+  const have = cash + planned
+  const hasGoal = goal !== undefined && Number.isFinite(goal) && goal > 0
+  const ratioLabel = hasGoal
+    ? `${formatMoney(have)}/${formatMoney(goal)}`
+    : have !== 0
+      ? formatMoney(have)
+      : "—"
+  const progress = hasGoal ? Math.min(1, Math.max(0, have / goal)) : 0
+  const leftLabel =
+    remaining !== undefined ? `${formatMoney(remaining)} left` : ""
+
+  return (
+    <div className="flex h-9 min-w-0 items-center gap-2 px-2">
+      <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">
+        {ratioLabel}
+      </span>
+      <div
+        className="h-1.5 min-w-[2rem] flex-1 overflow-hidden rounded-full bg-[#E8E8E8] dark:bg-neutral-800"
+        role="progressbar"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={Math.round(progress * 100)}
+      >
+        <div
+          className="h-full rounded-full bg-[#B0B0B0] dark:bg-neutral-500"
+          style={{ width: `${progress * 100}%` }}
+        />
+      </div>
+      {leftLabel ? (
+        <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">
+          {leftLabel}
+        </span>
+      ) : null}
+    </div>
   )
 }
 
