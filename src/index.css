@@ -167,4 +167,9 @@
     background-color: #f5f5f5;
     color: #404040;
   }
+
+  /* Full-row track highlight across split left/right panes */
+  tr.row-hover-active > td {
+    background-color: #f7ebee !important;
+  }
 }

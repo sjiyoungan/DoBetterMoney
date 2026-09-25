@@ -329,6 +329,7 @@ export function BudgetGrid({
   const [headerMode, setHeaderMode] = useState<"expense" | "savings">(
     "expense",
   )
+  const [hoveredRowId, setHoveredRowId] = useState<string | null>(null)
   const [selected, setSelected] = useState<{
     category: Category
     bucket: Bucket
@@ -628,6 +629,15 @@ export function BudgetGrid({
   function setRightRowRef(key: string, el: HTMLTableRowElement | null) {
     if (el) rightRowRefs.current.set(key, el)
     else rightRowRefs.current.delete(key)
+  }
+
+  function rowHoverProps(rowId: string) {
+    return {
+      onMouseEnter: () => setHoveredRowId(rowId),
+      onMouseLeave: () =>
+        setHoveredRowId((cur) => (cur === rowId ? null : cur)),
+      className: hoveredRowId === rowId ? "row-hover-active" : undefined,
+    }
   }
 
   function scrollPayByColumn(direction: -1 | 1) {
@@ -1050,6 +1060,7 @@ export function BudgetGrid({
                           <tr
                             key={category.id}
                             ref={(el) => setLeftRowRef(category.id, el)}
+                            {...rowHoverProps(category.id)}
                           >
                             {row.isFirstInBucket ? (
                               <td
@@ -1273,6 +1284,7 @@ export function BudgetGrid({
                             <tr
                               key={category.id}
                               ref={(el) => setRightRowRef(category.id, el)}
+                              {...rowHoverProps(category.id)}
                             >
                               {paychecks.map((p, i) => {
                                 const raw = category.allocations[p.date]
