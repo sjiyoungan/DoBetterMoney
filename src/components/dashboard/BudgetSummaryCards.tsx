@@ -1,5 +1,4 @@
 import { useMemo, useState } from "react"
-import { BanknoteArrowDown } from "lucide-react"
 import {
   computeComposition,
   savingsAllocatedByBucket,
@@ -18,7 +17,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { SavingsDetailDrawer } from "./SavingsDetailDrawer"
-import { WithdrawDialog } from "./WithdrawDialog"
 
 const PERIOD_OPTIONS: { value: CompositionPeriod; label: string }[] = [
   { value: "month", label: "This month" },
@@ -31,7 +29,6 @@ type Props = {
   activeYear: number
   doneKeys: Set<string>
   withdrawals?: Withdrawal[]
-  onWithdraw: (input: { categoryId: string; amount: number }) => void
 }
 
 export function BudgetSummaryCards({
@@ -40,10 +37,8 @@ export function BudgetSummaryCards({
   activeYear,
   doneKeys,
   withdrawals = [],
-  onWithdraw,
 }: Props) {
   const [savingsOpen, setSavingsOpen] = useState(false)
-  const [withdrawOpen, setWithdrawOpen] = useState(false)
   const [period, setPeriod] = useState<CompositionPeriod>("year")
 
   const totalSavings = useMemo(
@@ -54,20 +49,6 @@ export function BudgetSummaryCards({
   const savingsByBucket = useMemo(
     () => savingsAllocatedByBucket(buckets, paychecks, doneKeys, withdrawals),
     [buckets, paychecks, doneKeys, withdrawals],
-  )
-
-  const withdrawOptions = useMemo(
-    () =>
-      savingsByBucket.flatMap((bucket) =>
-        bucket.categories
-          .filter((cat) => cat.amount > 0)
-          .map((cat) => ({
-            id: cat.categoryId,
-            name: cat.categoryName,
-            amount: cat.amount,
-          })),
-      ),
-    [savingsByBucket],
   )
 
   const { total, segments } = useMemo(
@@ -81,57 +62,26 @@ export function BudgetSummaryCards({
 
   return (
     <div className="flex shrink-0 flex-wrap items-stretch gap-4">
-      <div className="relative flex h-auto min-h-full w-[calc(11.5rem+48px)] min-w-[calc(11.5rem+48px)] shrink-0 flex-col justify-between rounded-[8px] border border-neutral-500 bg-white p-4 text-left">
-        <div className="mb-6 flex items-start justify-between gap-2">
-          <button
-            type="button"
-            aria-label="View total savings by group"
-            onClick={() => setSavingsOpen(true)}
-            className={cn(
-              "-m-1 rounded-md p-1 text-left transition-[background] duration-150",
-              blushHoverClass,
-            )}
-          >
-            <p className="text-sm text-neutral-600">Total savings</p>
-          </button>
-          <button
-            type="button"
-            title="Withdraw"
-            aria-label="Withdraw from savings"
-            disabled={withdrawOptions.length === 0}
-            className="inline-flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
-            onClick={() => setWithdrawOpen(true)}
-          >
-            <BanknoteArrowDown className="size-[18px]" strokeWidth={1.75} />
-          </button>
-        </div>
-        <button
-          type="button"
-          aria-label="View total savings by group"
-          onClick={() => setSavingsOpen(true)}
-          className={cn(
-            "-m-1 mt-auto rounded-md p-1 text-left transition-[background] duration-150",
-            blushHoverClass,
-          )}
-        >
-          <p className="text-4xl font-light tracking-tight tabular-nums text-foreground">
-            {formatMoney(totalSavings)}
-          </p>
-        </button>
-      </div>
+      <button
+        type="button"
+        aria-label="View total savings by group"
+        onClick={() => setSavingsOpen(true)}
+        className={cn(
+          "flex h-auto min-h-full w-[calc(11.5rem+48px)] min-w-[calc(11.5rem+48px)] shrink-0 cursor-pointer flex-col justify-between rounded-[8px] border border-neutral-500 bg-white p-4 text-left transition-[background] duration-150",
+          blushHoverClass,
+        )}
+      >
+        <p className="mb-6 text-sm text-neutral-600">Total savings</p>
+        <p className="mt-auto text-4xl font-light tracking-tight tabular-nums text-foreground">
+          {formatMoney(totalSavings)}
+        </p>
+      </button>
 
       <SavingsDetailDrawer
         open={savingsOpen}
         onOpenChange={setSavingsOpen}
         rows={savingsByBucket}
         total={totalSavings}
-      />
-
-      <WithdrawDialog
-        open={withdrawOpen}
-        onOpenChange={setWithdrawOpen}
-        options={withdrawOptions}
-        onWithdraw={onWithdraw}
       />
 
       <div className="relative flex h-auto min-h-full w-fit shrink-0 flex-col rounded-[8px] border border-neutral-500 bg-white p-4">

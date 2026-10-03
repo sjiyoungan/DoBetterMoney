@@ -2,8 +2,23 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { BanknoteArrowDown, History, Settings, Undo2 } from "lucide-react"
 import { CategoryDrawer } from "@/components/dashboard/CategoryDrawer"
 import { TotalsSourcesEditor } from "@/components/dashboard/TotalsSourcesEditor"
-import { WithdrawDialog } from "@/components/dashboard/WithdrawDialog"
 import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import {
   Sheet,
   SheetContent,
@@ -73,6 +88,8 @@ export function HolderPanel({
   const [accountSettingsOpen, setAccountSettingsOpen] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
   const [withdrawOpen, setWithdrawOpen] = useState(false)
+  const [withdrawCategoryId, setWithdrawCategoryId] = useState("")
+  const [withdrawAmount, setWithdrawAmount] = useState("")
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(
     null,
   )
@@ -135,45 +152,13 @@ export function HolderPanel({
 
   const transferTotal = rows.reduce((sum, row) => sum + row.amount, 0)
 
-  const activityRows = useMemo(() => {
-    type Activity =
-      | { kind: "transfer"; sortKey: string; entry: (typeof log)[number] }
-      | {
-          kind: "withdrawal"
-          sortKey: string
-          id: string
-          date: string
-          amount: number
-          categoryName: string
-        }
-    const rows: Activity[] = []
-    for (const entry of log) {
-      rows.push({
-        kind: "transfer",
-        sortKey: entry.undoneAt ?? entry.confirmedAt,
-        entry,
-      })
-    }
-    for (const w of withdrawals) {
-      let categoryName = "Savings"
-      for (const bucket of workspace.buckets) {
-        const cat = bucket.categories.find((c) => c.id === w.categoryId)
-        if (cat) {
-          categoryName = cat.name
-          break
-        }
-      }
-      rows.push({
-        kind: "withdrawal",
-        sortKey: `${w.date}T23:59:59`,
-        id: w.id,
-        date: w.date,
-        amount: w.amount,
-        categoryName,
-      })
-    }
-    return rows.sort((a, b) => b.sortKey.localeCompare(a.sortKey))
-  }, [log, withdrawals, workspace.buckets])
+  const historyRows = useMemo(() => {
+    return [...log].sort((a, b) => {
+      const aKey = a.undoneAt ?? a.confirmedAt
+      const bKey = b.undoneAt ?? b.confirmedAt
+      return bKey.localeCompare(aKey)
+    })
+  }, [log])
 
   const accountRows = useMemo(
     () =>
@@ -206,6 +191,17 @@ export function HolderPanel({
 
   const withdrawOptions = accountRows.filter((row) => row.amount > 0)
 
+  useEffect(() => {
+    if (!withdrawOpen) return
+    if (
+      withdrawCategoryId &&
+      withdrawOptions.some((r) => r.id === withdrawCategoryId)
+    ) {
+      return
+    }
+    setWithdrawCategoryId(withdrawOptions[0]?.id ?? "")
+  }, [withdrawOpen, withdrawOptions, withdrawCategoryId])
+
   function toggleUndoDraft(id: string) {
     setUndoDraftIds((prev) => {
       const next = new Set(prev)
@@ -230,6 +226,24 @@ export function HolderPanel({
     setHistoryOpen(false)
   }
 
+  function openWithdraw() {
+    setWithdrawAmount("")
+    setWithdrawCategoryId(withdrawOptions[0]?.id ?? "")
+    setWithdrawOpen(true)
+  }
+
+  function submitWithdraw() {
+    const amount = Number(withdrawAmount)
+    if (!withdrawCategoryId || !Number.isFinite(amount) || amount <= 0) return
+    const max =
+      accountRows.find((r) => r.id === withdrawCategoryId)?.amount ?? 0
+    const capped = Math.min(amount, max)
+    if (capped <= 0) return
+    onWithdraw({ categoryId: withdrawCategoryId, amount: capped })
+    setWithdrawOpen(false)
+    setWithdrawAmount("")
+  }
+
   return (
     <div className="grid items-start gap-4 lg:grid-cols-2">
       <section className="flex flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white">
@@ -241,7 +255,7 @@ export function HolderPanel({
             <div className="flex items-center gap-1">
               <button
                 type="button"
-                title="Activity"
+                title="Transfer history"
                 className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                 onClick={() => setHistoryOpen(true)}
               >
@@ -354,7 +368,7 @@ export function HolderPanel({
                 title="Withdraw"
                 disabled={withdrawOptions.length === 0}
                 className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
-                onClick={() => setWithdrawOpen(true)}
+                onClick={openWithdraw}
               >
                 <BanknoteArrowDown className="size-[18px]" strokeWidth={1.75} />
               </button>
@@ -435,51 +449,23 @@ export function HolderPanel({
         <SheetContent className="flex flex-col overflow-hidden p-0">
           <div className="flex min-h-0 flex-1 flex-col p-8 pb-0">
             <SheetHeader className="mb-6">
-              <SheetTitle>Activity</SheetTitle>
+              <SheetTitle>Transfer history</SheetTitle>
             </SheetHeader>
 
-            {activityRows.length === 0 ? (
+            {historyRows.length === 0 ? (
               <p className="text-sm text-muted-foreground">
-                Confirmed put-aways and withdrawals will show up here.
+                Confirmed put-aways will show up here.
               </p>
             ) : (
               <ul className="min-h-0 flex-1 space-y-4 overflow-y-auto pb-6">
-                {activityRows.map((row) => {
-                  if (row.kind === "withdrawal") {
-                    return (
-                      <li key={`w-${row.id}`} className="text-sm">
-                        <div className="flex items-center gap-3">
-                          <span className="min-w-0 flex-1 text-foreground">
-                            <span className="tabular-nums">
-                              {formatPayDate(row.date)}
-                            </span>
-                            <span className="text-muted-foreground">
-                              {" "}
-                              · Withdraw · {row.categoryName}
-                            </span>
-                          </span>
-                          <span className="w-20 shrink-0 text-right tabular-nums text-foreground">
-                            −{formatMoney(row.amount)}
-                          </span>
-                          <span className="inline-flex size-8 shrink-0" />
-                        </div>
-                      </li>
-                    )
-                  }
-                  const entry = row.entry
+                {historyRows.map((entry) => {
                   const markedUndo =
                     Boolean(entry.undoneAt) || undoDraftIds.has(entry.id)
                   return (
                     <li key={entry.id} className="text-sm">
                       <div className="flex items-center gap-3">
-                        <span className="min-w-0 flex-1 text-foreground">
-                          <span className="tabular-nums">
-                            {formatPayDate(entry.paycheckDate)}
-                          </span>
-                          <span className="text-muted-foreground">
-                            {" "}
-                            · Put away
-                          </span>
+                        <span className="min-w-0 flex-1 tabular-nums text-foreground">
+                          {formatPayDate(entry.paycheckDate)}
                         </span>
                         <span
                           className={cn(
@@ -549,12 +535,67 @@ export function HolderPanel({
         </SheetContent>
       </Sheet>
 
-      <WithdrawDialog
-        open={withdrawOpen}
-        onOpenChange={setWithdrawOpen}
-        options={withdrawOptions}
-        onWithdraw={onWithdraw}
-      />
+      <Dialog open={withdrawOpen} onOpenChange={setWithdrawOpen}>
+        <DialogContent className="sm:max-w-md" showCloseButton={false}>
+          <DialogHeader>
+            <DialogTitle>Withdraw</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-2">
+            <div className="grid gap-2">
+              <Label htmlFor="withdraw-category">Category</Label>
+              <Select
+                value={withdrawCategoryId}
+                onValueChange={setWithdrawCategoryId}
+              >
+                <SelectTrigger id="withdraw-category" className="w-full">
+                  <SelectValue placeholder="Choose a category" />
+                </SelectTrigger>
+                <SelectContent>
+                  {withdrawOptions.map((row) => (
+                    <SelectItem key={row.id} value={row.id}>
+                      {row.name} ({formatMoney(row.amount)})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="withdraw-amount">Amount</Label>
+              <Input
+                id="withdraw-amount"
+                type="number"
+                min={0}
+                step="0.01"
+                inputMode="decimal"
+                placeholder="0"
+                value={withdrawAmount}
+                onChange={(e) => setWithdrawAmount(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="ghost"
+              className="text-muted-foreground hover:bg-transparent hover:text-foreground"
+              onClick={() => setWithdrawOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              disabled={
+                !withdrawCategoryId ||
+                !Number.isFinite(Number(withdrawAmount)) ||
+                Number(withdrawAmount) <= 0
+              }
+              onClick={submitWithdraw}
+            >
+              Withdraw
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <CategoryDrawer
         open={!!selectedDetail}
