@@ -830,6 +830,7 @@ export default function App() {
                 activeYear={workspace.activeYear}
                 doneKeys={doneKeys}
                 withdrawals={yearBudget.withdrawals}
+                onWithdraw={onWithdraw}
               />
             </div>
             <BudgetGrid
