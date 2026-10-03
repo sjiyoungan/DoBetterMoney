@@ -114,6 +114,15 @@ export type Withdrawal = {
   note?: string
 }
 
+/** Cash put back into a savings category (e.g. Liz pays back a borrow). */
+export type Deposit = {
+  id: string
+  date: string
+  amount: number
+  categoryId: string
+  note?: string
+}
+
 /** Ji “To put away” — which groups/categories appear in the transfer list. */
 export type JiTransferSource = TotalSource
 
@@ -137,6 +146,8 @@ export type YearBudget = {
   buckets: Bucket[]
   holderSplits: HolderSplit[]
   withdrawals: Withdrawal[]
+  /** Cash deposited back into savings (paybacks). */
+  deposits: Deposit[]
   /** categoryId -> cash still held for Liz */
   holderBalances: Record<string, number>
   doneKeys: string[]

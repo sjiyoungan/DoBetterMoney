@@ -6,6 +6,7 @@ export function emptyYearBudget(): YearBudget {
     buckets: [],
     holderSplits: [],
     withdrawals: [],
+    deposits: [],
     holderBalances: {},
     doneKeys: [],
     jiTransferSources: [],

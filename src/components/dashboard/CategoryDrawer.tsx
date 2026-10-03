@@ -17,7 +17,13 @@ import {
   savingsRemainingToGoal,
 } from "@/lib/budget-summary"
 import { cn } from "@/lib/utils"
-import type { Bucket, Category, Paycheck, Withdrawal } from "@/types/budget"
+import type {
+  Bucket,
+  Category,
+  Deposit,
+  Paycheck,
+  Withdrawal,
+} from "@/types/budget"
 
 type Props = {
   open: boolean
@@ -27,6 +33,7 @@ type Props = {
   paychecks: Paycheck[]
   doneKeys: Set<string>
   withdrawals?: Withdrawal[]
+  deposits?: Deposit[]
   onCategoryNoteChange: (categoryId: string, note: string) => void
 }
 
@@ -38,7 +45,13 @@ type PlannedRow = {
 type HistoryItem = {
   id: string
   date: string
-  kind: "deposit" | "payment" | "comment" | "carryover" | "withdrawal"
+  kind:
+    | "deposit"
+    | "payment"
+    | "comment"
+    | "carryover"
+    | "withdrawal"
+    | "repayment"
   amount?: number
   comment?: string
 }
@@ -97,6 +110,7 @@ function formatCategoryDue(category: Category): string {
 function historyLabel(item: HistoryItem): string {
   if (item.kind === "carryover") return "Carry over"
   if (item.kind === "deposit") return "Deposit"
+  if (item.kind === "repayment") return "Payback"
   if (item.kind === "payment") return "Payment"
   if (item.kind === "withdrawal") return "Withdrawal"
   return item.comment ?? "Comment"
@@ -116,6 +130,7 @@ export function CategoryDrawer({
   paychecks,
   doneKeys,
   withdrawals = [],
+  deposits = [],
   onCategoryNoteChange,
 }: Props) {
   const [plannedExpanded, setPlannedExpanded] = useState(false)
@@ -224,10 +239,20 @@ export function CategoryDrawer({
           comment: w.note,
         })
       }
+      for (const d of deposits) {
+        if (d.categoryId !== category.id) continue
+        items.push({
+          id: `repayment-${d.id}`,
+          date: d.date,
+          kind: "repayment",
+          amount: Math.abs(d.amount),
+          comment: d.note,
+        })
+      }
     }
 
     return items.sort((a, b) => b.date.localeCompare(a.date))
-  }, [category, bucket, paychecks, doneKeys, withdrawals])
+  }, [category, bucket, paychecks, doneKeys, withdrawals, deposits])
 
   if (!category || !bucket) return null
 
@@ -275,6 +300,7 @@ export function CategoryDrawer({
                       paychecks,
                       doneKeys,
                       withdrawals,
+                      deposits,
                     ),
                   )}
                 </dd>
@@ -289,6 +315,7 @@ export function CategoryDrawer({
                       doneKeys,
                       withdrawals,
                       today,
+                      deposits,
                     ),
                   )}
                 </dd>

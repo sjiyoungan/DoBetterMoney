@@ -38,7 +38,13 @@ import {
   hasTotalInputsForDate,
 } from "@/lib/totals"
 import { blushHoverClass, cn, stickyBlushHoverClass } from "@/lib/utils"
-import type { Bucket, Category, Paycheck, Withdrawal } from "@/types/budget"
+import type {
+  Bucket,
+  Category,
+  Deposit,
+  Paycheck,
+  Withdrawal,
+} from "@/types/budget"
 
 /** Slim ← / → (horizontal line + arrow head) for paycheck column pan controls. */
 function PayScrollArrow({ dir }: { dir: "left" | "right" }) {
@@ -75,6 +81,7 @@ type Props = {
   paychecks: Paycheck[]
   doneKeys: Set<string>
   withdrawals?: Withdrawal[]
+  deposits?: Deposit[]
   onToggleDone: (key: string) => void
   onAmountChange: (categoryId: string, date: string, value: string) => void
   onAmountApplyToFuture: (
@@ -302,6 +309,7 @@ export function BudgetGrid({
   paychecks,
   doneKeys,
   withdrawals = [],
+  deposits = [],
   onToggleDone,
   onAmountChange,
   onAmountApplyToFuture,
@@ -1254,6 +1262,7 @@ export function BudgetGrid({
                                     paychecks,
                                     doneKeys,
                                     withdrawals,
+                                    deposits,
                                   )}
                                   planned={savingsPlannedForCategory(
                                     category,
@@ -1268,6 +1277,7 @@ export function BudgetGrid({
                                     doneKeys,
                                     withdrawals,
                                     today,
+                                    deposits,
                                   )}
                                 />
                               ) : null}
@@ -1930,6 +1940,7 @@ export function BudgetGrid({
         paychecks={paychecks}
         doneKeys={doneKeys}
         withdrawals={withdrawals}
+        deposits={deposits}
         onCategoryNoteChange={onCategoryNoteChange}
       />
     </div>

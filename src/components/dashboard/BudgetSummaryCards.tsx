@@ -8,7 +8,7 @@ import {
 } from "@/lib/budget-summary"
 import { formatMoney } from "@/lib/format"
 import { blushHoverClass, cn } from "@/lib/utils"
-import type { Bucket, Paycheck, Withdrawal } from "@/types/budget"
+import type { Bucket, Deposit, Paycheck, Withdrawal } from "@/types/budget"
 import { CaretDownIcon } from "@/components/ui/caret-down"
 import {
   DropdownMenu,
@@ -29,6 +29,7 @@ type Props = {
   activeYear: number
   doneKeys: Set<string>
   withdrawals?: Withdrawal[]
+  deposits?: Deposit[]
 }
 
 export function BudgetSummaryCards({
@@ -37,18 +38,33 @@ export function BudgetSummaryCards({
   activeYear,
   doneKeys,
   withdrawals = [],
+  deposits = [],
 }: Props) {
   const [savingsOpen, setSavingsOpen] = useState(false)
   const [period, setPeriod] = useState<CompositionPeriod>("year")
 
   const totalSavings = useMemo(
-    () => totalSavingsAllocated(buckets, paychecks, doneKeys, withdrawals),
-    [buckets, paychecks, doneKeys, withdrawals],
+    () =>
+      totalSavingsAllocated(
+        buckets,
+        paychecks,
+        doneKeys,
+        withdrawals,
+        deposits,
+      ),
+    [buckets, paychecks, doneKeys, withdrawals, deposits],
   )
 
   const savingsByBucket = useMemo(
-    () => savingsAllocatedByBucket(buckets, paychecks, doneKeys, withdrawals),
-    [buckets, paychecks, doneKeys, withdrawals],
+    () =>
+      savingsAllocatedByBucket(
+        buckets,
+        paychecks,
+        doneKeys,
+        withdrawals,
+        deposits,
+      ),
+    [buckets, paychecks, doneKeys, withdrawals, deposits],
   )
 
   const { total, segments } = useMemo(

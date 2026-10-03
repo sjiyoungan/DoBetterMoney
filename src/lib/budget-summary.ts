@@ -1,4 +1,10 @@
-import type { Bucket, Category, Paycheck, Withdrawal } from "@/types/budget"
+import type {
+  Bucket,
+  Category,
+  Deposit,
+  Paycheck,
+  Withdrawal,
+} from "@/types/budget"
 import { allocationKey } from "@/lib/format"
 
 export type CompositionPeriod = "month" | "year"
@@ -57,13 +63,14 @@ export function sumAllocationsForDates(
 
 /**
  * Money actually in this savings category from Liz's view:
- * carry-over + checked allocations − withdrawals.
+ * carry-over + checked allocations − withdrawals + deposits.
  */
 export function savingsActualForCategory(
   cat: Category,
   paychecks: Paycheck[],
   doneKeys: ReadonlySet<string>,
   withdrawals: readonly Withdrawal[] = [],
+  deposits: readonly Deposit[] = [],
 ): number {
   let checked = 0
   for (const p of paychecks) {
@@ -73,7 +80,10 @@ export function savingsActualForCategory(
   const withdrawn = withdrawals
     .filter((w) => w.categoryId === cat.id)
     .reduce((sum, w) => sum + w.amount, 0)
-  return carryOverAt(cat) + checked - withdrawn
+  const deposited = deposits
+    .filter((d) => d.categoryId === cat.id)
+    .reduce((sum, d) => sum + d.amount, 0)
+  return carryOverAt(cat) + checked - withdrawn + deposited
 }
 
 /**
@@ -97,7 +107,7 @@ export function savingsPlannedForCategory(
 
 /**
  * Balance left toward the goal:
- * goal − what we have today (carry + checked − withdrawals) − remaining planned.
+ * goal − what we have today (carry + checked − withdrawals + deposits) − remaining planned.
  */
 export function savingsRemainingToGoal(
   cat: Category,
@@ -105,6 +115,7 @@ export function savingsRemainingToGoal(
   doneKeys: ReadonlySet<string>,
   withdrawals: readonly Withdrawal[] = [],
   today: string,
+  deposits: readonly Deposit[] = [],
 ): number | undefined {
   if (cat.goal === undefined) return undefined
   const actual = savingsActualForCategory(
@@ -112,6 +123,7 @@ export function savingsRemainingToGoal(
     paychecks,
     doneKeys,
     withdrawals,
+    deposits,
   )
   const planned = savingsPlannedForCategory(cat, paychecks, doneKeys, today)
   return cat.goal - actual - planned
@@ -132,7 +144,7 @@ export type SavingsBucketTotal = {
 }
 
 /**
- * Per-bucket savings actuals (carry-over + checked allocations).
+ * Per-bucket savings actuals (carry-over + checked allocations − withdrawals + deposits).
  * Only `kind === "savings"` buckets; hidden categories excluded.
  */
 export function savingsAllocatedByBucket(
@@ -140,6 +152,7 @@ export function savingsAllocatedByBucket(
   paychecks: Paycheck[],
   doneKeys: ReadonlySet<string>,
   withdrawals: readonly Withdrawal[] = [],
+  deposits: readonly Deposit[] = [],
 ): SavingsBucketTotal[] {
   return buckets
     .filter((bucket) => bucket.kind === "savings")
@@ -154,6 +167,7 @@ export function savingsAllocatedByBucket(
             paychecks,
             doneKeys,
             withdrawals,
+            deposits,
           ),
           goal: cat.goal,
         }))
@@ -169,19 +183,21 @@ export function savingsAllocatedByBucket(
 
 /**
  * Total money actually in savings accounts for the active year:
- * Σ (carry-over + checked-off allocations − withdrawals) across visible savings.
+ * Σ (carry-over + checked-off allocations − withdrawals + deposits) across visible savings.
  */
 export function totalSavingsAllocated(
   buckets: Bucket[],
   paychecks: Paycheck[],
   doneKeys: ReadonlySet<string>,
   withdrawals: readonly Withdrawal[] = [],
+  deposits: readonly Deposit[] = [],
 ): number {
   return savingsAllocatedByBucket(
     buckets,
     paychecks,
     doneKeys,
     withdrawals,
+    deposits,
   ).reduce((sum, row) => sum + row.amount, 0)
 }
 

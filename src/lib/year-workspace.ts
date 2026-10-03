@@ -22,6 +22,7 @@ function isLegacyWorkspace(data: unknown): data is {
   buckets?: YearBudget["buckets"]
   holderSplits?: YearBudget["holderSplits"]
   withdrawals?: YearBudget["withdrawals"]
+  deposits?: YearBudget["deposits"]
   holderBalances?: YearBudget["holderBalances"]
 } {
   if (!data || typeof data !== "object") return false
@@ -86,6 +87,7 @@ export function normalizeWorkspace(
       buckets: data.buckets ?? [],
       holderSplits: data.holderSplits ?? [],
       withdrawals: data.withdrawals ?? [],
+      deposits: data.deposits ?? [],
       holderBalances: data.holderBalances ?? {},
       doneKeys: doneKeysFromColumn,
     }
@@ -398,6 +400,7 @@ export function createNextYear(workspace: BudgetWorkspace): BudgetWorkspace {
     buckets,
     holderSplits: [],
     withdrawals: [],
+    deposits: [],
     holderBalances: { ...source.holderBalances },
     doneKeys: [],
     jiTransferSources: source.jiTransferSources

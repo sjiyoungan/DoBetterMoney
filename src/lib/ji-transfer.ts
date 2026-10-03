@@ -149,13 +149,14 @@ function carryOverAt(cat: Category): number {
 
 /**
  * Money in the account per savings category:
- * carry-over + Ji Done confirmations − withdrawals.
+ * carry-over + Ji Done confirmations − withdrawals + deposits.
  */
 export function accountCategoryBalances(
   buckets: Bucket[],
   log: JiTransferLog[] | undefined,
   withdrawals: readonly { categoryId: string; amount: number }[] = [],
   sources?: JiTransferSource[],
+  deposits: readonly { categoryId: string; amount: number }[] = [],
 ): { id: string; name: string; amount: number }[] {
   const allowed = resolveTransferCategoryIds(
     buckets.filter((b) => b.kind === "savings"),
@@ -187,6 +188,14 @@ export function accountCategoryBalances(
     )
   }
 
+  const depositedByCategory = new Map<string, number>()
+  for (const d of deposits) {
+    depositedByCategory.set(
+      d.categoryId,
+      (depositedByCategory.get(d.categoryId) ?? 0) + d.amount,
+    )
+  }
+
   const rows: { id: string; name: string; amount: number }[] = []
   for (const bucket of buckets) {
     if (bucket.kind !== "savings") continue
@@ -198,7 +207,8 @@ export function accountCategoryBalances(
         amount:
           carryOverAt(cat) +
           (confirmedByCategory.get(cat.id) ?? 0) -
-          (withdrawnByCategory.get(cat.id) ?? 0),
+          (withdrawnByCategory.get(cat.id) ?? 0) +
+          (depositedByCategory.get(cat.id) ?? 0),
       })
     }
   }
@@ -210,11 +220,15 @@ export function accountTotalBalance(
   log: JiTransferLog[] | undefined,
   withdrawals: readonly { categoryId: string; amount: number }[] = [],
   sources?: JiTransferSource[],
+  deposits: readonly { categoryId: string; amount: number }[] = [],
 ): number {
-  return accountCategoryBalances(buckets, log, withdrawals, sources).reduce(
-    (sum, row) => sum + row.amount,
-    0,
-  )
+  return accountCategoryBalances(
+    buckets,
+    log,
+    withdrawals,
+    sources,
+    deposits,
+  ).reduce((sum, row) => sum + row.amount, 0)
 }
 
 export function sourceBucketsForAccount(buckets: Bucket[]): Bucket[] {

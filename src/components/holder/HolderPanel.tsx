@@ -1,24 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from "react"
-import { BanknoteArrowDown, History, Settings, Undo2 } from "lucide-react"
+import {
+  BanknoteArrowDown,
+  BanknoteArrowUp,
+  History,
+  Settings,
+  Undo2,
+} from "lucide-react"
+import { CashMoveDialog } from "@/components/dashboard/CashMoveDialog"
 import { CategoryDrawer } from "@/components/dashboard/CategoryDrawer"
 import { TotalsSourcesEditor } from "@/components/dashboard/TotalsSourcesEditor"
 import { Button } from "@/components/ui/button"
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 import {
   Sheet,
   SheetContent,
@@ -58,6 +49,7 @@ type Props = {
   onSaveAccountSources: (sources: JiTransferSource[]) => void
   onSaveTransferLog: (log: JiTransferLog[]) => void
   onWithdraw: (input: { categoryId: string; amount: number }) => void
+  onDeposit: (input: { categoryId: string; amount: number }) => void
   onCategoryNoteChange: (categoryId: string, note: string) => void
 }
 
@@ -82,14 +74,14 @@ export function HolderPanel({
   onSaveAccountSources,
   onSaveTransferLog,
   onWithdraw,
+  onDeposit,
   onCategoryNoteChange,
 }: Props) {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [accountSettingsOpen, setAccountSettingsOpen] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
   const [withdrawOpen, setWithdrawOpen] = useState(false)
-  const [withdrawCategoryId, setWithdrawCategoryId] = useState("")
-  const [withdrawAmount, setWithdrawAmount] = useState("")
+  const [depositOpen, setDepositOpen] = useState(false)
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(
     null,
   )
@@ -100,6 +92,7 @@ export function HolderPanel({
   const accountSources = workspace.jiAccountSources
   const log = workspace.jiTransferLog ?? []
   const withdrawals = workspace.withdrawals ?? []
+  const deposits = workspace.deposits ?? []
 
   const pendingPaychecks = useMemo(
     () =>
@@ -167,8 +160,9 @@ export function HolderPanel({
         log,
         withdrawals,
         accountSources,
+        deposits,
       ),
-    [workspace.buckets, log, withdrawals, accountSources],
+    [workspace.buckets, log, withdrawals, accountSources, deposits],
   )
 
   const accountTotal = useMemo(
@@ -178,8 +172,9 @@ export function HolderPanel({
         log,
         withdrawals,
         accountSources,
+        deposits,
       ),
-    [workspace.buckets, log, withdrawals, accountSources],
+    [workspace.buckets, log, withdrawals, accountSources, deposits],
   )
 
   const jiSourceBuckets = sourceBucketsForJi(workspace.buckets)
@@ -190,17 +185,7 @@ export function HolderPanel({
     : null
 
   const withdrawOptions = accountRows.filter((row) => row.amount > 0)
-
-  useEffect(() => {
-    if (!withdrawOpen) return
-    if (
-      withdrawCategoryId &&
-      withdrawOptions.some((r) => r.id === withdrawCategoryId)
-    ) {
-      return
-    }
-    setWithdrawCategoryId(withdrawOptions[0]?.id ?? "")
-  }, [withdrawOpen, withdrawOptions, withdrawCategoryId])
+  const depositOptions = accountRows
 
   function toggleUndoDraft(id: string) {
     setUndoDraftIds((prev) => {
@@ -224,24 +209,6 @@ export function HolderPanel({
     onSaveTransferLog(next)
     setUndoDraftIds(new Set())
     setHistoryOpen(false)
-  }
-
-  function openWithdraw() {
-    setWithdrawAmount("")
-    setWithdrawCategoryId(withdrawOptions[0]?.id ?? "")
-    setWithdrawOpen(true)
-  }
-
-  function submitWithdraw() {
-    const amount = Number(withdrawAmount)
-    if (!withdrawCategoryId || !Number.isFinite(amount) || amount <= 0) return
-    const max =
-      accountRows.find((r) => r.id === withdrawCategoryId)?.amount ?? 0
-    const capped = Math.min(amount, max)
-    if (capped <= 0) return
-    onWithdraw({ categoryId: withdrawCategoryId, amount: capped })
-    setWithdrawOpen(false)
-    setWithdrawAmount("")
   }
 
   return (
@@ -365,10 +332,19 @@ export function HolderPanel({
               </button>
               <button
                 type="button"
+                title="Deposit"
+                disabled={depositOptions.length === 0}
+                className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
+                onClick={() => setDepositOpen(true)}
+              >
+                <BanknoteArrowUp className="size-[18px]" strokeWidth={1.75} />
+              </button>
+              <button
+                type="button"
                 title="Withdraw"
                 disabled={withdrawOptions.length === 0}
                 className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
-                onClick={openWithdraw}
+                onClick={() => setWithdrawOpen(true)}
               >
                 <BanknoteArrowDown className="size-[18px]" strokeWidth={1.75} />
               </button>
@@ -535,67 +511,22 @@ export function HolderPanel({
         </SheetContent>
       </Sheet>
 
-      <Dialog open={withdrawOpen} onOpenChange={setWithdrawOpen}>
-        <DialogContent className="sm:max-w-md" showCloseButton={false}>
-          <DialogHeader>
-            <DialogTitle>Withdraw</DialogTitle>
-          </DialogHeader>
-          <div className="grid gap-4 py-2">
-            <div className="grid gap-2">
-              <Label htmlFor="withdraw-category">Category</Label>
-              <Select
-                value={withdrawCategoryId}
-                onValueChange={setWithdrawCategoryId}
-              >
-                <SelectTrigger id="withdraw-category" className="w-full">
-                  <SelectValue placeholder="Choose a category" />
-                </SelectTrigger>
-                <SelectContent>
-                  {withdrawOptions.map((row) => (
-                    <SelectItem key={row.id} value={row.id}>
-                      {row.name} ({formatMoney(row.amount)})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="withdraw-amount">Amount</Label>
-              <Input
-                id="withdraw-amount"
-                type="number"
-                min={0}
-                step="0.01"
-                inputMode="decimal"
-                placeholder="0"
-                value={withdrawAmount}
-                onChange={(e) => setWithdrawAmount(e.target.value)}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="ghost"
-              className="text-muted-foreground hover:bg-transparent hover:text-foreground"
-              onClick={() => setWithdrawOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              disabled={
-                !withdrawCategoryId ||
-                !Number.isFinite(Number(withdrawAmount)) ||
-                Number(withdrawAmount) <= 0
-              }
-              onClick={submitWithdraw}
-            >
-              Withdraw
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <CashMoveDialog
+        open={withdrawOpen}
+        onOpenChange={setWithdrawOpen}
+        mode="withdraw"
+        options={withdrawOptions}
+        onSubmit={onWithdraw}
+      />
+
+      <CashMoveDialog
+        open={depositOpen}
+        onOpenChange={setDepositOpen}
+        mode="deposit"
+        options={depositOptions}
+        capToBalance={false}
+        onSubmit={onDeposit}
+      />
 
       <CategoryDrawer
         open={!!selectedDetail}
@@ -607,6 +538,7 @@ export function HolderPanel({
         paychecks={workspace.paychecks}
         doneKeys={doneKeys}
         withdrawals={withdrawals}
+        deposits={deposits}
         onCategoryNoteChange={onCategoryNoteChange}
       />
     </div>

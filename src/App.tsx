@@ -611,11 +611,15 @@ export default function App() {
         const withdrawals = year.withdrawals.filter(
           (w) => !removedCategoryIds.has(w.categoryId),
         )
+        const deposits = (year.deposits ?? []).filter(
+          (d) => !removedCategoryIds.has(d.categoryId),
+        )
         return {
           ...year,
           buckets: year.buckets.filter((b) => b.id !== bucketId),
           doneKeys,
           withdrawals,
+          deposits,
         }
       }),
     )
@@ -638,11 +642,15 @@ export default function App() {
         const withdrawals = year.withdrawals.filter(
           (w) => !removedCategoryIds.has(w.categoryId),
         )
+        const deposits = (year.deposits ?? []).filter(
+          (d) => !removedCategoryIds.has(d.categoryId),
+        )
         return {
           ...year,
           buckets: nextBuckets,
           doneKeys,
           withdrawals,
+          deposits,
         }
       }),
     )
@@ -776,6 +784,25 @@ export default function App() {
     )
   }
 
+  function onDeposit(input: { categoryId: string; amount: number }) {
+    if (input.amount <= 0) return
+    recordHistory()
+    patchWorkspace((prev) =>
+      updateActiveYearBudget(prev, (year) => ({
+        ...year,
+        deposits: [
+          ...(year.deposits ?? []),
+          {
+            id: crypto.randomUUID(),
+            date: new Date().toISOString().slice(0, 10),
+            amount: input.amount,
+            categoryId: input.categoryId,
+          },
+        ],
+      })),
+    )
+  }
+
   if (loadingWorkspace) {
     return (
       <div className="flex min-h-svh items-center justify-center bg-page text-sm text-muted-foreground">
@@ -830,6 +857,7 @@ export default function App() {
                 activeYear={workspace.activeYear}
                 doneKeys={doneKeys}
                 withdrawals={yearBudget.withdrawals}
+                deposits={yearBudget.deposits ?? []}
               />
             </div>
             <BudgetGrid
@@ -837,6 +865,7 @@ export default function App() {
               paychecks={yearBudget.paychecks}
               doneKeys={doneKeys}
               withdrawals={yearBudget.withdrawals}
+              deposits={yearBudget.deposits ?? []}
               onToggleDone={toggleDone}
               onAmountChange={onAmountChange}
               onAmountApplyToFuture={onAmountApplyToFuture}
@@ -867,6 +896,7 @@ export default function App() {
                 onSaveAccountSources={onSaveAccountSources}
                 onSaveTransferLog={onSaveTransferLog}
                 onWithdraw={onWithdraw}
+                onDeposit={onDeposit}
                 onCategoryNoteChange={onCategoryNoteChange}
               />
             </div>

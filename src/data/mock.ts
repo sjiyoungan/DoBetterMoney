@@ -373,6 +373,7 @@ const legacyMock = {
     },
   ],
   withdrawals: [],
+  deposits: [],
   holderBalances: {
     emergency: 0,
     "savings-gen": 0,
