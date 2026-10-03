@@ -326,21 +326,19 @@ export function HolderPanel({
               </button>
               <button
                 type="button"
-                title="Deposit"
                 disabled={depositOptions.length === 0}
-                className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
+                className="rounded-md px-2 py-1 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
                 onClick={() => setDepositOpen(true)}
               >
-                <BanknoteArrowUp className="size-[18px]" strokeWidth={1.75} />
+                Deposit
               </button>
               <button
                 type="button"
-                title="Withdraw"
                 disabled={withdrawOptions.length === 0}
-                className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
+                className="rounded-md px-2 py-1 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
                 onClick={() => setWithdrawOpen(true)}
               >
-                <BanknoteArrowDown className="size-[18px]" strokeWidth={1.75} />
+                Withdraw
               </button>
             </div>
           </div>
