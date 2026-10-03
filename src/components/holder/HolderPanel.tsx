@@ -1,11 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react"
-import {
-  BanknoteArrowDown,
-  BanknoteArrowUp,
-  History,
-  Settings,
-  Undo2,
-} from "lucide-react"
+import { History, Settings, Undo2 } from "lucide-react"
 import { CashMoveDialog } from "@/components/dashboard/CashMoveDialog"
 import { CategoryDrawer } from "@/components/dashboard/CategoryDrawer"
 import { TotalsSourcesEditor } from "@/components/dashboard/TotalsSourcesEditor"
