@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
+import { MessageSquareText } from "lucide-react"
 import { CaretDownIcon } from "@/components/ui/caret-down"
 import {
   Sheet,
@@ -54,6 +55,7 @@ type HistoryItem = {
     | "repayment"
   amount?: number
   comment?: string
+  borrow?: boolean
 }
 
 const PLANNED_PREVIEW = 6
@@ -112,7 +114,9 @@ function historyLabel(item: HistoryItem): string {
   if (item.kind === "deposit") return "Deposit"
   if (item.kind === "repayment") return "Payback"
   if (item.kind === "payment") return "Payment"
-  if (item.kind === "withdrawal") return "Withdrawal"
+  if (item.kind === "withdrawal") {
+    return item.borrow ? "Borrow" : "Withdrawal"
+  }
   return item.comment ?? "Comment"
 }
 
@@ -237,6 +241,7 @@ export function CategoryDrawer({
           kind: "withdrawal",
           amount: -Math.abs(w.amount),
           comment: w.note,
+          borrow: w.kind === "borrow",
         })
       }
       for (const d of deposits) {
@@ -453,32 +458,45 @@ export function CategoryDrawer({
               </p>
             ) : (
               <ul className="space-y-4 py-4">
-                {historyItems.map((item) => (
-                  <li
-                    key={item.id}
-                    className="flex items-center gap-3 text-sm"
-                  >
-                    <span className="min-w-0 flex-1 truncate text-foreground">
-                      {historyLabel(item)}
-                    </span>
-                    <span
-                      className={cn(
-                        "w-20 shrink-0 text-right tabular-nums",
-                        item.kind === "comment"
-                          ? "text-muted-foreground"
-                          : "text-foreground",
-                      )}
+                {historyItems.map((item) => {
+                  const tip =
+                    item.kind === "comment"
+                      ? undefined
+                      : item.comment?.trim() || undefined
+                  return (
+                    <li
+                      key={item.id}
+                      title={tip}
+                      className="flex items-center gap-3 text-sm"
                     >
-                      {historyAmountText(item)}
-                    </span>
-                    <time
-                      dateTime={item.date}
-                      className="w-14 shrink-0 text-right tabular-nums text-muted-foreground"
-                    >
-                      {formatPayDate(item.date)}
-                    </time>
-                  </li>
-                ))}
+                      <span className="flex min-w-0 flex-1 items-center gap-1.5 text-foreground">
+                        <span className="truncate">{historyLabel(item)}</span>
+                        {tip ? (
+                          <MessageSquareText
+                            className="size-3.5 shrink-0 text-muted-foreground"
+                            aria-label={tip}
+                          />
+                        ) : null}
+                      </span>
+                      <span
+                        className={cn(
+                          "w-20 shrink-0 text-right tabular-nums",
+                          item.kind === "comment"
+                            ? "text-muted-foreground"
+                            : "text-foreground",
+                        )}
+                      >
+                        {historyAmountText(item)}
+                      </span>
+                      <time
+                        dateTime={item.date}
+                        className="w-14 shrink-0 text-right tabular-nums text-muted-foreground"
+                      >
+                        {formatPayDate(item.date)}
+                      </time>
+                    </li>
+                  )
+                })}
               </ul>
             )}
           </section>

@@ -106,12 +106,24 @@ export type HolderSplit = {
   received: boolean
 }
 
+/** How cash left a savings category. */
+export type WithdrawalKind = "transfer" | "borrow"
+
 export type Withdrawal = {
   id: string
   date: string
   amount: number
   categoryId: string
+  /**
+   * `transfer` — money used for its purpose (default for legacy rows).
+   * `borrow` — temporary pull to be deposited back later.
+   */
+  kind?: WithdrawalKind
   note?: string
+  /** When a borrow was marked paid back (ISO date). */
+  repaidAt?: string
+  /** Deposit created when this borrow was repaid. */
+  repaidDepositId?: string
 }
 
 /** Cash put back into a savings category (e.g. Liz pays back a borrow). */
@@ -121,6 +133,8 @@ export type Deposit = {
   amount: number
   categoryId: string
   note?: string
+  /** Withdrawal this deposit closed, when created via Borrowed → check. */
+  repayWithdrawalId?: string
 }
 
 /** Ji “To put away” — which groups/categories appear in the transfer list. */

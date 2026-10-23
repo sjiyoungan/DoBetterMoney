@@ -17,11 +17,20 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { formatMoney } from "@/lib/format"
+import { cn } from "@/lib/utils"
+import type { WithdrawalKind } from "@/types/budget"
 
 export type CashMoveOption = {
   id: string
   name: string
   amount: number
+}
+
+export type CashMoveSubmit = {
+  categoryId: string
+  amount: number
+  kind?: WithdrawalKind
+  note?: string
 }
 
 type Props = {
@@ -31,7 +40,7 @@ type Props = {
   options: CashMoveOption[]
   /** When true (withdraw), amount is capped to the category balance. */
   capToBalance?: boolean
-  onSubmit: (input: { categoryId: string; amount: number }) => void
+  onSubmit: (input: CashMoveSubmit) => void
 }
 
 export function CashMoveDialog({
@@ -44,10 +53,14 @@ export function CashMoveDialog({
 }: Props) {
   const [categoryId, setCategoryId] = useState("")
   const [amount, setAmount] = useState("")
+  const [kind, setKind] = useState<WithdrawalKind>("transfer")
+  const [note, setNote] = useState("")
 
   useEffect(() => {
     if (!open) return
     setAmount("")
+    setKind("transfer")
+    setNote("")
     if (categoryId && options.some((o) => o.id === categoryId)) return
     setCategoryId(options[0]?.id ?? "")
   }, [open, options, categoryId])
@@ -58,9 +71,16 @@ export function CashMoveDialog({
     const max = options.find((o) => o.id === categoryId)?.amount ?? 0
     const capped = capToBalance ? Math.min(n, max) : n
     if (capped <= 0) return
-    onSubmit({ categoryId, amount: capped })
+    const trimmed = note.trim()
+    onSubmit({
+      categoryId,
+      amount: capped,
+      ...(mode === "withdraw" ? { kind } : {}),
+      ...(trimmed ? { note: trimmed } : {}),
+    })
     onOpenChange(false)
     setAmount("")
+    setNote("")
   }
 
   const title = mode === "withdraw" ? "Withdraw" : "Deposit"
@@ -101,6 +121,53 @@ export function CashMoveDialog({
               placeholder="0"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
+            />
+          </div>
+          {mode === "withdraw" ? (
+            <div className="grid gap-2">
+              <Label>Type</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  className={cn(
+                    "rounded-md border px-3 py-2 text-left text-sm transition-colors",
+                    kind === "transfer"
+                      ? "border-foreground bg-muted/60 text-foreground"
+                      : "border-neutral-200 text-muted-foreground hover:border-neutral-300 hover:text-foreground",
+                  )}
+                  onClick={() => setKind("transfer")}
+                >
+                  <span className="block font-medium">Transfer</span>
+                  <span className="mt-0.5 block text-xs leading-snug opacity-80">
+                    Use savings for where it belongs
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  className={cn(
+                    "rounded-md border px-3 py-2 text-left text-sm transition-colors",
+                    kind === "borrow"
+                      ? "border-foreground bg-muted/60 text-foreground"
+                      : "border-neutral-200 text-muted-foreground hover:border-neutral-300 hover:text-foreground",
+                  )}
+                  onClick={() => setKind("borrow")}
+                >
+                  <span className="block font-medium">Borrow</span>
+                  <span className="mt-0.5 block text-xs leading-snug opacity-80">
+                    Pull now, put back later
+                  </span>
+                </button>
+              </div>
+            </div>
+          ) : null}
+          <div className="grid gap-2">
+            <Label htmlFor={`${mode}-note`}>Comment</Label>
+            <Input
+              id={`${mode}-note`}
+              type="text"
+              placeholder="Optional"
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
             />
           </div>
         </div>

@@ -16,6 +16,10 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import {
+  BorrowedMoneyCard,
+  openBorrowedRows,
+} from "./BorrowedMoneyCard"
 import { SavingsDetailDrawer } from "./SavingsDetailDrawer"
 
 const PERIOD_OPTIONS: { value: CompositionPeriod; label: string }[] = [
@@ -30,6 +34,7 @@ type Props = {
   doneKeys: Set<string>
   withdrawals?: Withdrawal[]
   deposits?: Deposit[]
+  onRepayBorrow?: (withdrawalId: string) => void
 }
 
 export function BudgetSummaryCards({
@@ -39,9 +44,15 @@ export function BudgetSummaryCards({
   doneKeys,
   withdrawals = [],
   deposits = [],
+  onRepayBorrow,
 }: Props) {
   const [savingsOpen, setSavingsOpen] = useState(false)
   const [period, setPeriod] = useState<CompositionPeriod>("year")
+
+  const borrowedRows = useMemo(
+    () => openBorrowedRows(withdrawals, buckets),
+    [withdrawals, buckets],
+  )
 
   const totalSavings = useMemo(
     () =>
@@ -161,6 +172,10 @@ export function BudgetSummaryCards({
           </ul>
         </div>
       </div>
+
+      {onRepayBorrow ? (
+        <BorrowedMoneyCard rows={borrowedRows} onRepay={onRepayBorrow} />
+      ) : null}
     </div>
   )
 }

@@ -765,8 +765,14 @@ export default function App() {
     )
   }
 
-  function onWithdraw(input: { categoryId: string; amount: number }) {
+  function onWithdraw(input: {
+    categoryId: string
+    amount: number
+    kind?: "transfer" | "borrow"
+    note?: string
+  }) {
     if (input.amount <= 0) return
+    const note = input.note?.trim()
     recordHistory()
     patchWorkspace((prev) =>
       updateActiveYearBudget(prev, (year) => ({
@@ -778,14 +784,21 @@ export default function App() {
             date: new Date().toISOString().slice(0, 10),
             amount: input.amount,
             categoryId: input.categoryId,
+            kind: input.kind ?? "transfer",
+            ...(note ? { note } : {}),
           },
         ],
       })),
     )
   }
 
-  function onDeposit(input: { categoryId: string; amount: number }) {
+  function onDeposit(input: {
+    categoryId: string
+    amount: number
+    note?: string
+  }) {
     if (input.amount <= 0) return
+    const note = input.note?.trim()
     recordHistory()
     patchWorkspace((prev) =>
       updateActiveYearBudget(prev, (year) => ({
@@ -797,9 +810,42 @@ export default function App() {
             date: new Date().toISOString().slice(0, 10),
             amount: input.amount,
             categoryId: input.categoryId,
+            ...(note ? { note } : {}),
           },
         ],
       })),
+    )
+  }
+
+  function onRepayBorrow(withdrawalId: string) {
+    recordHistory()
+    patchWorkspace((prev) =>
+      updateActiveYearBudget(prev, (year) => {
+        const target = year.withdrawals.find((w) => w.id === withdrawalId)
+        if (!target || target.kind !== "borrow" || target.repaidAt) return year
+        const today = new Date().toISOString().slice(0, 10)
+        const depositId = crypto.randomUUID()
+        const note = target.note?.trim()
+        return {
+          ...year,
+          withdrawals: year.withdrawals.map((w) =>
+            w.id === withdrawalId
+              ? { ...w, repaidAt: today, repaidDepositId: depositId }
+              : w,
+          ),
+          deposits: [
+            ...(year.deposits ?? []),
+            {
+              id: depositId,
+              date: today,
+              amount: target.amount,
+              categoryId: target.categoryId,
+              repayWithdrawalId: withdrawalId,
+              ...(note ? { note } : {}),
+            },
+          ],
+        }
+      }),
     )
   }
 
@@ -858,6 +904,7 @@ export default function App() {
                 doneKeys={doneKeys}
                 withdrawals={yearBudget.withdrawals}
                 deposits={yearBudget.deposits ?? []}
+                onRepayBorrow={onRepayBorrow}
               />
             </div>
             <BudgetGrid
@@ -897,6 +944,7 @@ export default function App() {
                 onSaveTransferLog={onSaveTransferLog}
                 onWithdraw={onWithdraw}
                 onDeposit={onDeposit}
+                onRepayBorrow={onRepayBorrow}
                 onCategoryNoteChange={onCategoryNoteChange}
               />
             </div>
