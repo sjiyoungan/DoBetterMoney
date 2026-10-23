@@ -227,7 +227,8 @@ export function HolderPanel({
 
   return (
     <div className="grid items-start gap-4 lg:grid-cols-2">
-      <section className="flex flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white">
+      <div className="flex flex-col gap-4">
+        <section className="flex flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white">
         <div className="border-b border-neutral-200 px-6 py-3">
           <div className="flex h-8 items-center justify-between gap-3">
             <h2 className="text-base font-semibold text-foreground">
@@ -329,89 +330,88 @@ export function HolderPanel({
         </div>
       </section>
 
-      <div className="flex flex-col gap-4">
-        <section className="flex flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white">
-          <div className="border-b border-neutral-200 px-6 py-3">
-            <div className="flex h-8 items-center justify-between gap-3">
-              <h2 className="text-base font-semibold text-foreground">
-                Account balance
-              </h2>
-              <div className="flex items-center gap-1">
-                <button
-                  type="button"
-                  title="Choose groups and categories"
-                  className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                  onClick={() => setAccountSettingsOpen(true)}
-                >
-                  <Settings className="size-4" />
-                </button>
-                <button
-                  type="button"
-                  disabled={depositOptions.length === 0}
-                  className="rounded-md px-2 py-1 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
-                  onClick={() => setDepositOpen(true)}
-                >
-                  Deposit
-                </button>
-                <button
-                  type="button"
-                  disabled={withdrawOptions.length === 0}
-                  className="rounded-md px-2 py-1 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
-                  onClick={() => setWithdrawOpen(true)}
-                >
-                  Withdraw
-                </button>
-              </div>
-            </div>
-          </div>
-          <div className="flex flex-col">
-            {accountRows.length === 0 ? (
-              <p className="px-6 py-4 text-sm text-muted-foreground">
-                No savings categories yet.
-              </p>
-            ) : (
-              <ul className="space-y-0 pt-3">
-                {accountRows.map((row) => (
-                  <li key={row.id}>
-                    <button
-                      type="button"
-                      className={cn(
-                        "flex w-full items-center justify-between gap-3 px-6 py-2.5 text-left text-sm transition-[background] duration-150",
-                        blushHoverClass,
-                      )}
-                      onClick={() => setSelectedCategoryId(row.id)}
-                    >
-                      <span className="min-w-0 truncate text-foreground">
-                        {row.name}
-                      </span>
-                      <span
-                        className={cn(
-                          "shrink-0 tabular-nums",
-                          row.amount === 0
-                            ? "text-neutral-400"
-                            : "text-foreground",
-                        )}
-                      >
-                        {formatMoney(row.amount)}
-                      </span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-            <div className="flex items-center justify-between border-t border-neutral-200 px-6 py-4 text-sm font-semibold">
-              <span>Total</span>
-              <span className="tabular-nums">{formatMoney(accountTotal)}</span>
-            </div>
-          </div>
-        </section>
-
-        <BorrowedMoneyCard
-          variant="section"
-          rows={borrowedRows}
-          onRepay={onRepayBorrow}
-        />
+      <BorrowedMoneyCard
+        variant="section"
+        rows={borrowedRows}
+        onRepay={onRepayBorrow}
+      />
       </div>
+
+      <section className="flex flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white">
+        <div className="border-b border-neutral-200 px-6 py-3">
+          <div className="flex h-8 items-center justify-between gap-3">
+            <h2 className="text-base font-semibold text-foreground">
+              Account balance
+            </h2>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                title="Choose groups and categories"
+                className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                onClick={() => setAccountSettingsOpen(true)}
+              >
+                <Settings className="size-4" />
+              </button>
+              <button
+                type="button"
+                disabled={depositOptions.length === 0}
+                className="rounded-md px-2 py-1 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
+                onClick={() => setDepositOpen(true)}
+              >
+                Deposit
+              </button>
+              <button
+                type="button"
+                disabled={withdrawOptions.length === 0}
+                className="rounded-md px-2 py-1 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
+                onClick={() => setWithdrawOpen(true)}
+              >
+                Withdraw
+              </button>
+            </div>
+          </div>
+        </div>
+        <div className="flex flex-col">
+          {accountRows.length === 0 ? (
+            <p className="px-6 py-4 text-sm text-muted-foreground">
+              No savings categories yet.
+            </p>
+          ) : (
+            <ul className="space-y-0 pt-3">
+              {accountRows.map((row) => (
+                <li key={row.id}>
+                  <button
+                    type="button"
+                    className={cn(
+                      "flex w-full items-center justify-between gap-3 px-6 py-2.5 text-left text-sm transition-[background] duration-150",
+                      blushHoverClass,
+                    )}
+                    onClick={() => setSelectedCategoryId(row.id)}
+                  >
+                    <span className="min-w-0 truncate text-foreground">
+                      {row.name}
+                    </span>
+                    <span
+                      className={cn(
+                        "shrink-0 tabular-nums",
+                        row.amount === 0
+                          ? "text-neutral-400"
+                          : "text-foreground",
+                      )}
+                    >
+                      {formatMoney(row.amount)}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          <div className="flex items-center justify-between border-t border-neutral-200 px-6 py-4 text-sm font-semibold">
+            <span>Total</span>
+            <span className="tabular-nums">{formatMoney(accountTotal)}</span>
+          </div>
+        </div>
+      </section>
 
       <Sheet open={settingsOpen} onOpenChange={setSettingsOpen}>
         <SheetContent className="overflow-y-auto">
