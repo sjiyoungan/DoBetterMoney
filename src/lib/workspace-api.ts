@@ -1,7 +1,10 @@
 import { emptyWorkspace, emptyYearBudget } from "@/data/empty"
 import { withAuthRetry } from "@/lib/auth-retry"
 import { supabase } from "@/lib/supabase"
-import { normalizeWorkspace } from "@/lib/year-workspace"
+import {
+  migrateTravelBorrowWithdrawals,
+  normalizeWorkspace,
+} from "@/lib/year-workspace"
 import type { BudgetWorkspace, Category, YearBudget } from "@/types/budget"
 
 export type WorkspaceState = {
@@ -78,11 +81,20 @@ async function loadOrCreateWorkspaceOnce(
   const existing = rows?.[0]
   if (existing) {
     const doneKeysCol = (existing.done_keys as string[] | null) ?? []
-    const workspace = sanitizeWorkspaceAllocations(
+    const normalized = sanitizeWorkspaceAllocations(
       normalizeWorkspace(existing.data, doneKeysCol),
     )
+    const { workspace, changed } = migrateTravelBorrowWithdrawals(normalized)
     const active =
       workspace.years[String(workspace.activeYear)]?.doneKeys ?? doneKeysCol
+    if (changed) {
+      await saveWorkspaceOnce(
+        existing.id as string,
+        workspace,
+        active,
+        userId,
+      )
+    }
     return {
       id: existing.id as string,
       workspace,

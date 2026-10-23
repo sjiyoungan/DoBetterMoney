@@ -17,6 +17,51 @@ function currentCalendarYear() {
   return new Date().getFullYear()
 }
 
+/**
+ * One-shot: Oct 22 Travel withdrawal was logged as a plain transfer before
+ * Borrow existed — promote it so it shows on the Borrowed card.
+ */
+export function migrateTravelBorrowWithdrawals(
+  workspace: BudgetWorkspace,
+): { workspace: BudgetWorkspace; changed: boolean } {
+  let changed = false
+  const years: Record<string, YearBudget> = { ...workspace.years }
+
+  for (const key of Object.keys(years)) {
+    const slice = years[key]
+    if (!slice) continue
+
+    const travelIds = new Set<string>()
+    for (const bucket of slice.buckets ?? []) {
+      for (const category of bucket.categories ?? []) {
+        if (category.name.trim().toLowerCase() === "travel") {
+          travelIds.add(category.id)
+        }
+      }
+    }
+    if (travelIds.size === 0) continue
+
+    let yearChanged = false
+    const withdrawals = (slice.withdrawals ?? []).map((w) => {
+      if (w.date !== "2026-10-22") return w
+      if (!travelIds.has(w.categoryId)) return w
+      if (w.kind === "borrow" || w.repaidAt) return w
+      yearChanged = true
+      return { ...w, kind: "borrow" as const }
+    })
+
+    if (yearChanged) {
+      changed = true
+      years[key] = { ...slice, withdrawals }
+    }
+  }
+
+  return {
+    workspace: changed ? { ...workspace, years } : workspace,
+    changed,
+  }
+}
+
 function isLegacyWorkspace(data: unknown): data is {
   paychecks?: YearBudget["paychecks"]
   buckets?: YearBudget["buckets"]
