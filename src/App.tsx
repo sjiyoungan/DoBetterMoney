@@ -50,9 +50,12 @@ export default function App() {
   const [saveError, setSaveError] = useState<string | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [saveReady, setSaveReady] = useState(false)
+  const [planningMode, setPlanningMode] = useState(false)
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const dirtyRef = useRef(false)
   const saveReadyRef = useRef(false)
+  const planningModeRef = useRef(false)
+  const planningBaselineRef = useRef<UndoSnapshot | null>(null)
   const saveGenerationRef = useRef(0)
   const savingRef = useRef(false)
   const workspaceRef = useRef(workspace)
@@ -68,6 +71,7 @@ export default function App() {
   workspaceIdRef.current = workspaceId
   userIdRef.current = user?.id
   saveReadyRef.current = saveReady
+  planningModeRef.current = planningMode
 
   const yearBudget = useMemo(() => getActiveYearBudget(workspace), [workspace])
   const years = useMemo(() => listYears(workspace), [workspace])
@@ -112,7 +116,7 @@ export default function App() {
   }
 
   function queueSave() {
-    if (freshPreview || !saveReadyRef.current) return
+    if (freshPreview || planningModeRef.current || !saveReadyRef.current) return
     if (saveTimer.current) clearTimeout(saveTimer.current)
     saveTimer.current = setTimeout(() => {
       void flushSave()
@@ -120,13 +124,14 @@ export default function App() {
   }
 
   function markDirty() {
+    if (planningModeRef.current) return
     dirtyRef.current = true
     saveGenerationRef.current += 1
     queueSave()
   }
 
   async function flushSave() {
-    if (freshPreview) return
+    if (freshPreview || planningModeRef.current) return
     const id = workspaceIdRef.current
     const uid = userIdRef.current
     if (!id || !uid || !saveReadyRef.current) return
@@ -162,10 +167,71 @@ export default function App() {
 
   /** Force an immediate save after a cell commit (blur). */
   function onAmountCommit() {
+    if (planningModeRef.current) return
     if (saveTimer.current) {
       clearTimeout(saveTimer.current)
       saveTimer.current = null
     }
+    void flushSave()
+  }
+
+  function restoreSelectedPaycheck(nextWorkspace: BudgetWorkspace) {
+    const slice = getActiveYearBudget(nextWorkspace)
+    setSelectedPaycheckId((prev) =>
+      slice.paychecks.some((p) => p.id === prev)
+        ? prev
+        : (slice.paychecks.find((p) => !p.completed)?.id ??
+          slice.paychecks[0]?.id ??
+          ""),
+    )
+  }
+
+  async function enterPlanningMode() {
+    if (planningModeRef.current || freshPreview || !saveReadyRef.current) return
+    if (saveTimer.current) {
+      clearTimeout(saveTimer.current)
+      saveTimer.current = null
+    }
+    await flushSave()
+    planningBaselineRef.current = cloneUndoSnapshot(
+      workspaceRef.current,
+      doneKeysRef.current,
+    )
+    planningModeRef.current = true
+    setPlanningMode(true)
+    dirtyRef.current = false
+    clearHistory()
+  }
+
+  function discardPlanning() {
+    if (!planningModeRef.current) return
+    const baseline = planningBaselineRef.current
+    planningModeRef.current = false
+    setPlanningMode(false)
+    planningBaselineRef.current = null
+    if (saveTimer.current) {
+      clearTimeout(saveTimer.current)
+      saveTimer.current = null
+    }
+    if (baseline) {
+      workspaceRef.current = baseline.workspace
+      doneKeysRef.current = new Set(baseline.doneKeys)
+      setWorkspace(baseline.workspace)
+      setDoneKeys(new Set(baseline.doneKeys))
+      restoreSelectedPaycheck(baseline.workspace)
+    }
+    dirtyRef.current = false
+    clearHistory()
+  }
+
+  function savePlanning() {
+    if (!planningModeRef.current) return
+    planningModeRef.current = false
+    setPlanningMode(false)
+    planningBaselineRef.current = null
+    clearHistory()
+    dirtyRef.current = true
+    saveGenerationRef.current += 1
     void flushSave()
   }
 
@@ -870,7 +936,18 @@ export default function App() {
         onYearChange={switchYear}
         onCreateYear={onCreateYear}
         canCreateYear={canCreateYear}
+        planningMode={planningMode}
+        onEnterPlanning={enterPlanningMode}
+        onSavePlanning={savePlanning}
+        onDiscardPlanning={discardPlanning}
       />
+
+      {planningMode ? (
+        <div className="shrink-0 border-b border-amber-200 bg-amber-50 px-[60px] py-2 text-xs text-amber-900">
+          Planning mode — this is a worksheet. Edits stay local until you click
+          Save.
+        </div>
+      ) : null}
 
       {freshPreview ? (
         <div className="shrink-0 border-b border-amber-200 bg-amber-50 px-[60px] py-2 text-xs text-amber-900">

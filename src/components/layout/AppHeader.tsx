@@ -22,6 +22,10 @@ type Props = {
   onYearChange: (year: number) => void
   onCreateYear: () => void
   canCreateYear: boolean
+  planningMode?: boolean
+  onEnterPlanning?: () => void
+  onSavePlanning?: () => void
+  onDiscardPlanning?: () => void
 }
 
 export function AppHeader({
@@ -35,6 +39,10 @@ export function AppHeader({
   onYearChange,
   onCreateYear,
   canCreateYear,
+  planningMode = false,
+  onEnterPlanning,
+  onSavePlanning,
+  onDiscardPlanning,
 }: Props) {
   const label = user === "liz" ? "Liz" : "Ji"
   const initial = label[0]!
@@ -46,41 +54,75 @@ export function AppHeader({
   return (
     <header className="z-50 shrink-0 border-b bg-page">
       <div className="flex items-center justify-between gap-3 px-[60px] py-3">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
-              type="button"
-              className="inline-flex items-center gap-3 rounded-md px-2 py-1.5 text-lg font-semibold tracking-tight text-foreground transition-colors hover:bg-muted"
-            >
-              {activeYear}
-              <CaretDownIcon className="size-2 text-muted-foreground" />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="min-w-40">
-            {years.map((year) => (
-              <DropdownMenuItem
-                key={year}
-                className="justify-between gap-3"
-                onSelect={() => onYearChange(year)}
+        <div className="flex min-w-0 items-center gap-3">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className="inline-flex items-center gap-3 rounded-md px-2 py-1.5 text-lg font-semibold tracking-tight text-foreground transition-colors hover:bg-muted"
               >
-                {year}
-                {year === activeYear ? <Check className="size-3.5" /> : null}
-              </DropdownMenuItem>
-            ))}
-            {canCreateYear ? (
-              <>
-                <DropdownMenuSeparator />
+                {activeYear}
+                <CaretDownIcon className="size-2 text-muted-foreground" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="min-w-40">
+              {years.map((year) => (
                 <DropdownMenuItem
-                  className="gap-2"
-                  onSelect={() => onCreateYear()}
+                  key={year}
+                  className="justify-between gap-3"
+                  onSelect={() => onYearChange(year)}
                 >
-                  <Plus className="size-3.5" />
-                  Create {nextYearLabel}
+                  {year}
+                  {year === activeYear ? <Check className="size-3.5" /> : null}
                 </DropdownMenuItem>
-              </>
-            ) : null}
-          </DropdownMenuContent>
-        </DropdownMenu>
+              ))}
+              {canCreateYear ? (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    className="gap-2"
+                    onSelect={() => onCreateYear()}
+                  >
+                    <Plus className="size-3.5" />
+                    Create {nextYearLabel}
+                  </DropdownMenuItem>
+                </>
+              ) : null}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {planningMode ? (
+            <div className="flex items-center gap-2">
+              <span className="rounded-md bg-amber-100 px-2 py-1 text-xs font-medium text-amber-950">
+                Planning
+              </span>
+              <Button
+                type="button"
+                variant="ghost"
+                className="h-8 px-2.5 text-sm text-muted-foreground hover:bg-transparent hover:text-foreground"
+                onClick={() => onDiscardPlanning?.()}
+              >
+                Discard
+              </Button>
+              <Button
+                type="button"
+                className="h-8 px-3 text-sm"
+                onClick={() => onSavePlanning?.()}
+              >
+                Save
+              </Button>
+            </div>
+          ) : (
+            <Button
+              type="button"
+              variant="outline"
+              className="h-8 border-neutral-200 bg-white px-3 text-sm shadow-none"
+              onClick={() => onEnterPlanning?.()}
+            >
+              Planning
+            </Button>
+          )}
+        </div>
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
