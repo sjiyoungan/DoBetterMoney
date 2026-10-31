@@ -54,12 +54,12 @@ export function AppHeader({
   return (
     <header className="z-50 shrink-0 border-b bg-page">
       <div className="flex items-center justify-between gap-3 px-[60px] py-3">
-        <div className="flex min-w-0 items-center gap-3">
+        <div className="flex h-9 min-w-0 items-center gap-3">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
                 type="button"
-                className="inline-flex items-center gap-3 rounded-md px-2 py-1.5 text-lg font-semibold tracking-tight text-foreground transition-colors hover:bg-muted"
+                className="inline-flex h-9 items-center gap-2 rounded-md pl-0 pr-2 text-lg font-semibold tracking-tight text-foreground transition-colors hover:bg-muted"
               >
                 {activeYear}
                 <CaretDownIcon className="size-2 text-muted-foreground" />
@@ -92,21 +92,21 @@ export function AppHeader({
           </DropdownMenu>
 
           {planningMode ? (
-            <div className="flex items-center gap-2">
+            <div className="flex h-9 items-center gap-2">
               <span className="rounded-md bg-amber-100 px-2 py-1 text-xs font-medium text-amber-950">
                 Planning
               </span>
               <Button
                 type="button"
                 variant="ghost"
-                className="h-8 px-2.5 text-sm text-muted-foreground hover:bg-transparent hover:text-foreground"
+                className="h-9 px-2.5 text-sm text-muted-foreground hover:bg-transparent hover:text-foreground"
                 onClick={() => onDiscardPlanning?.()}
               >
                 Discard
               </Button>
               <Button
                 type="button"
-                className="h-8 px-3 text-sm"
+                className="h-9 px-3 text-sm"
                 onClick={() => onSavePlanning?.()}
               >
                 Save
@@ -116,7 +116,7 @@ export function AppHeader({
             <Button
               type="button"
               variant="outline"
-              className="h-8 border-neutral-200 bg-white px-3 text-sm shadow-none"
+              className="h-9 border-neutral-200 bg-white px-3 text-sm shadow-none"
               onClick={() => onEnterPlanning?.()}
             >
               Planning
