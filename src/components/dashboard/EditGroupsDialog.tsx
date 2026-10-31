@@ -223,7 +223,7 @@ export function EditGroupsDialog({
     window.addEventListener("pointerup", onUp)
   }
 
-  function handleSave() {
+  function buildNextBuckets(): Bucket[] {
     const live = drafts.filter((d) => !d.removed)
     const byId = new Map(buckets.map((b) => [b.id, b]))
     const spending: Bucket[] = []
@@ -246,8 +246,21 @@ export function EditGroupsDialog({
     }
     const removedIds = new Set(drafts.filter((d) => d.removed).map((d) => d.id))
     const kept = buckets.filter((b) => !removedIds.has(b.id))
-    onSave(mergeOrder(kept, spending, payback, savings))
+    return mergeOrder(kept, spending, payback, savings)
+  }
+
+  function handleSave() {
+    onSave(buildNextBuckets())
     onOpenChange(false)
+  }
+
+  function openCategories(d: DraftGroup) {
+    const nextBuckets = buildNextBuckets()
+    const bucket = nextBuckets.find((b) => b.id === d.id)
+    if (!bucket) return
+    onSave(nextBuckets)
+    onOpenChange(false)
+    onEditGroup(bucket)
   }
 
   function renderSection(
@@ -317,17 +330,7 @@ export function EditGroupsDialog({
                         "shrink-0 rounded-md px-2 py-1 text-xs font-medium text-foreground",
                         blushHoverClass,
                       )}
-                      onClick={() => {
-                        const full = buckets.find((b) => b.id === d.id)
-                        if (full) {
-                          onOpenChange(false)
-                          onEditGroup({
-                            ...full,
-                            name: d.name.trim() || full.name,
-                            hidden: d.hidden,
-                          })
-                        }
-                      }}
+                      onClick={() => openCategories(d)}
                     >
                       Categories
                     </button>

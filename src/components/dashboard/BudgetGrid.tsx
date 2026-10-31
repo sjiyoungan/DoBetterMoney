@@ -369,7 +369,8 @@ export function BudgetGrid({
   } | null>(null)
   const savingsAnchorRef = useRef<HTMLTableSectionElement | null>(null)
 
-  /** Visible body rows — hidden categories/groups stay in data; footer kinds render below. */
+  /** Visible body rows — hidden categories/groups stay in data; footer kinds render below.
+   * Empty groups still show one placeholder row so new Payback/Expense/Savings groups appear. */
   const displayBuckets = useMemo(
     () =>
       buckets
@@ -379,11 +380,20 @@ export function BudgetGrid({
             bucket.kind !== "totals" &&
             bucket.kind !== "budget_calc",
         )
-        .map((bucket) => ({
-          ...bucket,
-          categories: bucket.categories.filter((c) => !c.hidden),
-        }))
-        .filter((bucket) => bucket.categories.length > 0),
+        .map((bucket) => {
+          const categories = bucket.categories.filter((c) => !c.hidden)
+          if (categories.length > 0) return { ...bucket, categories }
+          return {
+            ...bucket,
+            categories: [
+              {
+                id: `__empty__:${bucket.id}`,
+                name: "",
+                allocations: {},
+              },
+            ],
+          }
+        }),
     [buckets],
   )
 
@@ -1135,6 +1145,8 @@ export function BudgetGrid({
                     <tbody>
                       {bucket.categories.map((category) => {
                         const row = rows.find((r) => r.key === category.id)!
+                        const isEmptyPlaceholder =
+                          category.id.startsWith("__empty__:")
                         const isSavings = bucket.kind === "savings"
                         const isExpense =
                           bucket.kind === "spending" ||
@@ -1200,18 +1212,36 @@ export function BudgetGrid({
                                 extraTop,
                               )}
                             >
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setSelected({ category, bucket })
-                                }
-                                className={cn(
-                                  "h-9 w-full cursor-pointer px-3 text-left text-sm transition-colors duration-150 hover:text-foreground",
-                                  blushHoverClass,
-                                )}
-                              >
-                                {category.name}
-                              </button>
+                              {isEmptyPlaceholder ? (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setBucketDialog({
+                                      mode: "edit",
+                                      bucket: fullBucket,
+                                    })
+                                  }
+                                  className={cn(
+                                    "h-9 w-full cursor-pointer px-3 text-left text-sm text-muted-foreground transition-colors duration-150 hover:text-foreground",
+                                    blushHoverClass,
+                                  )}
+                                >
+                                  Add categories…
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setSelected({ category, bucket })
+                                  }
+                                  className={cn(
+                                    "h-9 w-full cursor-pointer px-3 text-left text-sm transition-colors duration-150 hover:text-foreground",
+                                    blushHoverClass,
+                                  )}
+                                >
+                                  {category.name}
+                                </button>
+                              )}
                             </td>
 
                             <td
@@ -1224,7 +1254,7 @@ export function BudgetGrid({
                                 extraTop,
                               )}
                             >
-                              {isExpense ? (
+                              {isEmptyPlaceholder ? null : isExpense ? (
                                 <div className="flex h-9 items-center gap-2 pl-0 pr-0">
                                   <span
                                     className="shrink-0"
@@ -1363,6 +1393,8 @@ export function BudgetGrid({
                       <tbody>
                         {bucket.categories.map((category) => {
                           const row = rows.find((r) => r.key === category.id)!
+                          const isEmptyPlaceholder =
+                            category.id.startsWith("__empty__:")
                           const extraTop =
                             isFirstSavings && row.isFirstInBucket
                               ? "pt-2"
@@ -1418,6 +1450,9 @@ export function BudgetGrid({
                                     <PayColumnSameMonthDivider
                                       kind={edgeKind}
                                     />
+                                    {isEmptyPlaceholder ? (
+                                      <div className="h-9" />
+                                    ) : (
                                     <AmountCell
                                       value={
                                         raw === "" ||
@@ -1460,6 +1495,7 @@ export function BudgetGrid({
                                         onCommentCommit?.()
                                       }
                                     />
+                                    )}
                                   </td>
                                 )
                               })}
