@@ -13,6 +13,8 @@ import {
   formatPayDate,
 } from "@/lib/format"
 import {
+  paybackPaidForCategory,
+  paybackRemaining,
   savingsActualForCategory,
   savingsPlannedForCategory,
   savingsRemainingToGoal,
@@ -175,6 +177,7 @@ export function CategoryDrawer({
   const hasMorePlanned = plannedHiddenCount > 0
 
   const isSavings = bucket?.kind === "savings"
+  const isPayback = bucket?.kind === "payback"
   const isIncome = bucket?.kind === "income"
 
   const historyItems = useMemo((): HistoryItem[] => {
@@ -264,11 +267,24 @@ export function CategoryDrawer({
   const typeLabel =
     bucket.kind === "savings"
       ? "Savings"
-      : bucket.kind === "income"
-        ? "Income"
-        : "Expense"
+      : bucket.kind === "payback"
+        ? "Payback"
+        : bucket.kind === "income"
+          ? "Income"
+          : "Expense"
 
-  const historyEmptyCopy = "Deposits and withdrawals will show up here."
+  const historyEmptyCopy = isPayback
+    ? "Checked-off payments will show up here."
+    : "Deposits and withdrawals will show up here."
+
+  const frequencyLabel =
+    category.frequency === "weekly"
+      ? "Weekly"
+      : category.frequency === "biweekly"
+        ? "Every 2 weeks"
+        : category.frequency === "monthly"
+          ? "Monthly"
+          : null
 
   return (
     <Sheet
@@ -323,6 +339,51 @@ export function CategoryDrawer({
                       deposits,
                     ),
                   )}
+                </dd>
+              </div>
+            </dl>
+          ) : isPayback ? (
+            <dl className="grid grid-cols-2 gap-x-3 gap-y-3 text-sm">
+              <div>
+                <dt className="text-muted-foreground">Total owed</dt>
+                <dd className="mt-2 font-medium tabular-nums">
+                  {formatMoney(category.goal)}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground">Paid</dt>
+                <dd className="mt-2 font-medium tabular-nums">
+                  {formatMoney(
+                    paybackPaidForCategory(category, paychecks, doneKeys),
+                  )}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground">Left</dt>
+                <dd className="mt-2 font-medium tabular-nums">
+                  {formatMoney(
+                    paybackRemaining(category, paychecks, doneKeys),
+                  )}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground">Payment</dt>
+                <dd className="mt-2 font-medium tabular-nums">
+                  {formatMoney(
+                    category.amount ?? category.recurringAmount,
+                  )}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground">Due date</dt>
+                <dd className="mt-2 font-medium">
+                  {formatCategoryDue(category)}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground">Frequency</dt>
+                <dd className="mt-2 font-medium">
+                  {frequencyLabel ?? "—"}
                 </dd>
               </div>
             </dl>

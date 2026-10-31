@@ -92,7 +92,7 @@ export function computeBudgetCalcForDate(
         if (cat.hidden) continue
         income += allocationAt(cat, date)
       }
-    } else if (bucket.kind === "spending") {
+    } else if (bucket.kind === "spending" || bucket.kind === "payback") {
       for (const cat of bucket.categories) {
         if (cat.hidden) continue
         expenses += allocationAt(cat, date)
@@ -119,6 +119,7 @@ export function hasBudgetCalcInputsForDate(
     if (
       bucket.kind !== "income" &&
       bucket.kind !== "spending" &&
+      bucket.kind !== "payback" &&
       bucket.kind !== "savings"
     ) {
       continue

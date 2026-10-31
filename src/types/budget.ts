@@ -3,6 +3,7 @@ export type UserRole = "liz" | "ji"
 export type BucketKind =
   | "spending"
   | "savings"
+  | "payback"
   | "holder"
   | "income"
   | "totals"

@@ -13,10 +13,12 @@ import { isReorderNoOp, reorderById } from "@/lib/reorder"
 import { blushHoverClass, cn } from "@/lib/utils"
 import type { Bucket } from "@/types/budget"
 
+type ManagedKind = "spending" | "savings" | "payback"
+
 type DraftGroup = {
   id: string
   name: string
-  kind: "spending" | "savings"
+  kind: ManagedKind
   hidden: boolean
   /** Soft-deleted in this draft; removed on save */
   removed: boolean
@@ -32,24 +34,47 @@ type Props = {
   onEditGroup: (bucket: Bucket) => void
 }
 
+const KIND_DEFAULT_NAME: Record<ManagedKind, string> = {
+  spending: "New group",
+  savings: "New savings",
+  payback: "New payback",
+}
+
+const KIND_FALLBACK_NAME: Record<ManagedKind, string> = {
+  spending: "Group",
+  savings: "Savings",
+  payback: "Payback",
+}
+
+function isManagedBucket(
+  bucket: Bucket,
+): bucket is Bucket & { kind: ManagedKind } {
+  return (
+    bucket.kind === "spending" ||
+    bucket.kind === "savings" ||
+    bucket.kind === "payback"
+  )
+}
+
 function toDrafts(buckets: Bucket[]): DraftGroup[] {
-  return buckets
-    .filter((b) => b.kind === "spending" || b.kind === "savings")
-    .map((b) => ({
-      id: b.id,
-      name: b.name,
-      kind: b.kind as "spending" | "savings",
-      hidden: Boolean(b.hidden),
-      removed: false,
-    }))
+  return buckets.filter(isManagedBucket).map((b) => ({
+    id: b.id,
+    name: b.name,
+    kind: b.kind,
+    hidden: Boolean(b.hidden),
+    removed: false,
+  }))
 }
 
 function mergeOrder(
   all: Bucket[],
   spending: Bucket[],
+  payback: Bucket[],
   savings: Bucket[],
 ): Bucket[] {
-  const managed = new Set([...spending, ...savings].map((b) => b.id))
+  const managed = new Set(
+    [...spending, ...payback, ...savings].map((b) => b.id),
+  )
   const before: Bucket[] = []
   const after: Bucket[] = []
   let seen = false
@@ -61,7 +86,7 @@ function mergeOrder(
     if (!seen) before.push(b)
     else after.push(b)
   }
-  return [...before, ...spending, ...savings, ...after]
+  return [...before, ...spending, ...payback, ...savings, ...after]
 }
 
 export function EditGroupsDialog({
@@ -89,10 +114,20 @@ export function EditGroupsDialog({
     () => drafts.filter((d) => d.kind === "spending" && !d.removed),
     [drafts],
   )
+  const paybackDrafts = useMemo(
+    () => drafts.filter((d) => d.kind === "payback" && !d.removed),
+    [drafts],
+  )
   const savingsDrafts = useMemo(
     () => drafts.filter((d) => d.kind === "savings" && !d.removed),
     [drafts],
   )
+
+  function sectionList(kind: ManagedKind) {
+    if (kind === "spending") return expenseDrafts
+    if (kind === "payback") return paybackDrafts
+    return savingsDrafts
+  }
 
   function updateDraft(id: string, patch: Partial<DraftGroup>) {
     setDrafts((prev) =>
@@ -100,13 +135,13 @@ export function EditGroupsDialog({
     )
   }
 
-  function addGroup(kind: "spending" | "savings") {
+  function addGroup(kind: ManagedKind) {
     const id = crypto.randomUUID()
     setDrafts((prev) => [
       ...prev,
       {
         id,
-        name: kind === "savings" ? "New savings" : "New group",
+        name: KIND_DEFAULT_NAME[kind],
         kind,
         hidden: false,
         removed: false,
@@ -122,7 +157,7 @@ export function EditGroupsDialog({
     if (!kind) return
     setDraggingId(id)
     const onMove = (ev: PointerEvent) => {
-      const list = kind === "spending" ? expenseDrafts : savingsDrafts
+      const list = sectionList(kind)
       let before: string | null = null
       for (const d of list) {
         if (d.id === id) continue
@@ -140,31 +175,40 @@ export function EditGroupsDialog({
       setDraggingId((from) => {
         if (from) {
           setDropBeforeId((before) => {
-            const ids = (
-              kind === "spending" ? expenseDrafts : savingsDrafts
-            ).map((d) => d.id)
+            const ids = sectionList(kind).map((d) => d.id)
             if (!isReorderNoOp(ids, from, before ?? null)) {
               setDrafts((prev) => {
                 const section = prev.filter(
                   (d) => d.kind === kind && !d.removed,
-                )
-                const rest = prev.filter(
-                  (d) => !(d.kind === kind && !d.removed),
                 )
                 const reordered = reorderById(section, from, before ?? null)
                 const spending =
                   kind === "spending"
                     ? reordered
                     : prev.filter((d) => d.kind === "spending" && !d.removed)
+                const payback =
+                  kind === "payback"
+                    ? reordered
+                    : prev.filter((d) => d.kind === "payback" && !d.removed)
                 const savings =
                   kind === "savings"
                     ? reordered
                     : prev.filter((d) => d.kind === "savings" && !d.removed)
-                const others = rest.filter(
-                  (d) => d.kind !== "spending" && d.kind !== "savings",
+                const others = prev.filter(
+                  (d) =>
+                    d.removed ||
+                    (d.kind !== "spending" &&
+                      d.kind !== "payback" &&
+                      d.kind !== "savings"),
                 )
                 const removed = prev.filter((d) => d.removed)
-                return [...others, ...spending, ...savings, ...removed]
+                return [
+                  ...others.filter((d) => !d.removed),
+                  ...spending,
+                  ...payback,
+                  ...savings,
+                  ...removed,
+                ]
               })
             }
             return undefined
@@ -183,6 +227,7 @@ export function EditGroupsDialog({
     const live = drafts.filter((d) => !d.removed)
     const byId = new Map(buckets.map((b) => [b.id, b]))
     const spending: Bucket[] = []
+    const payback: Bucket[] = []
     const savings: Bucket[] = []
     for (const d of live) {
       const existing = byId.get(d.id)
@@ -190,23 +235,24 @@ export function EditGroupsDialog({
         ? { ...existing, name: d.name.trim() || existing.name, hidden: d.hidden }
         : {
             id: d.id,
-            name: d.name.trim() || (d.kind === "savings" ? "Savings" : "Group"),
+            name: d.name.trim() || KIND_FALLBACK_NAME[d.kind],
             kind: d.kind,
             hidden: d.hidden,
             categories: [],
           }
       if (d.kind === "spending") spending.push(next)
+      else if (d.kind === "payback") payback.push(next)
       else savings.push(next)
     }
     const removedIds = new Set(drafts.filter((d) => d.removed).map((d) => d.id))
     const kept = buckets.filter((b) => !removedIds.has(b.id))
-    onSave(mergeOrder(kept, spending, savings))
+    onSave(mergeOrder(kept, spending, payback, savings))
     onOpenChange(false)
   }
 
   function renderSection(
     title: string,
-    kind: "spending" | "savings",
+    kind: ManagedKind,
     list: DraftGroup[],
   ) {
     return (
@@ -280,8 +326,6 @@ export function EditGroupsDialog({
                             name: d.name.trim() || full.name,
                             hidden: d.hidden,
                           })
-                        } else if (d.isNew) {
-                          // Save first via parent is awkward; keep inline name only for new
                         }
                       }}
                     >
@@ -332,6 +376,7 @@ export function EditGroupsDialog({
         </div>
         <div className="min-h-0 flex-1 space-y-8 overflow-y-auto px-6 py-5">
           {renderSection("Expenses", "spending", expenseDrafts)}
+          {renderSection("Payback", "payback", paybackDrafts)}
           {renderSection("Savings", "savings", savingsDrafts)}
         </div>
         <DialogFooter className="m-0 rounded-none border-t px-6 py-4 sm:justify-end">

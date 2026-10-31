@@ -61,6 +61,31 @@ export function sumAllocationsForDates(
   return total
 }
 
+/** Checked-off payback payments toward the total owed. */
+export function paybackPaidForCategory(
+  cat: Category,
+  paychecks: Paycheck[],
+  doneKeys: ReadonlySet<string>,
+): number {
+  let paid = 0
+  for (const p of paychecks) {
+    if (!doneKeys.has(allocationKey(cat.id, p.id))) continue
+    paid += allocationAt(cat, p.date)
+  }
+  return paid
+}
+
+/** Remaining balance on a payback (goal − paid so far). */
+export function paybackRemaining(
+  cat: Category,
+  paychecks: Paycheck[],
+  doneKeys: ReadonlySet<string>,
+): number {
+  const goal =
+    typeof cat.goal === "number" && Number.isFinite(cat.goal) ? cat.goal : 0
+  return Math.max(0, goal - paybackPaidForCategory(cat, paychecks, doneKeys))
+}
+
 /**
  * Money actually in this savings category from Liz's view:
  * carry-over + checked allocations − withdrawals + deposits.
@@ -290,7 +315,7 @@ export function computeComposition(
           doneKeys,
         )
       }
-    } else if (bucket.kind === "spending") {
+    } else if (bucket.kind === "spending" || bucket.kind === "payback") {
       for (const cat of bucket.categories) {
         if (cat.hidden) continue
         const amount = sumCheckedAllocationsForDates(

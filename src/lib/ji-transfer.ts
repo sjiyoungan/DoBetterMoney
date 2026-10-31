@@ -27,7 +27,8 @@ export function resolveTransferCategoryIds(
   sources: JiTransferSource[] | undefined,
 ): Set<string> | null {
   const eligible = buckets.filter(
-    (b) => b.kind === "spending" || b.kind === "savings",
+    (b) =>
+      b.kind === "spending" || b.kind === "savings" || b.kind === "payback",
   )
   if (!sources || sources.length === 0) {
     // null = all eligible categories
@@ -131,7 +132,9 @@ export function pendingTransferPaychecks(
 export function sourceBucketsForJi(buckets: Bucket[]): Bucket[] {
   return buckets.filter(
     (b) =>
-      (b.kind === "spending" || b.kind === "savings") &&
+      (b.kind === "spending" ||
+        b.kind === "savings" ||
+        b.kind === "payback") &&
       b.categories.some((c) => !c.hidden),
   )
 }

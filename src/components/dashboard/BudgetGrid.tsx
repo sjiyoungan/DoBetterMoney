@@ -1136,7 +1136,9 @@ export function BudgetGrid({
                       {bucket.categories.map((category) => {
                         const row = rows.find((r) => r.key === category.id)!
                         const isSavings = bucket.kind === "savings"
-                        const isExpense = bucket.kind === "spending"
+                        const isExpense =
+                          bucket.kind === "spending" ||
+                          bucket.kind === "payback"
                         const fullBucket =
                           buckets.find((b) => b.id === bucket.id) ?? bucket
                         const extraTop =

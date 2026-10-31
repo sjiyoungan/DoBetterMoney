@@ -48,6 +48,7 @@ import type {
 export type BucketDraftType =
   | "expenses"
   | "savings"
+  | "payback"
   | "income"
   | "totals"
   | "budget_calc"
@@ -90,6 +91,8 @@ const COL_INC =
   "grid-cols-[24px_minmax(0,238px)_68px_minmax(11rem,1fr)_28px_24px]" as const
 const COL_SAV =
   "grid-cols-[24px_minmax(0,1fr)_68px_68px_28px_24px]" as const
+const COL_PAY =
+  "grid-cols-[24px_minmax(0,180px)_68px_64px_9.75rem_68px_28px_24px]" as const
 const COL_TOT =
   "grid-cols-[24px_minmax(0,200px)_minmax(11rem,1fr)_28px_24px]" as const
 const COL_CALC = "grid-cols-[minmax(0,1fr)]" as const
@@ -97,6 +100,7 @@ const COL_CALC = "grid-cols-[minmax(0,1fr)]" as const
 const TYPE_LABEL: Record<BucketDraftType, string> = {
   expenses: "Expenses",
   savings: "Savings",
+  payback: "Payback",
   income: "Income",
   totals: "Totals",
   budget_calc: "Budget calculation",
@@ -127,6 +131,7 @@ function newDraft(): CategoryDraft {
 
 function mapType(type: BucketDraftType): BucketKind {
   if (type === "savings") return "savings"
+  if (type === "payback") return "payback"
   if (type === "income") return "income"
   if (type === "totals") return "totals"
   if (type === "budget_calc") return "budget_calc"
@@ -135,6 +140,7 @@ function mapType(type: BucketDraftType): BucketKind {
 
 function kindToDraftType(kind: BucketKind): BucketDraftType {
   if (kind === "savings") return "savings"
+  if (kind === "payback") return "payback"
   if (kind === "income") return "income"
   if (kind === "totals") return "totals"
   if (kind === "budget_calc") return "budget_calc"
@@ -294,6 +300,17 @@ function draftsToBucket(
         goal: goal ?? prev?.goal ?? 0,
         balance: carryOver ?? prev?.balance ?? 0,
         ...(d.hidden ? { hidden: true } : {}),
+      }
+    }
+
+    if (bucketKind === "payback") {
+      return {
+        ...base,
+        goal: goal ?? prev?.goal ?? 0,
+        ...(amount !== undefined
+          ? { amount, recurringAmount: amount, isRecurring: true }
+          : {}),
+        ...(dueDay !== undefined ? { dueDay } : {}),
       }
     }
 
@@ -984,6 +1001,7 @@ export function AddBucketDialog({
                   >
                     <SelectItem value="expenses">Expenses</SelectItem>
                     <SelectItem value="savings">Savings</SelectItem>
+                    <SelectItem value="payback">Payback</SelectItem>
                     <SelectItem value="totals">Totals</SelectItem>
                     <SelectItem value="budget_calc">
                       Budget calculation
@@ -1047,6 +1065,22 @@ export function AddBucketDialog({
                 <span>Category</span>
                 <span>Goal</span>
                 <span>Carry over</span>
+                <span />
+                <span />
+              </div>
+            ) : bucketType === "payback" ? (
+              <div
+                className={cn(
+                  "grid gap-2 text-xs font-medium text-muted-foreground",
+                  COL_PAY,
+                )}
+              >
+                <span />
+                <span>Category</span>
+                <span>Payment</span>
+                <span>Due day</span>
+                <span>Frequency</span>
+                <span>Total</span>
                 <span />
                 <span />
               </div>
@@ -1149,6 +1183,113 @@ export function AddBucketDialog({
                     <MoneyInput
                       value={draft.amount}
                       onChange={(v) => updateDraft(draft.id, { amount: v })}
+                      dimmed={draft.hidden}
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      className={cn(
+                        "justify-self-end hover:bg-transparent",
+                        draft.hidden
+                          ? "text-neutral-400 hover:text-neutral-400"
+                          : "text-muted-foreground",
+                      )}
+                      disabled={drafts.length === 1}
+                      onClick={() => requestRemove(draft.id)}
+                      title="Remove category"
+                    >
+                      <Trash2 className="size-3.5" />
+                    </Button>
+                    {grip}
+                  </div>
+                )
+              }
+
+              if (bucketType === "payback") {
+                return (
+                  <div
+                    key={draft.id}
+                    ref={(el) => setRowRef(draft.id, el)}
+                    className={cn(
+                      draftRowClass(draft.hidden, COL_PAY),
+                      draggingId === draft.id && "opacity-50",
+                    )}
+                  >
+                    <CategoryDropLine show={showTopLine} edge="top" />
+                    <CategoryDropLine show={showBottomLine} edge="bottom" />
+                    <HideToggle
+                      hidden={draft.hidden}
+                      onToggle={() =>
+                        updateDraft(draft.id, { hidden: !draft.hidden })
+                      }
+                    />
+                    <Input
+                      className={cn(fieldH, dimField(draft.hidden))}
+                      value={draft.name}
+                      onChange={(e) =>
+                        updateDraft(draft.id, { name: e.target.value })
+                      }
+                      placeholder="e.g. Brother"
+                    />
+                    <MoneyInput
+                      value={draft.amount}
+                      onChange={(v) => updateDraft(draft.id, { amount: v })}
+                      dimmed={draft.hidden}
+                    />
+                    <DueDayInput
+                      value={draft.dueDay}
+                      invalid={dueDayError && isDueDayInvalid(draft.dueDay)}
+                      dimmed={draft.hidden}
+                      onChange={(v) => {
+                        updateDraft(draft.id, { dueDay: v })
+                        if (dueDayError) {
+                          setDueDayError(
+                            drafts.some((d) =>
+                              isDueDayInvalid(
+                                d.id === draft.id ? v : d.dueDay,
+                              ),
+                            ),
+                          )
+                        }
+                      }}
+                      onCommit={(v) => {
+                        setDueDayError(
+                          drafts.some((d) =>
+                            isDueDayInvalid(d.id === draft.id ? v : d.dueDay),
+                          ),
+                        )
+                      }}
+                    />
+                    <Select
+                      value={draft.frequency || undefined}
+                      onValueChange={(value) =>
+                        updateDraft(draft.id, {
+                          frequency: value as PayFrequency,
+                        })
+                      }
+                    >
+                      <SelectTrigger
+                        size="default"
+                        className={cn(selectFreqH, dimTrigger(draft.hidden))}
+                      >
+                        <SelectValue placeholder="Select frequency" />
+                      </SelectTrigger>
+                      <SelectContent
+                        position="popper"
+                        align="start"
+                        className="min-w-0 w-[var(--radix-select-trigger-width)]"
+                      >
+                        {FREQUENCY_OPTIONS.map((opt) => (
+                          <SelectItem key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <MoneyInput
+                      value={draft.goal}
+                      onChange={(v) => updateDraft(draft.id, { goal: v })}
                       dimmed={draft.hidden}
                     />
                     <Button
