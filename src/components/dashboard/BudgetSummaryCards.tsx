@@ -109,6 +109,11 @@ export function BudgetSummaryCards({
         onOpenChange={setSavingsOpen}
         rows={savingsByBucket}
         total={totalSavings}
+        buckets={buckets}
+        paychecks={paychecks}
+        doneKeys={doneKeys}
+        withdrawals={withdrawals}
+        deposits={deposits}
       />
 
       <div className="relative flex h-auto min-h-full w-fit shrink-0 flex-col rounded-[8px] border border-neutral-500 bg-white p-4">
