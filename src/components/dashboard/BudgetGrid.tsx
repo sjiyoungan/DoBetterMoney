@@ -354,6 +354,8 @@ export function BudgetGrid({
     { mode: "create" } | { mode: "edit"; bucket: Bucket } | null
   >(null)
   const [editGroupsOpen, setEditGroupsOpen] = useState(false)
+  const [hoveredRowKey, setHoveredRowKey] = useState<string | null>(null)
+  const hoverClearRaf = useRef<number | null>(null)
   const [headerMode, setHeaderMode] = useState<"expense" | "savings">(
     "expense",
   )
@@ -701,6 +703,28 @@ export function BudgetGrid({
   function setPlannedRowRef(key: string, el: HTMLTableRowElement | null) {
     if (el) plannedRowRefs.current.set(key, el)
     else plannedRowRefs.current.delete(key)
+  }
+
+  function rowHoverHandlers(key: string) {
+    return {
+      onMouseEnter: () => {
+        if (hoverClearRaf.current !== null) {
+          cancelAnimationFrame(hoverClearRaf.current)
+          hoverClearRaf.current = null
+        }
+        setHoveredRowKey(key)
+      },
+      onMouseLeave: () => {
+        hoverClearRaf.current = requestAnimationFrame(() => {
+          hoverClearRaf.current = null
+          setHoveredRowKey((prev) => (prev === key ? null : prev))
+        })
+      },
+    }
+  }
+
+  function rowHoverClass(key: string) {
+    return hoveredRowKey === key ? "grid-row-hover" : undefined
   }
 
   function scrollPayByColumn(direction: -1 | 1) {
@@ -1172,6 +1196,8 @@ export function BudgetGrid({
                           <tr
                             key={category.id}
                             ref={(el) => setLeftRowRef(category.id, el)}
+                            className={rowHoverClass(category.id)}
+                            {...rowHoverHandlers(category.id)}
                           >
                             {row.isFirstInBucket ? (
                               <td
@@ -1410,6 +1436,8 @@ export function BudgetGrid({
                             <tr
                               key={category.id}
                               ref={(el) => setRightRowRef(category.id, el)}
+                              className={rowHoverClass(category.id)}
+                              {...rowHoverHandlers(category.id)}
                             >
                               {paychecks.map((p, i) => {
                                 const raw = category.allocations[p.date]
@@ -1577,6 +1605,8 @@ export function BudgetGrid({
                           <tr
                             key={category.id}
                             ref={(el) => setPlannedRowRef(category.id, el)}
+                            className={rowHoverClass(category.id)}
+                            {...rowHoverHandlers(category.id)}
                           >
                             <td
                               className={cn(
@@ -1667,6 +1697,8 @@ export function BudgetGrid({
                               <tr
                                 key={category.id}
                                 ref={(el) => setLeftRowRef(category.id, el)}
+                                className={rowHoverClass(category.id)}
+                                {...rowHoverHandlers(category.id)}
                               >
                                 {row.isFirstInBucket ? (
                                   <td
@@ -1787,6 +1819,8 @@ export function BudgetGrid({
                               <tr
                                 key={category.id}
                                 ref={(el) => setRightRowRef(category.id, el)}
+                                className={rowHoverClass(category.id)}
+                                {...rowHoverHandlers(category.id)}
                               >
                                 {paychecks.map((p, i) => {
                                   const isBudgetCalc =
@@ -1913,6 +1947,8 @@ export function BudgetGrid({
                               ref={(el) =>
                                 setPlannedRowRef(category.id, el)
                               }
+                              className={rowHoverClass(category.id)}
+                              {...rowHoverHandlers(category.id)}
                             >
                               <td
                                 className={cn(
