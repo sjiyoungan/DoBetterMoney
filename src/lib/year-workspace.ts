@@ -1,6 +1,10 @@
 import { emptyYearBudget } from "@/data/empty"
 import { mergeAllocationsOntoPaychecks, prefillAllocations } from "@/lib/allocations"
 import {
+  paybackRemaining,
+  savingsActualForCategory,
+} from "@/lib/budget-summary"
+import {
   applyIncomeAllocations,
   categoryRecurrence,
   generatePaychecksFromIncomeBucket,
@@ -10,6 +14,7 @@ import type {
   Bucket,
   BudgetWorkspace,
   Category,
+  Withdrawal,
   YearBudget,
 } from "@/types/budget"
 
@@ -265,6 +270,32 @@ function prefillExpenseCategory(
   }
 }
 
+function doneKeySet(slice: YearBudget): Set<string> {
+  return new Set(slice.doneKeys ?? [])
+}
+
+/** Ending savings cash in a prior year → opening carry for the next page. */
+function endingSavingsBalance(slice: YearBudget, cat: Category): number {
+  return savingsActualForCategory(
+    cat,
+    slice.paychecks,
+    doneKeySet(slice),
+    slice.withdrawals ?? [],
+    slice.deposits ?? [],
+  )
+}
+
+/** Remaining payback after checked payments in the prior year. */
+function endingPaybackGoal(slice: YearBudget, cat: Category): number {
+  return paybackRemaining(cat, slice.paychecks, doneKeySet(slice))
+}
+
+function openBorrowsFrom(slice: YearBudget): Withdrawal[] {
+  return (slice.withdrawals ?? [])
+    .filter((w) => w.kind === "borrow" && !w.repaidAt)
+    .map((w) => ({ ...w }))
+}
+
 /**
  * Align category allocations to the current paycheck columns.
  * Preserves existing cell values exactly; new columns stay empty.
@@ -415,27 +446,27 @@ export function createNextYear(workspace: BudgetWorkspace): BudgetWorkspace {
     ) {
       return bucket
     }
-    return {
-      ...bucket,
-      categories: bucket.categories.map((cat) =>
-        prefillExpenseCategory(cat, paychecks),
-      ),
-    }
-  })
-
-  // Carry savings balances forward
-  buckets = buckets.map((bucket) => {
-    if (bucket.kind !== "savings") return bucket
-    const prev = source.buckets.find((b) => b.id === bucket.id)
+    const prevBucket = source.buckets.find((b) => b.id === bucket.id)
     return {
       ...bucket,
       categories: bucket.categories.map((cat) => {
-        const prevCat = prev?.categories.find((c) => c.id === cat.id)
-        return {
-          ...cat,
-          balance: prevCat?.balance ?? cat.balance,
-          goal: prevCat?.goal ?? cat.goal,
+        const filled = prefillExpenseCategory(cat, paychecks)
+        const prevCat = prevBucket?.categories.find((c) => c.id === cat.id)
+        if (bucket.kind === "savings" && prevCat) {
+          return {
+            ...filled,
+            balance: endingSavingsBalance(source, prevCat),
+            goal: prevCat.goal ?? cat.goal,
+            allocations: {},
+          }
         }
+        if (bucket.kind === "payback" && prevCat) {
+          return {
+            ...filled,
+            goal: endingPaybackGoal(source, prevCat),
+          }
+        }
+        return filled
       }),
     }
   })
@@ -444,7 +475,7 @@ export function createNextYear(workspace: BudgetWorkspace): BudgetWorkspace {
     paychecks,
     buckets,
     holderSplits: [],
-    withdrawals: [],
+    withdrawals: openBorrowsFrom(source),
     deposits: [],
     holderBalances: { ...source.holderBalances },
     doneKeys: [],
@@ -468,9 +499,10 @@ export function createNextYear(workspace: BudgetWorkspace): BudgetWorkspace {
 }
 
 /**
- * Copy group/category structure from `fromYear` into every later year.
- * Preserves each later year’s paycheck allocations / savings balances /
- * done-keys for categories that still exist; new categories get frequency prefills.
+ * Years are continuous pages: push groups, schedules, opening balances, and
+ * open borrows from `fromYear` into every later year. Later-year paycheck
+ * cells / notes / local history are kept when the category still exists.
+ * Never writes backward into earlier years.
  */
 export function propagateStructureForward(
   workspace: BudgetWorkspace,
@@ -482,10 +514,14 @@ export function propagateStructureForward(
   if (later.length === 0) return workspace
 
   const years: Record<string, YearBudget> = { ...workspace.years }
+  // Chain forward so each page’s opening balance reflects the prior page.
+  let prior = source
   for (const y of later) {
     const target = years[String(y)]
     if (!target) continue
-    years[String(y)] = mergeStructureIntoYear(source, target, y)
+    const merged = mergeStructureIntoYear(prior, target, y)
+    years[String(y)] = merged
+    prior = merged
   }
   return { ...workspace, years }
 }
@@ -562,7 +598,8 @@ function mergeStructureIntoYear(
       if (srcBucket.kind === "savings") {
         return {
           ...base,
-          balance: prevCat?.balance ?? srcCat.balance ?? 0,
+          // Continuous: this page’s carry-over is prior page’s ending cash.
+          balance: endingSavingsBalance(source, srcCat),
           goal: srcCat.goal ?? prevCat?.goal ?? 0,
           allocations: prevCat
             ? preserveAllocationsOnPaychecks(prevCat, target.paychecks)
@@ -571,7 +608,23 @@ function mergeStructureIntoYear(
         }
       }
 
-      // spending / payback / other: keep existing cells when present, else prefill
+      if (srcBucket.kind === "payback") {
+        const withGoal: Category = {
+          ...base,
+          goal: endingPaybackGoal(source, srcCat),
+        }
+        if (prevCat) {
+          const kept = preserveAllocationsOnPaychecks(prevCat, target.paychecks)
+          return {
+            ...withGoal,
+            allocations: kept.allocations,
+            ...(prevCat.comments ? { comments: { ...prevCat.comments } } : {}),
+          }
+        }
+        return prefillExpenseCategory(withGoal, target.paychecks)
+      }
+
+      // spending / other: keep existing cells when present, else prefill
       if (prevCat) {
         const kept = preserveAllocationsOnPaychecks(prevCat, target.paychecks)
         return {
@@ -613,11 +666,13 @@ function mergeStructureIntoYear(
     const categoryId = key.split("::")[0]
     return categoryId ? nextCategoryIds.has(categoryId) : true
   })
-  const withdrawals = (target.withdrawals ?? []).filter((w) =>
-    nextCategoryIds.has(w.categoryId),
-  )
   const deposits = (target.deposits ?? []).filter((d) =>
     nextCategoryIds.has(d.categoryId),
+  )
+  const withdrawals = mergeWithdrawalsForward(
+    source,
+    target,
+    nextCategoryIds,
   )
 
   return {
@@ -627,6 +682,7 @@ function mergeStructureIntoYear(
     doneKeys,
     withdrawals,
     deposits,
+    holderBalances: { ...source.holderBalances },
     jiTransferSources: source.jiTransferSources
       ? source.jiTransferSources.map((s) => ({ ...s }))
       : target.jiTransferSources,
@@ -634,6 +690,43 @@ function mergeStructureIntoYear(
       ? source.jiAccountSources.map((s) => ({ ...s }))
       : target.jiAccountSources,
   }
+}
+
+/** Keep later-year history; carry open borrows forward from the prior page. */
+function mergeWithdrawalsForward(
+  source: YearBudget,
+  target: YearBudget,
+  nextCategoryIds: Set<string>,
+): Withdrawal[] {
+  const sourceById = new Map(
+    (source.withdrawals ?? []).map((w) => [w.id, w] as const),
+  )
+  const out: Withdrawal[] = []
+  const seen = new Set<string>()
+
+  for (const w of target.withdrawals ?? []) {
+    if (!nextCategoryIds.has(w.categoryId)) continue
+    const src = sourceById.get(w.id)
+    if (w.kind === "borrow" && !w.repaidAt && src?.repaidAt) {
+      out.push({
+        ...w,
+        repaidAt: src.repaidAt,
+        repaidDepositId: src.repaidDepositId,
+      })
+      seen.add(w.id)
+      continue
+    }
+    out.push(w)
+    seen.add(w.id)
+  }
+
+  for (const w of openBorrowsFrom(source)) {
+    if (!nextCategoryIds.has(w.categoryId) || seen.has(w.id)) continue
+    out.push(w)
+    seen.add(w.id)
+  }
+
+  return out
 }
 
 /** Apply an amount to matching future paycheck slots in the active year and every later year. */
