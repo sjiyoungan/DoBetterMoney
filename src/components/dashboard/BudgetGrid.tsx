@@ -827,10 +827,7 @@ export function BudgetGrid({
   return (
     <div ref={gridMeasureRef} className="flex min-h-0 min-w-0 flex-1 flex-col">
       <div
-        className={cn(
-          "relative flex min-h-0 flex-1 flex-col",
-          shouldHugTable && "mx-auto",
-        )}
+        className="relative flex min-h-0 flex-1 flex-col"
         style={
           shouldHugTable
             ? { width: tableNaturalWidth, maxWidth: "100%" }
