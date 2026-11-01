@@ -2680,22 +2680,6 @@ function AmountCell({
             ${value}
           </span>
         ) : null}
-        {hasComment ? (
-          <span
-            aria-hidden
-            title="Has comment"
-            className="pointer-events-none absolute top-1/2 right-0 flex -translate-y-1/2 translate-x-full pr-0.5"
-          >
-            <span
-              className={cn(
-                "ml-0.5 size-1.5 shrink-0 rounded-full",
-                accent
-                  ? "bg-[#C9A8AE]"
-                  : "bg-neutral-500 dark:bg-neutral-400",
-              )}
-            />
-          </span>
-        ) : null}
       </div>
     </div>
   )
