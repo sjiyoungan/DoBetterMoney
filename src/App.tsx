@@ -25,16 +25,24 @@ import {
   saveWorkspace,
 } from "@/lib/workspace-api"
 import {
+  applyAmountForwardAcrossYears,
   createNextYear,
   getActiveYearBudget,
   listYears,
   nextYearToCreate,
+  propagateStructureForward,
   setActiveYear,
   syncYearPrefills,
   updateActiveYearBudget,
 } from "@/lib/year-workspace"
-import type { Bucket, BudgetWorkspace, UserRole } from "@/types/budget"
-import type { JiTransferLog, JiTransferSource } from "@/types/budget"
+import type {
+  Bucket,
+  BudgetWorkspace,
+  JiTransferLog,
+  JiTransferSource,
+  UserRole,
+  YearBudget,
+} from "@/types/budget"
 
 export default function App() {
   const { user, profile, setPreferredRole, signOut } = useAuth()
@@ -244,6 +252,13 @@ export default function App() {
     markDirty()
   }
 
+  /** Structural edits on the active year also update every later year. */
+  function patchActiveYearPropagating(updater: (year: YearBudget) => YearBudget) {
+    patchWorkspace((prev) =>
+      propagateStructureForward(updateActiveYearBudget(prev, updater)),
+    )
+  }
+
   function patchDoneKeys(updater: (prev: Set<string>) => Set<string>) {
     setDoneKeys((prev) => {
       const next = updater(prev)
@@ -400,7 +415,9 @@ export default function App() {
         ...y,
         doneKeys: [...doneKeysRef.current],
       }))
-      const next = setActiveYear(leaving, year)
+      // Push the year we’re leaving into every later year before switching.
+      const synced = propagateStructureForward(leaving)
+      const next = setActiveYear(synced, year)
       const slice = getActiveYearBudget(next)
       doneKeysRef.current = new Set(slice.doneKeys)
       setDoneKeys(new Set(slice.doneKeys))
@@ -420,7 +437,8 @@ export default function App() {
         ...y,
         doneKeys: [...doneKeysRef.current],
       }))
-      const next = createNextYear(withDone)
+      const synced = propagateStructureForward(withDone)
+      const next = createNextYear(synced)
       const slice = getActiveYearBudget(next)
       doneKeysRef.current = new Set(slice.doneKeys)
       setDoneKeys(new Set(slice.doneKeys))
@@ -495,23 +513,21 @@ export default function App() {
 
   function onCategoryNoteChange(categoryId: string, note: string) {
     recordHistory(`note:${categoryId}`)
-    patchWorkspace((prev) =>
-      updateActiveYearBudget(prev, (year) => ({
-        ...year,
-        buckets: year.buckets.map((bucket) => ({
-          ...bucket,
-          categories: bucket.categories.map((cat) => {
-            if (cat.id !== categoryId) return cat
-            if (note.trim() === "") {
-              const next = { ...cat }
-              delete next.note
-              return next
-            }
-            return { ...cat, note }
-          }),
-        })),
+    patchActiveYearPropagating((year) => ({
+      ...year,
+      buckets: year.buckets.map((bucket) => ({
+        ...bucket,
+        categories: bucket.categories.map((cat) => {
+          if (cat.id !== categoryId) return cat
+          if (note.trim() === "") {
+            const next = { ...cat }
+            delete next.note
+            return next
+          }
+          return { ...cat, note }
+        }),
       })),
-    )
+    }))
   }
 
   function onAmountApplyToFuture(
@@ -527,26 +543,17 @@ export default function App() {
         : num
 
     recordHistory()
-    patchWorkspace((prev) =>
-      updateActiveYearBudget(prev, (year) => ({
-        ...year,
-        buckets: year.buckets.map((bucket) => ({
-          ...bucket,
-          categories: bucket.categories.map((cat) => {
-            if (cat.id !== categoryId) return cat
-            return {
-              ...cat,
-              allocations: applyAmountToFuture(
-                cat,
-                year.paychecks,
-                fromDate,
-                nextVal,
-              ),
-            }
-          }),
-        })),
-      })),
-    )
+    patchWorkspace((prev) => {
+      // Ensure later years have this category, then fan the value forward.
+      const withStructure = propagateStructureForward(prev)
+      return applyAmountForwardAcrossYears(
+        withStructure,
+        categoryId,
+        fromDate,
+        nextVal,
+        applyAmountToFuture,
+      )
+    })
   }
 
   function onCategoryFieldChange(
@@ -555,58 +562,54 @@ export default function App() {
     value: string,
   ) {
     recordHistory(`field:${categoryId}:${field}`)
-    patchWorkspace((prev) =>
-      updateActiveYearBudget(prev, (year) => ({
-        ...year,
-        buckets: year.buckets.map((bucket) => ({
-          ...bucket,
-          categories: bucket.categories.map((cat) => {
-            if (cat.id !== categoryId) return cat
-            const trimmed = value.trim()
-            if (trimmed === "") {
-              if (field === "amount") {
-                return {
-                  ...cat,
-                  amount: undefined,
-                  recurringAmount: undefined,
-                  minPayment: undefined,
-                }
-              }
-              return { ...cat, goal: undefined }
-            }
-            const parsed = Number(trimmed.replace(/,/g, ""))
-            if (!Number.isFinite(parsed)) return cat
+    patchActiveYearPropagating((year) => ({
+      ...year,
+      buckets: year.buckets.map((bucket) => ({
+        ...bucket,
+        categories: bucket.categories.map((cat) => {
+          if (cat.id !== categoryId) return cat
+          const trimmed = value.trim()
+          if (trimmed === "") {
             if (field === "amount") {
               return {
                 ...cat,
-                amount: parsed,
-                recurringAmount: parsed,
-                isRecurring: true,
+                amount: undefined,
+                recurringAmount: undefined,
+                minPayment: undefined,
               }
             }
-            return { ...cat, goal: parsed }
-          }),
-        })),
+            return { ...cat, goal: undefined }
+          }
+          const parsed = Number(trimmed.replace(/,/g, ""))
+          if (!Number.isFinite(parsed)) return cat
+          if (field === "amount") {
+            return {
+              ...cat,
+              amount: parsed,
+              recurringAmount: parsed,
+              isRecurring: true,
+            }
+          }
+          return { ...cat, goal: parsed }
+        }),
       })),
-    )
+    }))
   }
 
   function onAddBucket(bucket: Bucket) {
     recordHistory()
-    patchWorkspace((prev) =>
-      updateActiveYearBudget(prev, (year) => ({
-        ...year,
-        buckets: [...year.buckets, bucket],
-      })),
-    )
+    patchActiveYearPropagating((year) => ({
+      ...year,
+      buckets: [...year.buckets, bucket],
+    }))
   }
 
   function onUpdateBucket(bucket: Bucket) {
     recordHistory()
     if (bucket.kind === "income") {
       const today = new Date().toISOString().slice(0, 10)
-      patchWorkspace((prev) =>
-        updateActiveYearBudget(prev, (year) => {
+      patchWorkspace((prev) => {
+        const updated = updateActiveYearBudget(prev, (year) => {
           const yearNum = prev.activeYear
           const yearPrefix = String(yearNum)
           const generated = generatePaychecksFromIncomeBucket(bucket, yearNum)
@@ -650,86 +653,79 @@ export default function App() {
             paychecks,
           }
           return syncYearPrefills(withIncome, yearNum)
-        }),
-      )
+        })
+        return propagateStructureForward(updated)
+      })
       return
     }
-    patchWorkspace((prev) =>
-      updateActiveYearBudget(prev, (year) => ({
-        ...year,
-        buckets: year.buckets.map((b) => (b.id === bucket.id ? bucket : b)),
-      })),
-    )
+    patchActiveYearPropagating((year) => ({
+      ...year,
+      buckets: year.buckets.map((b) => (b.id === bucket.id ? bucket : b)),
+    }))
   }
 
   function onDeleteBucket(bucketId: string) {
     recordHistory()
-    patchWorkspace((prev) =>
-      updateActiveYearBudget(prev, (year) => {
-        const removed = year.buckets.find((b) => b.id === bucketId)
-        const removedCategoryIds = new Set(
-          removed?.categories.map((c) => c.id) ?? [],
-        )
-        const doneKeys = year.doneKeys.filter((key) => {
-          const categoryId = key.split("::")[0]
-          return categoryId ? !removedCategoryIds.has(categoryId) : true
-        })
-        const withdrawals = year.withdrawals.filter(
-          (w) => !removedCategoryIds.has(w.categoryId),
-        )
-        const deposits = (year.deposits ?? []).filter(
-          (d) => !removedCategoryIds.has(d.categoryId),
-        )
-        return {
-          ...year,
-          buckets: year.buckets.filter((b) => b.id !== bucketId),
-          doneKeys,
-          withdrawals,
-          deposits,
-        }
-      }),
-    )
+    patchActiveYearPropagating((year) => {
+      const removed = year.buckets.find((b) => b.id === bucketId)
+      const removedCategoryIds = new Set(
+        removed?.categories.map((c) => c.id) ?? [],
+      )
+      const doneKeys = year.doneKeys.filter((key) => {
+        const categoryId = key.split("::")[0]
+        return categoryId ? !removedCategoryIds.has(categoryId) : true
+      })
+      const withdrawals = year.withdrawals.filter(
+        (w) => !removedCategoryIds.has(w.categoryId),
+      )
+      const deposits = (year.deposits ?? []).filter(
+        (d) => !removedCategoryIds.has(d.categoryId),
+      )
+      return {
+        ...year,
+        buckets: year.buckets.filter((b) => b.id !== bucketId),
+        doneKeys,
+        withdrawals,
+        deposits,
+      }
+    })
   }
 
   function onSaveGroups(nextBuckets: Bucket[]) {
     recordHistory()
-    patchWorkspace((prev) =>
-      updateActiveYearBudget(prev, (year) => {
-        const nextIds = new Set(nextBuckets.map((b) => b.id))
-        const removedCategoryIds = new Set(
-          year.buckets
-            .filter((b) => !nextIds.has(b.id))
-            .flatMap((b) => b.categories.map((c) => c.id)),
-        )
-        const doneKeys = year.doneKeys.filter((key) => {
-          const categoryId = key.split("::")[0]
-          return categoryId ? !removedCategoryIds.has(categoryId) : true
-        })
-        const withdrawals = year.withdrawals.filter(
-          (w) => !removedCategoryIds.has(w.categoryId),
-        )
-        const deposits = (year.deposits ?? []).filter(
-          (d) => !removedCategoryIds.has(d.categoryId),
-        )
-        return {
-          ...year,
-          buckets: nextBuckets,
-          doneKeys,
-          withdrawals,
-          deposits,
-        }
-      }),
-    )
+    patchActiveYearPropagating((year) => {
+      const nextIds = new Set(nextBuckets.map((b) => b.id))
+      const removedCategoryIds = new Set(
+        year.buckets
+          .filter((b) => !nextIds.has(b.id))
+          .flatMap((b) => b.categories.map((c) => c.id)),
+      )
+      const doneKeys = year.doneKeys.filter((key) => {
+        const categoryId = key.split("::")[0]
+        return categoryId ? !removedCategoryIds.has(categoryId) : true
+      })
+      const withdrawals = year.withdrawals.filter(
+        (w) => !removedCategoryIds.has(w.categoryId),
+      )
+      const deposits = (year.deposits ?? []).filter(
+        (d) => !removedCategoryIds.has(d.categoryId),
+      )
+      return {
+        ...year,
+        buckets: nextBuckets,
+        doneKeys,
+        withdrawals,
+        deposits,
+      }
+    })
   }
 
   function onReorderBuckets(fromId: string, beforeId: string | null) {
     recordHistory()
-    patchWorkspace((prev) =>
-      updateActiveYearBudget(prev, (year) => ({
-        ...year,
-        buckets: reorderById(year.buckets, fromId, beforeId),
-      })),
-    )
+    patchActiveYearPropagating((year) => ({
+      ...year,
+      buckets: reorderById(year.buckets, fromId, beforeId),
+    }))
   }
 
   function onSetupIncome(sources: IncomeSourceInput[]) {
@@ -750,17 +746,19 @@ export default function App() {
       setSelectedPaycheckId(
         paychecks.find((p) => !p.completed)?.id ?? paychecks[0]?.id ?? "",
       )
-      return updateActiveYearBudget(prev, (year) =>
-        syncYearPrefills(
-          {
-            ...year,
-            buckets: [
-              incomeBucket,
-              ...year.buckets.filter((b) => b.kind !== "income"),
-            ],
-            paychecks,
-          },
-          yearNum,
+      return propagateStructureForward(
+        updateActiveYearBudget(prev, (year) =>
+          syncYearPrefills(
+            {
+              ...year,
+              buckets: [
+                incomeBucket,
+                ...year.buckets.filter((b) => b.kind !== "income"),
+              ],
+              paychecks,
+            },
+            yearNum,
+          ),
         ),
       )
     })

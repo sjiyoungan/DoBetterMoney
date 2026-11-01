@@ -467,6 +467,222 @@ export function createNextYear(workspace: BudgetWorkspace): BudgetWorkspace {
   }
 }
 
+/**
+ * Copy group/category structure from `fromYear` into every later year.
+ * Preserves each later year’s paycheck allocations / savings balances /
+ * done-keys for categories that still exist; new categories get frequency prefills.
+ */
+export function propagateStructureForward(
+  workspace: BudgetWorkspace,
+  fromYear: number = workspace.activeYear,
+): BudgetWorkspace {
+  const source = workspace.years[String(fromYear)]
+  if (!source) return workspace
+  const later = listYears(workspace).filter((y) => y > fromYear)
+  if (later.length === 0) return workspace
+
+  const years: Record<string, YearBudget> = { ...workspace.years }
+  for (const y of later) {
+    const target = years[String(y)]
+    if (!target) continue
+    years[String(y)] = mergeStructureIntoYear(source, target, y)
+  }
+  return { ...workspace, years }
+}
+
+function mergeStructureIntoYear(
+  source: YearBudget,
+  target: YearBudget,
+  year: number,
+): YearBudget {
+  const prevByBucket = new Map(target.buckets.map((b) => [b.id, b]))
+  const nextCategoryIds = new Set<string>()
+
+  let buckets: Bucket[] = source.buckets.map((srcBucket) => {
+    const prevBucket = prevByBucket.get(srcBucket.id)
+    const prevCatById = new Map(
+      (prevBucket?.categories ?? []).map((c) => [c.id, c]),
+    )
+
+    if (srcBucket.kind === "income") {
+      const categories = srcBucket.categories.map((srcCat) => {
+        nextCategoryIds.add(srcCat.id)
+        const prevCat = prevCatById.get(srcCat.id)
+        const recurrence = categoryRecurrence(srcCat)
+        return {
+          ...srcCat,
+          allocations: {},
+          ...(prevCat?.note !== undefined ? { note: prevCat.note } : {}),
+          ...(recurrence
+            ? {
+                recurrence: {
+                  ...recurrence,
+                  startDate: `${year}-01-01`,
+                  ends: { kind: "never" as const },
+                },
+              }
+            : {}),
+        }
+      })
+      return { ...srcBucket, categories }
+    }
+
+    if (srcBucket.kind === "totals") {
+      const categories = srcBucket.categories.map((srcCat) => {
+        nextCategoryIds.add(srcCat.id)
+        return {
+          ...srcCat,
+          allocations: {},
+          totalSources: srcCat.totalSources
+            ? srcCat.totalSources.map((s) => ({ ...s }))
+            : [],
+        }
+      })
+      return { ...srcBucket, categories }
+    }
+
+    if (srcBucket.kind === "budget_calc") {
+      const categories = srcBucket.categories.map((srcCat) => {
+        nextCategoryIds.add(srcCat.id)
+        return { ...srcCat, allocations: {} }
+      })
+      return { ...srcBucket, categories }
+    }
+
+    const categories = srcBucket.categories.map((srcCat) => {
+      nextCategoryIds.add(srcCat.id)
+      const prevCat = prevCatById.get(srcCat.id)
+      const base: Category = {
+        ...srcCat,
+        allocations: {},
+        ...(prevCat?.note !== undefined ? { note: prevCat.note } : {}),
+      }
+      delete base.comments
+
+      if (srcBucket.kind === "savings") {
+        return {
+          ...base,
+          balance: prevCat?.balance ?? srcCat.balance ?? 0,
+          goal: srcCat.goal ?? prevCat?.goal ?? 0,
+          allocations: prevCat
+            ? preserveAllocationsOnPaychecks(prevCat, target.paychecks)
+                .allocations
+            : {},
+        }
+      }
+
+      // spending / payback / other: keep existing cells when present, else prefill
+      if (prevCat) {
+        const kept = preserveAllocationsOnPaychecks(prevCat, target.paychecks)
+        return {
+          ...base,
+          allocations: kept.allocations,
+          ...(prevCat.comments ? { comments: { ...prevCat.comments } } : {}),
+        }
+      }
+      return prefillExpenseCategory(base, target.paychecks)
+    })
+
+    return { ...srcBucket, categories }
+  })
+
+  const incomeBucket = buckets.find((b) => b.kind === "income")
+  let paychecks = target.paychecks.filter((p) =>
+    p.date.startsWith(String(year)),
+  )
+  if (incomeBucket) {
+    const generated = generatePaychecksFromIncomeBucket(incomeBucket, year)
+    if (generated.length > 0) {
+      const prevByDate = new Map(paychecks.map((p) => [p.date, p]))
+      paychecks = generated.map((p) => {
+        const old = prevByDate.get(p.date)
+        return old
+          ? { ...p, id: old.id, completed: old.completed }
+          : p
+      })
+      const filledIncome = applyIncomeAllocations(incomeBucket, paychecks, {
+        year,
+      })
+      buckets = buckets.map((b) =>
+        b.id === filledIncome.id ? filledIncome : b,
+      )
+    }
+  }
+
+  const doneKeys = (target.doneKeys ?? []).filter((key) => {
+    const categoryId = key.split("::")[0]
+    return categoryId ? nextCategoryIds.has(categoryId) : true
+  })
+  const withdrawals = (target.withdrawals ?? []).filter((w) =>
+    nextCategoryIds.has(w.categoryId),
+  )
+  const deposits = (target.deposits ?? []).filter((d) =>
+    nextCategoryIds.has(d.categoryId),
+  )
+
+  return {
+    ...target,
+    paychecks,
+    buckets,
+    doneKeys,
+    withdrawals,
+    deposits,
+    jiTransferSources: source.jiTransferSources
+      ? source.jiTransferSources.map((s) => ({ ...s }))
+      : target.jiTransferSources,
+    jiAccountSources: source.jiAccountSources
+      ? source.jiAccountSources.map((s) => ({ ...s }))
+      : target.jiAccountSources,
+  }
+}
+
+/** Apply an amount to matching future paycheck slots in the active year and every later year. */
+export function applyAmountForwardAcrossYears(
+  workspace: BudgetWorkspace,
+  categoryId: string,
+  fromDate: string,
+  value: number | "",
+  applyInYear: (
+    cat: Category,
+    paychecks: YearBudget["paychecks"],
+    fromDate: string,
+    value: number | "",
+  ) => Record<string, number | "">,
+): BudgetWorkspace {
+  const years = listYears(workspace).filter((y) => y >= workspace.activeYear)
+  let next = workspace
+  for (const y of years) {
+    const key = String(y)
+    const slice = next.years[key]
+    if (!slice) continue
+    next = {
+      ...next,
+      years: {
+        ...next.years,
+        [key]: {
+          ...slice,
+          buckets: slice.buckets.map((bucket) => ({
+            ...bucket,
+            categories: bucket.categories.map((cat) => {
+              if (cat.id !== categoryId) return cat
+              return {
+                ...cat,
+                allocations: applyInYear(
+                  cat,
+                  slice.paychecks,
+                  fromDate,
+                  value,
+                ),
+              }
+            }),
+          })),
+        },
+      },
+    }
+  }
+  return next
+}
+
 export function nextYearToCreate(workspace: BudgetWorkspace): number {
   const years = listYears(workspace)
   const latest = years[years.length - 1] ?? workspace.startYear
